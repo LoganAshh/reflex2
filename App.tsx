@@ -8,6 +8,8 @@ import LogScreen from "./screens/LogScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 
+import { DataProvider } from "./data/DataContext";
+
 export type RootTabParamList = {
   Home: undefined;
   Shop: undefined;
@@ -20,18 +22,20 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: true, // set false if you want no headers
-        }}
-      >
-        <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="Shop" component={ShopScreen} />
-        <Tab.Screen name="Log" component={LogScreen} />
-        <Tab.Screen name="Analytics" component={AnalyticsScreen} />
-        <Tab.Screen name="Profile" component={ProfileScreen} />
-      </Tab.Navigator>
-    </NavigationContainer>
+    <DataProvider>
+      <NavigationContainer>
+        <Tab.Navigator
+          screenOptions={{
+            headerShown: true,
+          }}
+        >
+          <Tab.Screen name="Home" component={HomeScreen} />
+          <Tab.Screen name="Shop" component={ShopScreen} />
+          <Tab.Screen name="Log" component={LogScreen} />
+          <Tab.Screen name="Analytics" component={AnalyticsScreen} />
+          <Tab.Screen name="Profile" component={ProfileScreen} />
+        </Tab.Navigator>
+      </NavigationContainer>
+    </DataProvider>
   );
 }
