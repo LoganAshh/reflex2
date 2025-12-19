@@ -1,4 +1,4 @@
-# Impulse Tracker (MVP)
+# Reflex
 
 Privacy-first, cross-platform mobile application for logging urges and impulses related to habits users are trying to stop. Built as an MVP using modern React Native tooling with a focus on clean architecture, scalability, and on-device data privacy.
 
