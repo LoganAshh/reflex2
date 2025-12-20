@@ -11,54 +11,92 @@ import * as SecureStore from "expo-secure-store";
 // ---------- Types ----------
 export type UrgeLog = {
   id: number;
+  habit: string;
   urge: string;
   cue: string | null;
   location: string | null;
+  intensity: number; // 1–10
+  didResist: 0 | 1; // SQLite-friendly boolean
+  notes: string | null;
   createdAt: number;
 };
 
 export type ReplacementAction = {
   id: number;
   title: string;
+  category: string | null;
+  isCustom: 0 | 1;
 };
 
 // ---------- Open DB (new API) ----------
 const db = SQLite.openDatabaseSync("reflex.db");
 
 // ---------- Context ----------
+type AddLogInput = {
+  habit: string;
+  urge: string;
+  cue?: string;
+  location?: string;
+  intensity?: number; // default 5
+  didResist?: boolean; // default false
+  notes?: string;
+};
+
+type AddActionInput = {
+  title: string;
+  category?: string;
+  isCustom?: boolean; // default true when user creates one
+};
+
 type DataContextType = {
   logs: UrgeLog[];
   actions: ReplacementAction[];
-  addLog: (input: {
-    urge: string;
-    cue?: string;
-    location?: string;
-  }) => Promise<void>;
-  addAction: (title: string) => Promise<void>;
+  addLog: (input: AddLogInput) => Promise<void>;
+  addAction: (input: AddActionInput) => Promise<void>;
   refresh: () => Promise<void>;
+  // optional dev helper (see Step 2)
+  resetDbForDev?: () => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType | null>(null);
 
 // ---------- Helpers ----------
 async function initDb() {
-  // Create tables
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
 
     CREATE TABLE IF NOT EXISTS logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      habit TEXT NOT NULL,
       urge TEXT NOT NULL,
       cue TEXT,
       location TEXT,
+      intensity INTEGER NOT NULL DEFAULT 5,
+      didResist INTEGER NOT NULL DEFAULT 0,
+      notes TEXT,
       createdAt INTEGER NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS actions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL UNIQUE
+      title TEXT NOT NULL UNIQUE,
+      category TEXT,
+      isCustom INTEGER NOT NULL DEFAULT 0
     );
   `);
+}
+
+/**
+ * DEV ONLY: Recreate tables to match latest schema.
+ * Use this once when you're iterating on schema and don't care about old data.
+ */
+async function resetDbForDev() {
+  await db.execAsync(`
+    DROP TABLE IF EXISTS logs;
+    DROP TABLE IF EXISTS actions;
+  `);
+  await initDb();
+  await seedDefaultActionsIfEmpty();
 }
 
 async function seedDefaultActionsIfEmpty() {
@@ -68,12 +106,18 @@ async function seedDefaultActionsIfEmpty() {
   const count = rows?.[0]?.count ?? 0;
   if (count > 0) return;
 
-  const defaults = ["Drink water", "Go for a walk", "Deep breathing"];
-  // Use a single transaction-like exec for speed
+  // Preset actions (isCustom=0)
+  const defaults: Array<{ title: string; category: string }> = [
+    { title: "Drink water", category: "Quick reset" },
+    { title: "Go for a walk", category: "Movement" },
+    { title: "Deep breathing (60s)", category: "Calming" },
+  ];
+
+  // Insert presets
   await db.execAsync(`
-    INSERT OR IGNORE INTO actions (title) VALUES ('Drink water');
-    INSERT OR IGNORE INTO actions (title) VALUES ('Go for a walk');
-    INSERT OR IGNORE INTO actions (title) VALUES ('Deep breathing');
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Drink water', 'Quick reset', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Go for a walk', 'Movement', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Deep breathing (60s)', 'Calming', 0);
   `);
 }
 
@@ -83,7 +127,7 @@ async function loadLogs(): Promise<UrgeLog[]> {
 
 async function loadActions(): Promise<ReplacementAction[]> {
   return db.getAllAsync<ReplacementAction>(
-    "SELECT * FROM actions ORDER BY id ASC;"
+    "SELECT * FROM actions ORDER BY isCustom ASC, title ASC;"
   );
 }
 
@@ -106,35 +150,59 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setActions(a);
   };
 
-  const addLog: DataContextType["addLog"] = async ({ urge, cue, location }) => {
-    const cleanUrge = urge.trim();
-    if (!cleanUrge) return;
+  const addLog: DataContextType["addLog"] = async (input) => {
+    const habit = input.habit.trim();
+    const urge = input.urge.trim();
+    if (!habit || !urge) return;
+
+    const intensityRaw = input.intensity ?? 5;
+    const intensity = Math.min(10, Math.max(1, Math.round(intensityRaw)));
+    const didResist: 0 | 1 = input.didResist ? 1 : 0;
 
     await db.runAsync(
-      `INSERT INTO logs (urge, cue, location, createdAt) VALUES (?, ?, ?, ?);`,
-      [cleanUrge, cue?.trim() ?? null, location?.trim() ?? null, Date.now()]
+      `
+      INSERT INTO logs (habit, urge, cue, location, intensity, didResist, notes, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+      `,
+      [
+        habit,
+        urge,
+        input.cue?.trim() ?? null,
+        input.location?.trim() ?? null,
+        intensity,
+        didResist,
+        input.notes?.trim() ?? null,
+        Date.now(),
+      ]
     );
 
-    // Refresh only logs for speed
     setLogs(await loadLogs());
   };
 
-  const addAction: DataContextType["addAction"] = async (title) => {
-    const clean = title.trim();
-    if (!clean) return;
+  const addAction: DataContextType["addAction"] = async (input) => {
+    const title = input.title.trim();
+    if (!title) return;
 
-    await db.runAsync(`INSERT OR IGNORE INTO actions (title) VALUES (?);`, [
-      clean,
-    ]);
+    const category = input.category?.trim() ?? null;
+    const isCustom: 0 | 1 = (input.isCustom ?? true) ? 1 : 0;
+
+    await db.runAsync(
+      `INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES (?, ?, ?);`,
+      [title, category, isCustom]
+    );
+
     setActions(await loadActions());
   };
 
-  // SecureStore is here for later (tokens/keys/app-lock). Not used for logs.
-  // Example:
-  // await SecureStore.setItemAsync("authToken", token);
-
   const value = useMemo(
-    () => ({ logs, actions, addLog, addAction, refresh }),
+    () => ({
+      logs,
+      actions,
+      addLog,
+      addAction,
+      refresh,
+      resetDbForDev, // optional, can remove later
+    }),
     [logs, actions]
   );
 
