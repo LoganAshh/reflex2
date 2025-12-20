@@ -12,17 +12,24 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { RootTabParamList } from "../App";
-import { useData, type UrgeLog } from "../data/DataContext";
+import {
+  useData,
+  type LogEntry,
+  type SelectedHabit,
+} from "../data/DataContext";
 
 type Nav = BottomTabNavigationProp<RootTabParamList>;
 
 export default function LogScreen() {
   const navigation = useNavigation<Nav>();
-  const { logs, addLog } = useData();
+  const { selectedHabits, logs, addLog } = useData();
+
+  // ---- Selected habit (required) ----
+  const [selectedHabitId, setSelectedHabitId] = useState<number | null>(
+    selectedHabits[0]?.id ?? null
+  );
 
   // ---- Form State ----
-  const [habit, setHabit] = useState("");
-  const [urge, setUrge] = useState("");
   const [cue, setCue] = useState("");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
@@ -36,9 +43,16 @@ export default function LogScreen() {
 
   const recentLogs = useMemo(() => logs.slice(0, 10), [logs]);
 
+  // If the user updates habits after first render, ensure we still have a valid selection.
+  // (This handles the case where selectedHabits loads async and was empty at first.)
+  useMemo(() => {
+    if (selectedHabitId == null && selectedHabits.length > 0) {
+      setSelectedHabitId(selectedHabits[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedHabits]);
+
   const resetForm = () => {
-    setHabit("");
-    setUrge("");
     setCue("");
     setLocation("");
     setNotes("");
@@ -50,11 +64,8 @@ export default function LogScreen() {
     setErrorMsg(null);
     setSavedMsg(null);
 
-    const cleanHabit = habit.trim();
-    const cleanUrge = urge.trim();
-
-    if (!cleanHabit || !cleanUrge) {
-      setErrorMsg("Please fill out Habit and Urge.");
+    if (selectedHabitId == null) {
+      setErrorMsg("Select a habit to log.");
       return;
     }
 
@@ -62,8 +73,7 @@ export default function LogScreen() {
       setSaving(true);
 
       await addLog({
-        habit: cleanHabit,
-        urge: cleanUrge,
+        habitId: selectedHabitId,
         cue: cue.trim() || undefined,
         location: location.trim() || undefined,
         intensity,
@@ -73,13 +83,11 @@ export default function LogScreen() {
 
       resetForm();
       setSavedMsg("Saved ✅");
-
-      // Optional: jump back to Home after saving (comment out if you don’t want this)
-      // navigation.navigate("Home");
-
-      // Clear saved message after a moment
       setTimeout(() => setSavedMsg(null), 1200);
-    } catch (e) {
+
+      // Optional: jump back to Home after saving
+      // navigation.navigate("Home");
+    } catch {
       setErrorMsg("Could not save. Try again.");
     } finally {
       setSaving(false);
@@ -125,7 +133,50 @@ export default function LogScreen() {
     </View>
   );
 
-  const renderLog = ({ item }: { item: UrgeLog }) => {
+  const HabitChips = () => {
+    if (selectedHabits.length === 0) {
+      return (
+        <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-white p-4">
+          <Text className="text-base font-semibold text-gray-900">Habit</Text>
+          <Text className="mt-2 text-sm text-gray-600">
+            You haven’t selected any habits yet. Go back to onboarding.
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-white p-4">
+        <Text className="text-base font-semibold text-gray-900">Habit *</Text>
+        <Text className="mt-1 text-sm text-gray-500">Tap one to log.</Text>
+
+        <View className="mt-3 flex-row flex-wrap gap-2">
+          {selectedHabits.map((h: SelectedHabit) => {
+            const selected = h.id === selectedHabitId;
+            return (
+              <Pressable
+                key={h.id}
+                onPress={() => setSelectedHabitId(h.id)}
+                className={`rounded-full px-4 py-2 border ${
+                  selected
+                    ? "bg-blue-600 border-blue-600"
+                    : "bg-white border-gray-200"
+                }`}
+              >
+                <Text
+                  className={`${selected ? "text-white" : "text-gray-900"} font-semibold`}
+                >
+                  {h.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
+  const renderLog = ({ item }: { item: LogEntry }) => {
     const dt = new Date(item.createdAt);
     const time = dt.toLocaleString();
     const resisted = item.didResist === 1;
@@ -136,9 +187,8 @@ export default function LogScreen() {
           <View className="flex-1 pr-3">
             <Text className="text-sm text-gray-500">{time}</Text>
             <Text className="mt-1 text-base font-semibold text-gray-900">
-              {item.habit}
+              {item.habitName}
             </Text>
-            <Text className="mt-1 text-sm text-gray-700">{item.urge}</Text>
 
             {(item.cue || item.location) && (
               <Text className="mt-2 text-xs text-gray-500">
@@ -189,7 +239,7 @@ export default function LogScreen() {
       <View className="flex-1 px-6 pt-10">
         <Text className="text-3xl font-bold text-gray-900">Log</Text>
         <Text className="mt-2 text-gray-600">
-          Add an entry in under 15 seconds.
+          Choose a habit, add context, save.
         </Text>
 
         {/* Form */}
@@ -198,26 +248,9 @@ export default function LogScreen() {
             New Entry
           </Text>
 
-          <Text className="mt-3 text-sm text-gray-700">Habit *</Text>
-          <TextInput
-            value={habit}
-            onChangeText={setHabit}
-            placeholder="e.g., Nicotine, doomscrolling, binge eating"
-            placeholderTextColor="#9CA3AF"
-            className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-            returnKeyType="next"
-          />
+          <HabitChips />
 
-          <Text className="mt-3 text-sm text-gray-700">Urge *</Text>
-          <TextInput
-            value={urge}
-            onChangeText={setUrge}
-            placeholder="What are you feeling the urge to do?"
-            placeholderTextColor="#9CA3AF"
-            className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-          />
-
-          <View className="mt-3 flex-row gap-3">
+          <View className="mt-4 flex-row gap-3">
             <View className="flex-1">
               <Text className="text-sm text-gray-700">Cue</Text>
               <TextInput
