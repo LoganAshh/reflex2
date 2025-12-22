@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -25,14 +25,13 @@ export default function LogScreen() {
   const { selectedHabits, logs, addLog } = useData();
 
   // ---- Selected habit (required) ----
-  const [selectedHabitId, setSelectedHabitId] = useState<number | null>(
-    selectedHabits[0]?.id ?? null
-  );
+  const [selectedHabitId, setSelectedHabitId] = useState<number | null>(null);
 
   // ---- Form State ----
   const [cue, setCue] = useState("");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
+  const [showNotes, setShowNotes] = useState(false);
   const [intensity, setIntensity] = useState<number>(5);
   const [didResist, setDidResist] = useState<boolean>(false);
 
@@ -40,22 +39,22 @@ export default function LogScreen() {
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showRecent, setShowRecent] = useState(false);
 
   const recentLogs = useMemo(() => logs.slice(0, 10), [logs]);
 
-  // If the user updates habits after first render, ensure we still have a valid selection.
-  // (This handles the case where selectedHabits loads async and was empty at first.)
-  useMemo(() => {
+  // Ensure we pick a default habit once selectedHabits loads
+  useEffect(() => {
     if (selectedHabitId == null && selectedHabits.length > 0) {
       setSelectedHabitId(selectedHabits[0].id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedHabits]);
+  }, [selectedHabits, selectedHabitId]);
 
   const resetForm = () => {
     setCue("");
     setLocation("");
     setNotes("");
+    setShowNotes(false);
     setIntensity(5);
     setDidResist(false);
   };
@@ -65,7 +64,7 @@ export default function LogScreen() {
     setSavedMsg(null);
 
     if (selectedHabitId == null) {
-      setErrorMsg("Select a habit to log.");
+      setErrorMsg("Select a habit.");
       return;
     }
 
@@ -83,29 +82,26 @@ export default function LogScreen() {
 
       resetForm();
       setSavedMsg("Saved ✅");
-      setTimeout(() => setSavedMsg(null), 1200);
+      setTimeout(() => setSavedMsg(null), 900);
 
-      // Optional: jump back to Home after saving
+      // Optional: jump to Home after save
       // navigation.navigate("Home");
     } catch {
-      setErrorMsg("Could not save. Try again.");
+      setErrorMsg("Could not save.");
     } finally {
       setSaving(false);
     }
   };
 
-  const IntensityStepper = () => (
-    <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-white p-4">
-      <Text className="text-base font-semibold text-gray-900">Intensity</Text>
-      <Text className="mt-1 text-sm text-gray-500">1 (low) → 10 (high)</Text>
+  const IntensityRow = () => (
+    <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
+      <Text className="text-sm font-semibold text-gray-900">Intensity</Text>
 
-      <View className="mt-3 flex-row items-center justify-between">
+      <View className="flex-row items-center">
         <Pressable
           disabled={intensity <= 1}
           onPress={() => setIntensity((v) => Math.max(1, v - 1))}
-          className={`rounded-xl px-4 py-2 ${
-            intensity <= 1 ? "bg-gray-200" : "bg-gray-900"
-          }`}
+          className={`rounded-xl px-3 py-2 ${intensity <= 1 ? "bg-gray-200" : "bg-gray-900"}`}
         >
           <Text
             className={`${intensity <= 1 ? "text-gray-600" : "text-white"} font-semibold`}
@@ -114,14 +110,14 @@ export default function LogScreen() {
           </Text>
         </Pressable>
 
-        <Text className="text-2xl font-bold text-gray-900">{intensity}</Text>
+        <Text className="mx-3 text-base font-bold text-gray-900">
+          {intensity}
+        </Text>
 
         <Pressable
           disabled={intensity >= 10}
           onPress={() => setIntensity((v) => Math.min(10, v + 1))}
-          className={`rounded-xl px-4 py-2 ${
-            intensity >= 10 ? "bg-gray-200" : "bg-gray-900"
-          }`}
+          className={`rounded-xl px-3 py-2 ${intensity >= 10 ? "bg-gray-200" : "bg-gray-900"}`}
         >
           <Text
             className={`${intensity >= 10 ? "text-gray-600" : "text-white"} font-semibold`}
@@ -136,35 +132,35 @@ export default function LogScreen() {
   const HabitChips = () => {
     if (selectedHabits.length === 0) {
       return (
-        <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-white p-4">
-          <Text className="text-base font-semibold text-gray-900">Habit</Text>
-          <Text className="mt-2 text-sm text-gray-600">
-            You haven’t selected any habits yet. Go back to onboarding.
+        <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white p-4">
+          <Text className="text-sm font-semibold text-gray-900">
+            No habits selected
+          </Text>
+          <Text className="mt-1 text-xs text-gray-600">
+            Go back to onboarding to choose habits.
           </Text>
         </View>
       );
     }
 
     return (
-      <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-white p-4">
-        <Text className="text-base font-semibold text-gray-900">Habit *</Text>
-        <Text className="mt-1 text-sm text-gray-500">Tap one to log.</Text>
-
-        <View className="mt-3 flex-row flex-wrap gap-2">
+      <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+        <Text className="text-sm font-semibold text-gray-900">Habit</Text>
+        <View className="mt-2 flex-row flex-wrap gap-2">
           {selectedHabits.map((h: SelectedHabit) => {
             const selected = h.id === selectedHabitId;
             return (
               <Pressable
                 key={h.id}
                 onPress={() => setSelectedHabitId(h.id)}
-                className={`rounded-full px-4 py-2 border ${
+                className={`rounded-full border px-3 py-1.5 ${
                   selected
                     ? "bg-blue-600 border-blue-600"
                     : "bg-white border-gray-200"
                 }`}
               >
                 <Text
-                  className={`${selected ? "text-white" : "text-gray-900"} font-semibold`}
+                  className={`${selected ? "text-white" : "text-gray-900"} text-sm font-semibold`}
                 >
                   {h.name}
                 </Text>
@@ -177,35 +173,34 @@ export default function LogScreen() {
   };
 
   const renderLog = ({ item }: { item: LogEntry }) => {
-    const dt = new Date(item.createdAt);
-    const time = dt.toLocaleString();
+    const time = new Date(item.createdAt).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     const resisted = item.didResist === 1;
 
     return (
-      <View className="mb-3 w-full rounded-2xl border border-gray-200 bg-white p-4">
-        <View className="flex-row items-start justify-between">
-          <View className="flex-1 pr-3">
-            <Text className="text-sm text-gray-500">{time}</Text>
-            <Text className="mt-1 text-base font-semibold text-gray-900">
+      <View className="mb-2 w-full rounded-2xl border border-gray-200 bg-white p-3">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 pr-2">
+            <Text className="text-xs text-gray-500">{time}</Text>
+            <Text className="text-sm font-semibold text-gray-900">
               {item.habitName}
             </Text>
-
-            {(item.cue || item.location) && (
-              <Text className="mt-2 text-xs text-gray-500">
+            {item.cue || item.location ? (
+              <Text className="mt-0.5 text-xs text-gray-500" numberOfLines={1}>
                 {[
                   item.cue ? `Cue: ${item.cue}` : null,
-                  item.location ? `Location: ${item.location}` : null,
+                  item.location ? `Loc: ${item.location}` : null,
                 ]
                   .filter(Boolean)
                   .join(" • ")}
               </Text>
-            )}
+            ) : null}
           </View>
 
           <View
-            className={`rounded-full px-3 py-1 ${
-              resisted ? "bg-green-100" : "bg-gray-100"
-            }`}
+            className={`rounded-full px-2 py-1 ${resisted ? "bg-green-100" : "bg-gray-100"}`}
           >
             <Text
               className={`${resisted ? "text-green-800" : "text-gray-700"} text-xs font-semibold`}
@@ -215,18 +210,12 @@ export default function LogScreen() {
           </View>
         </View>
 
-        <View className="mt-3 flex-row items-center justify-between">
+        <View className="mt-2 flex-row items-center justify-between">
           <Text className="text-xs text-gray-500">Intensity</Text>
           <Text className="text-xs font-semibold text-gray-900">
             {item.intensity}/10
           </Text>
         </View>
-
-        {item.notes ? (
-          <Text className="mt-2 text-xs text-gray-600">
-            Notes: {item.notes}
-          </Text>
-        ) : null}
       </View>
     );
   };
@@ -236,78 +225,88 @@ export default function LogScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       className="flex-1 bg-white"
     >
-      <View className="flex-1 px-6 pt-10">
-        <Text className="text-3xl font-bold text-gray-900">Log</Text>
-        <Text className="mt-2 text-gray-600">
-          Choose a habit, add context, save.
-        </Text>
+      <View className="flex-1 px-5 pt-8">
+        {/* Header (compact) */}
+        <View className="flex-row items-center justify-between">
+          <Text className="text-2xl font-bold text-gray-900">Log</Text>
 
-        {/* Form */}
-        <View className="mt-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-5">
-          <Text className="text-base font-semibold text-gray-900">
-            New Entry
-          </Text>
+          <Pressable
+            onPress={() => setShowRecent((v) => !v)}
+            className="rounded-full border border-gray-200 bg-white px-3 py-2"
+          >
+            <Text className="text-xs font-semibold text-gray-900">
+              {showRecent ? "Hide recent" : "Show recent"}
+            </Text>
+          </Pressable>
+        </View>
 
+        {/* Form Card (compact) */}
+        <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
           <HabitChips />
 
-          <View className="mt-4 flex-row gap-3">
+          <View className="mt-3 flex-row gap-2">
             <View className="flex-1">
-              <Text className="text-sm text-gray-700">Cue</Text>
+              <Text className="text-xs font-semibold text-gray-700">Cue</Text>
               <TextInput
                 value={cue}
                 onChangeText={setCue}
-                placeholder="e.g., stress, boredom"
+                placeholder="stress, boredom…"
                 placeholderTextColor="#9CA3AF"
-                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
               />
             </View>
 
             <View className="flex-1">
-              <Text className="text-sm text-gray-700">Location</Text>
+              <Text className="text-xs font-semibold text-gray-700">
+                Location
+              </Text>
               <TextInput
                 value={location}
                 onChangeText={setLocation}
-                placeholder="e.g., car, bedroom"
+                placeholder="car, bed…"
                 placeholderTextColor="#9CA3AF"
-                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
               />
             </View>
           </View>
 
-          <IntensityStepper />
+          <IntensityRow />
 
-          <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-white p-4">
-            <View className="flex-row items-center justify-between">
-              <View className="pr-3">
-                <Text className="text-base font-semibold text-gray-900">
-                  Did you resist?
-                </Text>
-                <Text className="mt-1 text-sm text-gray-500">
-                  Toggle based on what happened.
-                </Text>
-              </View>
-              <Switch value={didResist} onValueChange={setDidResist} />
-            </View>
+          <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
+            <Text className="text-sm font-semibold text-gray-900">
+              Resisted?
+            </Text>
+            <Switch value={didResist} onValueChange={setDidResist} />
           </View>
 
-          <Text className="mt-4 text-sm text-gray-700">Notes</Text>
-          <TextInput
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Optional: anything useful to remember"
-            placeholderTextColor="#9CA3AF"
-            multiline
-            className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-          />
+          {/* Notes collapsed by default */}
+          <Pressable
+            onPress={() => setShowNotes((v) => !v)}
+            className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
+          >
+            <Text className="text-sm font-semibold text-gray-900">
+              {showNotes ? "Hide notes" : "Add notes (optional)"}
+            </Text>
+          </Pressable>
+
+          {showNotes ? (
+            <TextInput
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Anything useful to remember…"
+              placeholderTextColor="#9CA3AF"
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
+            />
+          ) : null}
 
           {errorMsg ? (
-            <Text className="mt-3 text-sm font-semibold text-red-600">
+            <Text className="mt-2 text-sm font-semibold text-red-600">
               {errorMsg}
             </Text>
           ) : null}
 
           {savedMsg ? (
-            <Text className="mt-3 text-sm font-semibold text-green-700">
+            <Text className="mt-2 text-sm font-semibold text-green-700">
               {savedMsg}
             </Text>
           ) : null}
@@ -315,47 +314,50 @@ export default function LogScreen() {
           <Pressable
             onPress={onSave}
             disabled={saving}
-            className={`mt-4 w-full rounded-2xl px-5 py-4 ${
+            className={`mt-3 w-full rounded-2xl px-5 py-3.5 ${
               saving ? "bg-blue-300" : "bg-blue-600"
             }`}
           >
-            <Text className="text-center text-lg font-semibold text-white">
-              {saving ? "Saving..." : "Save Entry"}
+            <Text className="text-center text-base font-semibold text-white">
+              {saving ? "Saving..." : "Save"}
             </Text>
           </Pressable>
 
-          {/* Optional quick nav */}
           <Pressable
             onPress={() => navigation.navigate("Home")}
-            className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4"
+            className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-5 py-3.5"
           >
             <Text className="text-center text-base font-semibold text-gray-900">
-              Back to Home
+              Home
             </Text>
           </Pressable>
         </View>
 
-        {/* Recent Logs */}
-        <View className="mt-8 flex-1">
-          <Text className="text-xl font-bold text-gray-900">Recent logs</Text>
-          <Text className="mt-1 text-sm text-gray-500">Last 10 entries</Text>
+        {/* Recent Logs (collapsible; no forced scrolling) */}
+        {showRecent ? (
+          <View className="mt-4 flex-1">
+            <Text className="text-base font-bold text-gray-900">
+              Recent (10)
+            </Text>
 
-          {recentLogs.length === 0 ? (
-            <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-5">
-              <Text className="text-gray-700">
-                No logs yet. Add your first entry above.
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              className="mt-4"
-              data={recentLogs}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={renderLog}
-              showsVerticalScrollIndicator={false}
-            />
-          )}
-        </View>
+            {recentLogs.length === 0 ? (
+              <View className="mt-3 rounded-2xl border border-gray-200 bg-white p-4">
+                <Text className="text-sm text-gray-700">No logs yet.</Text>
+              </View>
+            ) : (
+              <FlatList
+                className="mt-3"
+                data={recentLogs}
+                keyExtractor={(item) => String(item.id)}
+                renderItem={renderLog}
+                showsVerticalScrollIndicator={false}
+              />
+            )}
+          </View>
+        ) : (
+          // Spacer so layout doesn't jump weirdly
+          <View className="flex-1" />
+        )}
       </View>
     </KeyboardAvoidingView>
   );
