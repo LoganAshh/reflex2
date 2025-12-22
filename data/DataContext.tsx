@@ -76,17 +76,17 @@ type AddActionInput = {
 };
 
 type DataContextType = {
-  // master lists
+  // master lists (NOT alphabetical; preserve seed/insertion order)
   habits: Habit[];
   cues: Cue[];
   locations: Place[];
 
-  // user-selected lists (onboarding)
+  // user-selected lists (NOT alphabetical; preserve selection insertion order)
   selectedHabits: SelectedHabit[];
   selectedCues: SelectedCue[];
   selectedLocations: SelectedPlace[];
 
-  // onboarding completion (require at least 1 habit)
+  // onboarding completion
   hasOnboarded: boolean;
 
   // selection setters
@@ -181,6 +181,7 @@ async function seedDefaultHabitsIfEmpty() {
   );
   if ((rows?.[0]?.count ?? 0) > 0) return;
 
+  // Insert in the exact order you want shown.
   await db.execAsync(`
     INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Nicotine', 0);
     INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Doomscrolling', 0);
@@ -250,7 +251,7 @@ async function seedDefaultActionsIfEmpty() {
 
 /**
  * DEV ONLY: Recreate tables when you change schema.
- * Use once (temporarily call it in provider init), then remove.
+ * Use once, then remove the call.
  */
 async function resetDbForDev() {
   await db.execAsync(`
@@ -271,31 +272,34 @@ async function resetDbForDev() {
   await seedDefaultActionsIfEmpty();
 }
 
-// ---------- Loaders ----------
+// ---------- Loaders (NO alphabetical sorting) ----------
+// Goal: presets first (isCustom ASC), then preserve insertion order (id ASC).
 async function loadHabits(): Promise<Habit[]> {
   return db.getAllAsync<Habit>(
-    "SELECT * FROM habits ORDER BY isCustom ASC, name ASC;"
+    "SELECT * FROM habits ORDER BY isCustom ASC, id ASC;"
   );
 }
 
 async function loadCues(): Promise<Cue[]> {
   return db.getAllAsync<Cue>(
-    "SELECT * FROM cues ORDER BY isCustom ASC, name ASC;"
+    "SELECT * FROM cues ORDER BY isCustom ASC, id ASC;"
   );
 }
 
 async function loadLocations(): Promise<Place[]> {
   return db.getAllAsync<Place>(
-    "SELECT * FROM locations ORDER BY isCustom ASC, name ASC;"
+    "SELECT * FROM locations ORDER BY isCustom ASC, id ASC;"
   );
 }
 
 async function loadSelectedHabits(): Promise<SelectedHabit[]> {
+  // Preserve selection insertion order by the user_habits rowid (insertion order).
+  // (rowid exists because user_habits is not WITHOUT ROWID)
   return db.getAllAsync<SelectedHabit>(`
     SELECT h.*
     FROM user_habits uh
     JOIN habits h ON h.id = uh.habitId
-    ORDER BY h.isCustom ASC, h.name ASC;
+    ORDER BY uh.rowid ASC;
   `);
 }
 
@@ -304,7 +308,7 @@ async function loadSelectedCues(): Promise<SelectedCue[]> {
     SELECT c.*
     FROM user_cues uc
     JOIN cues c ON c.id = uc.cueId
-    ORDER BY c.isCustom ASC, c.name ASC;
+    ORDER BY uc.rowid ASC;
   `);
 }
 
@@ -313,7 +317,7 @@ async function loadSelectedLocations(): Promise<SelectedPlace[]> {
     SELECT l.*
     FROM user_locations ul
     JOIN locations l ON l.id = ul.locationId
-    ORDER BY l.isCustom ASC, l.name ASC;
+    ORDER BY ul.rowid ASC;
   `);
 }
 
@@ -340,8 +344,9 @@ async function loadLogs(): Promise<LogEntry[]> {
 }
 
 async function loadActions(): Promise<ReplacementAction[]> {
+  // Same idea: presets first, then insertion order
   return db.getAllAsync<ReplacementAction>(
-    "SELECT * FROM actions ORDER BY isCustom ASC, title ASC;"
+    "SELECT * FROM actions ORDER BY isCustom ASC, id ASC;"
   );
 }
 
@@ -364,7 +369,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      await resetDbForDev();
+      await initDb();
+      await seedDefaultHabitsIfEmpty();
+      await seedDefaultCuesIfEmpty();
+      await seedDefaultLocationsIfEmpty();
+      await seedDefaultActionsIfEmpty();
       await refresh();
     })();
   }, []);
@@ -397,6 +406,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const hasOnboarded = selectedHabits.length > 0;
 
   // ---------- Selection setters ----------
+  // NOTE: we preserve insertion order by inserting ids in the order passed in.
   const setSelectedHabits: DataContextType["setSelectedHabits"] = async (
     habitIds
   ) => {
@@ -448,6 +458,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ---------- Custom creators ----------
+  // NOTE: We do a refresh after insert so we get the new row id reliably (and preserve order).
   const addCustomHabit: DataContextType["addCustomHabit"] = async (
     name,
     autoSelect = true
@@ -459,12 +470,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       `INSERT OR IGNORE INTO habits (name, isCustom) VALUES (?, 1);`,
       [clean]
     );
-    const updated = await loadHabits();
-    setHabits(updated);
+    const updatedHabits = await loadHabits();
+    setHabits(updatedHabits);
 
     if (!autoSelect) return;
 
-    const match = updated.find(
+    const match = updatedHabits.find(
       (h) => h.name.toLowerCase() === clean.toLowerCase()
     );
     if (!match) return;
@@ -485,12 +496,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       `INSERT OR IGNORE INTO cues (name, isCustom) VALUES (?, 1);`,
       [clean]
     );
-    const updated = await loadCues();
-    setCues(updated);
+    const updatedCues = await loadCues();
+    setCues(updatedCues);
 
     if (!autoSelect) return;
 
-    const match = updated.find(
+    const match = updatedCues.find(
       (c) => c.name.toLowerCase() === clean.toLowerCase()
     );
     if (!match) return;
@@ -511,12 +522,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       `INSERT OR IGNORE INTO locations (name, isCustom) VALUES (?, 1);`,
       [clean]
     );
-    const updated = await loadLocations();
-    setLocations(updated);
+    const updatedLocations = await loadLocations();
+    setLocations(updatedLocations);
 
     if (!autoSelect) return;
 
-    const match = updated.find(
+    const match = updatedLocations.find(
       (l) => l.name.toLowerCase() === clean.toLowerCase()
     );
     if (!match) return;
