@@ -183,14 +183,15 @@ async function seedDefaultHabitsIfEmpty() {
 
   // Insert in the exact order you want shown.
   await db.execAsync(`
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Nicotine', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Doomscrolling', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Porn', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Binge eating', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Weed', 0);
     INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Alcohol', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Gambling', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Doomscrolling', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Nicotine', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Binge eating', 0);
     INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Caffeine', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Weed', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Gambling', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Video Games', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Porn', 0);
   `);
 }
 
@@ -369,11 +370,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      await initDb();
-      await seedDefaultHabitsIfEmpty();
-      await seedDefaultCuesIfEmpty();
-      await seedDefaultLocationsIfEmpty();
-      await seedDefaultActionsIfEmpty();
+      await resetDbForDev();
       await refresh();
     })();
   }, []);
