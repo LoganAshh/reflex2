@@ -1,6 +1,7 @@
 import "./global.css";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import HomeScreen from "./screens/HomeScreen";
@@ -9,6 +10,7 @@ import LogScreen from "./screens/LogScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
+import ManageListScreen from "./screens/ManageListScreen";
 
 import { DataProvider, useData } from "./data/DataContext";
 
@@ -20,15 +22,15 @@ export type RootTabParamList = {
   Profile: undefined;
 };
 
+export type RootStackParamList = {
+  Main: undefined;
+  ManageList: { type: "habits" | "cues" | "locations" };
+};
+
 const Tab = createBottomTabNavigator<RootTabParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function Root() {
-  const { hasOnboarded } = useData();
-
-  if (!hasOnboarded) {
-    return <OnboardingScreen />;
-  }
-
+function Tabs() {
   return (
     <Tab.Navigator screenOptions={{ headerShown: true }}>
       <Tab.Screen name="Home" component={HomeScreen} />
@@ -40,12 +42,33 @@ function Root() {
   );
 }
 
+function RootStack() {
+  const { hasOnboarded } = useData();
+
+  if (!hasOnboarded) return <OnboardingScreen />;
+
+  return (
+    <Stack.Navigator>
+      <Stack.Screen
+        name="Main"
+        component={Tabs}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="ManageList"
+        component={ManageListScreen}
+        options={{ title: "Manage" }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <DataProvider>
         <NavigationContainer>
-          <Root />
+          <RootStack />
         </NavigationContainer>
       </DataProvider>
     </SafeAreaProvider>

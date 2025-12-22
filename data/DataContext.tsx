@@ -364,11 +364,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      await initDb();
-      await seedDefaultHabitsIfEmpty();
-      await seedDefaultCuesIfEmpty();
-      await seedDefaultLocationsIfEmpty();
-      await seedDefaultActionsIfEmpty();
+      await resetDbForDev();
       await refresh();
     })();
   }, []);

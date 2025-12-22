@@ -10,8 +10,8 @@ import {
   TextInput,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
-import type { RootTabParamList } from "../App";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../App";
 import {
   useData,
   type LogEntry,
@@ -20,68 +20,34 @@ import {
   type SelectedPlace,
 } from "../data/DataContext";
 
-type Nav = BottomTabNavigationProp<RootTabParamList>;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function LogScreen() {
   const navigation = useNavigation<Nav>();
 
-  const {
-    selectedHabits,
-    selectedCues,
-    selectedLocations,
-    logs,
-    addLog,
-    addCustomCue,
-    addCustomLocation,
-  } = useData();
+  const { selectedHabits, selectedCues, selectedLocations, logs, addLog } =
+    useData();
 
-  // ----- required selection -----
   const [habitId, setHabitId] = useState<number | null>(null);
-
-  // ----- optional selections -----
   const [cueId, setCueId] = useState<number | null>(null);
   const [locationId, setLocationId] = useState<number | null>(null);
 
-  // ---- Form State ----
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [intensity, setIntensity] = useState<number>(5);
   const [didResist, setDidResist] = useState<boolean>(false);
 
-  // ---- UX State ----
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showRecent, setShowRecent] = useState(false);
 
-  // custom cue/location
-  const [showAddCue, setShowAddCue] = useState(false);
-  const [customCue, setCustomCue] = useState("");
-  const [showAddLocation, setShowAddLocation] = useState(false);
-  const [customLocation, setCustomLocation] = useState("");
-
   const recentLogs = useMemo(() => logs.slice(0, 10), [logs]);
 
-  // Set defaults once lists load
   useEffect(() => {
     if (habitId == null && selectedHabits.length > 0)
       setHabitId(selectedHabits[0].id);
   }, [selectedHabits, habitId]);
-
-  // If selected cues/locations are empty, keep null (means "None")
-  useEffect(() => {
-    // keep current selection if still valid
-    if (cueId != null && !selectedCues.some((c) => c.id === cueId))
-      setCueId(null);
-  }, [selectedCues, cueId]);
-
-  useEffect(() => {
-    if (
-      locationId != null &&
-      !selectedLocations.some((l) => l.id === locationId)
-    )
-      setLocationId(null);
-  }, [selectedLocations, locationId]);
 
   const resetForm = () => {
     setCueId(null);
@@ -90,10 +56,6 @@ export default function LogScreen() {
     setShowNotes(false);
     setIntensity(5);
     setDidResist(false);
-    setShowAddCue(false);
-    setCustomCue("");
-    setShowAddLocation(false);
-    setCustomLocation("");
   };
 
   const onSave = async () => {
@@ -120,33 +82,11 @@ export default function LogScreen() {
       resetForm();
       setSavedMsg("Saved ✅");
       setTimeout(() => setSavedMsg(null), 900);
-
-      // Optional: go home after save
-      // navigation.navigate("Home");
     } catch {
       setErrorMsg("Could not save.");
     } finally {
       setSaving(false);
     }
-  };
-
-  const onAddCustomCue = async () => {
-    const name = customCue.trim();
-    if (!name) return;
-
-    await addCustomCue(name, true);
-    setCustomCue("");
-    setShowAddCue(false);
-    // it will appear in selectedCues and user can tap it (or you can auto-select by name later)
-  };
-
-  const onAddCustomLocation = async () => {
-    const name = customLocation.trim();
-    if (!name) return;
-
-    await addCustomLocation(name, true);
-    setCustomLocation("");
-    setShowAddLocation(false);
   };
 
   const IntensityRow = () => (
@@ -191,12 +131,14 @@ export default function LogScreen() {
     selectedId,
     onSelect,
     allowNone,
+    addType,
   }: {
     title: string;
     items: T[];
     selectedId: number | null;
     onSelect: (id: number | null) => void;
     allowNone?: boolean;
+    addType: "habits" | "cues" | "locations";
   }) => (
     <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
       <Text className="text-sm font-semibold text-gray-900">{title}</Text>
@@ -239,6 +181,14 @@ export default function LogScreen() {
             </Pressable>
           );
         })}
+
+        {/* + Add chip */}
+        <Pressable
+          onPress={() => navigation.navigate("ManageList", { type: addType })}
+          className="rounded-full border border-gray-200 bg-white px-3 py-1.5"
+        >
+          <Text className="text-sm font-semibold text-gray-900">+ Add</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -305,7 +255,6 @@ export default function LogScreen() {
       className="flex-1 bg-white"
     >
       <View className="flex-1 px-5 pt-8">
-        {/* Header */}
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold text-gray-900">Log</Text>
 
@@ -319,13 +268,13 @@ export default function LogScreen() {
           </Pressable>
         </View>
 
-        {/* Form Card */}
         <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
           <Chips<SelectedHabit>
             title="Habit"
             items={selectedHabits}
             selectedId={habitId}
             onSelect={(id) => setHabitId(id)}
+            addType="habits"
           />
 
           <Chips<SelectedCue>
@@ -334,34 +283,8 @@ export default function LogScreen() {
             selectedId={cueId}
             onSelect={(id) => setCueId(id)}
             allowNone
+            addType="cues"
           />
-
-          <Pressable
-            onPress={() => setShowAddCue((v) => !v)}
-            className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
-          >
-            <Text className="text-sm font-semibold text-gray-900">
-              {showAddCue ? "Cancel custom cue" : "Add custom cue"}
-            </Text>
-          </Pressable>
-
-          {showAddCue ? (
-            <View className="mt-2 flex-row items-center gap-3">
-              <TextInput
-                value={customCue}
-                onChangeText={setCustomCue}
-                placeholder="e.g., after coffee"
-                placeholderTextColor="#9CA3AF"
-                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-              />
-              <Pressable
-                onPress={onAddCustomCue}
-                className="rounded-xl bg-gray-900 px-4 py-3"
-              >
-                <Text className="font-semibold text-white">Add</Text>
-              </Pressable>
-            </View>
-          ) : null}
 
           <Chips<SelectedPlace>
             title="Location"
@@ -369,36 +292,8 @@ export default function LogScreen() {
             selectedId={locationId}
             onSelect={(id) => setLocationId(id)}
             allowNone
+            addType="locations"
           />
-
-          <Pressable
-            onPress={() => setShowAddLocation((v) => !v)}
-            className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
-          >
-            <Text className="text-sm font-semibold text-gray-900">
-              {showAddLocation
-                ? "Cancel custom location"
-                : "Add custom location"}
-            </Text>
-          </Pressable>
-
-          {showAddLocation ? (
-            <View className="mt-2 flex-row items-center gap-3">
-              <TextInput
-                value={customLocation}
-                onChangeText={setCustomLocation}
-                placeholder="e.g., office parking lot"
-                placeholderTextColor="#9CA3AF"
-                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-              />
-              <Pressable
-                onPress={onAddCustomLocation}
-                className="rounded-xl bg-gray-900 px-4 py-3"
-              >
-                <Text className="font-semibold text-white">Add</Text>
-              </Pressable>
-            </View>
-          ) : null}
 
           <IntensityRow />
 
@@ -409,7 +304,6 @@ export default function LogScreen() {
             <Switch value={didResist} onValueChange={setDidResist} />
           </View>
 
-          {/* Notes collapsed by default */}
           <Pressable
             onPress={() => setShowNotes((v) => !v)}
             className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
@@ -444,9 +338,7 @@ export default function LogScreen() {
           <Pressable
             onPress={onSave}
             disabled={saving}
-            className={`mt-3 w-full rounded-2xl px-5 py-3.5 ${
-              saving ? "bg-blue-300" : "bg-blue-600"
-            }`}
+            className={`mt-3 w-full rounded-2xl px-5 py-3.5 ${saving ? "bg-blue-300" : "bg-blue-600"}`}
           >
             <Text className="text-center text-base font-semibold text-white">
               {saving ? "Saving..." : "Save"}
@@ -454,16 +346,15 @@ export default function LogScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => navigation.navigate("Home")}
+            onPress={() => navigation.navigate("Main")}
             className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-5 py-3.5"
           >
             <Text className="text-center text-base font-semibold text-gray-900">
-              Home
+              Back
             </Text>
           </Pressable>
         </View>
 
-        {/* Recent Logs (collapsible) */}
         {showRecent ? (
           <View className="mt-4 flex-1">
             <Text className="text-base font-bold text-gray-900">
