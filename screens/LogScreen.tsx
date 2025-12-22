@@ -22,9 +22,15 @@ import {
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+type ChipItem = {
+  key: string;
+  label: string;
+  id: number | null;
+  kind: "value" | "none" | "add";
+};
+
 export default function LogScreen() {
   const navigation = useNavigation<Nav>();
-
   const { selectedHabits, selectedCues, selectedLocations, logs, addLog } =
     useData();
 
@@ -69,7 +75,6 @@ export default function LogScreen() {
 
     try {
       setSaving(true);
-
       await addLog({
         habitId,
         cueId,
@@ -125,7 +130,7 @@ export default function LogScreen() {
     </View>
   );
 
-  const Chips = <T extends { id: number; name: string }>({
+  const ChipRow = <T extends { id: number; name: string }>({
     title,
     items,
     selectedId,
@@ -139,59 +144,79 @@ export default function LogScreen() {
     onSelect: (id: number | null) => void;
     allowNone?: boolean;
     addType: "habits" | "cues" | "locations";
-  }) => (
-    <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
-      <Text className="text-sm font-semibold text-gray-900">{title}</Text>
+  }) => {
+    const data: ChipItem[] = [
+      ...(allowNone
+        ? [{ key: "none", label: "None", id: null, kind: "none" as const }]
+        : []),
+      ...items.map((x) => ({
+        key: `v-${x.id}`,
+        label: x.name,
+        id: x.id,
+        kind: "value" as const,
+      })),
+      { key: "add", label: "+ Add", id: null, kind: "add" as const },
+    ];
 
-      <View className="mt-2 flex-row flex-wrap gap-2">
-        {allowNone ? (
-          <Pressable
-            onPress={() => onSelect(null)}
-            className={`rounded-full border px-3 py-1.5 ${
-              selectedId == null
-                ? "bg-gray-900 border-gray-900"
-                : "bg-white border-gray-200"
-            }`}
-          >
-            <Text
-              className={`${selectedId == null ? "text-white" : "text-gray-900"} text-sm font-semibold`}
-            >
-              None
-            </Text>
-          </Pressable>
-        ) : null}
+    const renderItem = ({ item }: { item: ChipItem }) => {
+      const isSelected =
+        item.kind === "none"
+          ? selectedId == null
+          : item.kind === "value"
+            ? item.id === selectedId
+            : false;
 
-        {items.map((item) => {
-          const selected = item.id === selectedId;
-          return (
-            <Pressable
-              key={item.id}
-              onPress={() => onSelect(item.id)}
-              className={`rounded-full border px-3 py-1.5 ${
-                selected
-                  ? "bg-blue-600 border-blue-600"
-                  : "bg-white border-gray-200"
-              }`}
-            >
-              <Text
-                className={`${selected ? "text-white" : "text-gray-900"} text-sm font-semibold`}
-              >
-                {item.name}
-              </Text>
-            </Pressable>
-          );
-        })}
+      const base = "mr-2 rounded-full border px-4 py-2";
+      const selected = "bg-blue-600 border-blue-600";
+      const unselected = "bg-white border-gray-200";
 
-        {/* + Add chip */}
+      // "+ Add" chip styling: neutral
+      const addStyle = "bg-white border-gray-200";
+
+      return (
         <Pressable
-          onPress={() => navigation.navigate("ManageList", { type: addType })}
-          className="rounded-full border border-gray-200 bg-white px-3 py-1.5"
+          onPress={() => {
+            if (item.kind === "add") {
+              navigation.navigate("ManageList", { type: addType });
+              return;
+            }
+            onSelect(item.id);
+          }}
+          className={`${base} ${
+            item.kind === "add" ? addStyle : isSelected ? selected : unselected
+          }`}
         >
-          <Text className="text-sm font-semibold text-gray-900">+ Add</Text>
+          <Text
+            className={`text-sm font-semibold ${
+              item.kind === "add"
+                ? "text-gray-900"
+                : isSelected
+                  ? "text-white"
+                  : "text-gray-900"
+            }`}
+            numberOfLines={1}
+          >
+            {item.label}
+          </Text>
         </Pressable>
+      );
+    };
+
+    return (
+      <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+        <Text className="text-sm font-semibold text-gray-900">{title}</Text>
+
+        <FlatList
+          className="mt-2"
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={data}
+          keyExtractor={(x) => x.key}
+          renderItem={renderItem}
+        />
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderLog = ({ item }: { item: LogEntry }) => {
     const time = new Date(item.createdAt).toLocaleTimeString([], {
@@ -269,28 +294,28 @@ export default function LogScreen() {
         </View>
 
         <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
-          <Chips<SelectedHabit>
+          <ChipRow<SelectedHabit>
             title="Habit"
             items={selectedHabits}
             selectedId={habitId}
-            onSelect={(id) => setHabitId(id)}
+            onSelect={setHabitId}
             addType="habits"
           />
 
-          <Chips<SelectedCue>
+          <ChipRow<SelectedCue>
             title="Cue"
             items={selectedCues}
             selectedId={cueId}
-            onSelect={(id) => setCueId(id)}
+            onSelect={setCueId}
             allowNone
             addType="cues"
           />
 
-          <Chips<SelectedPlace>
+          <ChipRow<SelectedPlace>
             title="Location"
             items={selectedLocations}
             selectedId={locationId}
-            onSelect={(id) => setLocationId(id)}
+            onSelect={setLocationId}
             allowNone
             addType="locations"
           />
@@ -328,7 +353,6 @@ export default function LogScreen() {
               {errorMsg}
             </Text>
           ) : null}
-
           {savedMsg ? (
             <Text className="mt-2 text-sm font-semibold text-green-700">
               {savedMsg}
@@ -342,15 +366,6 @@ export default function LogScreen() {
           >
             <Text className="text-center text-base font-semibold text-white">
               {saving ? "Saving..." : "Save"}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => navigation.navigate("Main")}
-            className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-5 py-3.5"
-          >
-            <Text className="text-center text-base font-semibold text-gray-900">
-              Back
             </Text>
           </Pressable>
         </View>
