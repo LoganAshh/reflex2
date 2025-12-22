@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { View, Text, TextInput, Pressable, FlatList } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  FlatList,
+  Alert,
+} from "react-native";
 import { useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { RootStackParamList } from "../App";
@@ -59,6 +66,13 @@ export default function ManageListScreen() {
   ]);
 
   const toggleSelected = async (id: number) => {
+    // Prevent removing the last habit (so you never fall back into onboarding
+    // and you always have something to log against).
+    if (type === "habits" && selectedIds.has(id) && selectedIds.size === 1) {
+      Alert.alert("Keep one habit", "You need at least one habit selected.");
+      return;
+    }
+
     const ids = Array.from(selectedIds);
     const next = selectedIds.has(id)
       ? ids.filter((x) => x !== id)
@@ -86,6 +100,18 @@ export default function ManageListScreen() {
       <Text className="mt-2 text-gray-600">
         Add new items and choose which ones appear in your Log screen.
       </Text>
+
+      {type === "habits" ? (
+        <View className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <Text className="text-sm font-semibold text-gray-900">
+            Tip: Start Small
+          </Text>
+          <Text className="mt-1 text-xs text-gray-600">
+            It’s usually easier to focus on one or two habits at first. You can
+            always add more later.
+          </Text>
+        </View>
+      ) : null}
 
       {/* Add row */}
       <View className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
