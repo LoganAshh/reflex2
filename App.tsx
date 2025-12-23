@@ -37,17 +37,22 @@ function Tabs() {
       screenOptions={({ route }) => ({
         headerShown: true,
         tabBarShowLabel: false,
-        tabBarActiveTintColor: "#16A34A", // green-600
+
         tabBarInactiveTintColor: "#6B7280", // gray-500
+
         tabBarStyle: {
-          height: 76, // ↓ shorter
-          paddingBottom: 6, // ↑ content lifted
+          height: 76,
+          paddingBottom: 6,
           paddingTop: 8,
+          borderTopColor: "#E5E7EB",
+          borderTopWidth: 0.5,
         },
+
         tabBarIconStyle: {
-          marginTop: 2, // ↑ visually raises icons
+          marginTop: 2,
         },
-        tabBarIcon: ({ color, size, focused }) => {
+
+        tabBarIcon: ({ focused, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
           switch (route.name) {
@@ -69,6 +74,13 @@ function Tabs() {
             default:
               iconName = "ellipse";
           }
+
+          // Color logic
+          const color = focused
+            ? route.name === "Log"
+              ? "#16A34A" // green-600
+              : "#000000" // black
+            : "#6B7280"; // gray-500
 
           const iconSize = route.name === "Log" ? size + 4 : size;
 
