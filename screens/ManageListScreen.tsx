@@ -152,7 +152,7 @@ export default function ManageListScreen() {
               onPress={() => toggleSelected(item.id)}
               className={`mb-3 rounded-2xl border p-4 ${
                 isSelected
-                  ? "border-blue-600 bg-blue-50"
+                  ? "border-green-600 bg-green-50"
                   : "border-gray-200 bg-white"
               }`}
             >
@@ -169,7 +169,7 @@ export default function ManageListScreen() {
                 <View
                   className={`h-6 w-6 items-center justify-center rounded-full border ${
                     isSelected
-                      ? "border-blue-600 bg-blue-600"
+                      ? "border-green-600 bg-green-600"
                       : "border-gray-300 bg-white"
                   }`}
                 >
