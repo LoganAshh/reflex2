@@ -38,14 +38,15 @@ function Tabs() {
         headerShown: true,
         tabBarShowLabel: false,
 
-        tabBarInactiveTintColor: "#6B7280", // gray-500
+        // Keep inactive color subtle
+        tabBarInactiveTintColor: "#9CA3AF", // gray-400
 
         tabBarStyle: {
           height: 76,
           paddingBottom: 6,
           paddingTop: 8,
-          borderTopColor: "#E5E7EB",
           borderTopWidth: 0.5,
+          borderTopColor: "#E5E7EB",
         },
 
         tabBarIconStyle: {
@@ -75,12 +76,15 @@ function Tabs() {
               iconName = "ellipse";
           }
 
-          // Color logic
-          const color = focused
-            ? route.name === "Log"
-              ? "#16A34A" // green-600
-              : "#000000" // black
-            : "#6B7280"; // gray-500
+          // Color rules
+          const color =
+            route.name === "Log"
+              ? focused
+                ? "#16A34A" // green-600
+                : "#9CA3AF" // gray-400
+              : focused
+                ? "#1F2937" // gray-800 (dark gray)
+                : "#9CA3AF"; // gray-400
 
           const iconSize = route.name === "Log" ? size + 4 : size;
 
