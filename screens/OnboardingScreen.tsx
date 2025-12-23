@@ -1,12 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  FlatList,
-  TextInput,
-  Alert,
-} from "react-native";
+import { View, Text, Pressable, TextInput, Alert } from "react-native";
 import { useData, type Habit, type Cue, type Place } from "../data/DataContext";
 
 type Section = "habits" | "cues" | "locations";
@@ -27,7 +20,7 @@ export default function OnboardingScreen() {
     addCustomLocation,
   } = useData();
 
-  // Local selections (user can toggle freely then persist on Continue)
+  // Local selections (user can toggle freely then persist at the end)
   const [habitIds, setHabitIds] = useState<number[]>([]);
   const [cueIds, setCueIds] = useState<number[]>([]);
   const [locationIds, setLocationIds] = useState<number[]>([]);
@@ -37,8 +30,28 @@ export default function OnboardingScreen() {
   const [customCue, setCustomCue] = useState("");
   const [customLocation, setCustomLocation] = useState("");
 
-  // Which section is currently expanded (keeps page compact)
-  const [open, setOpen] = useState<Section>("habits");
+  // Multi-step flow
+  const infoSteps = useMemo(
+    () => [
+      {
+        title: "Welcome to Reflex",
+        body: "Reflex is built for quick, low-friction logging. The goal is to catch patterns early — not make you fill out a survey every time you slip.",
+      },
+      {
+        title: "Private by default",
+        body: "Your data stays on your device (SQLite). No account required. You stay in control of sensitive logs and personal patterns.",
+      },
+      {
+        title: "Pattern-first insights",
+        body: "Instead of just counting streaks, Reflex helps you connect the dots: what you did, what triggered it, and where it happened — so you can actually change the system around you.",
+      },
+    ],
+    []
+  );
+
+  const setupStartIndex = infoSteps.length; // first of last 3 steps
+  const totalSteps = infoSteps.length + 3; // + habits, cues, locations
+  const [step, setStep] = useState(0);
 
   // Initialize local selections from stored selections
   useEffect(() => {
@@ -71,7 +84,6 @@ export default function OnboardingScreen() {
       if (!name) return;
       await addCustomHabit(name, true);
       setCustomHabit("");
-      // Optimistically keep local selection consistent by selecting the matching item if present
       const match = habits.find(
         (h) => h.name.toLowerCase() === name.toLowerCase()
       );
@@ -103,55 +115,80 @@ export default function OnboardingScreen() {
       setLocationIds((prev) => Array.from(new Set([...prev, match.id])));
   };
 
-  const onContinue = async () => {
+  const validateBeforeNext = () => {
+    // Only enforce "at least one habit" once user reaches/leaves the Habits step
+    const habitsStepIndex = setupStartIndex; // first setup step
+    if (step === habitsStepIndex && habitIds.length === 0) {
+      Alert.alert(
+        "Pick at least one habit",
+        "Select one or more habits to continue."
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const goNext = () => {
+    if (!validateBeforeNext()) return;
+    setStep((s) => Math.min(totalSteps - 1, s + 1));
+  };
+
+  const goBack = () => setStep((s) => Math.max(0, s - 1));
+
+  const skipToSetup = () => setStep(setupStartIndex);
+
+  const onFinish = async () => {
     if (habitIds.length === 0) {
       Alert.alert(
         "Pick at least one habit",
         "Select one or more habits to continue."
       );
-      setOpen("habits");
+      setStep(setupStartIndex);
       return;
     }
-
-    // Persist selections
     await setSelectedHabits(habitIds);
     await setSelectedCues(cueIds);
     await setSelectedLocations(locationIds);
     // App.tsx gate will switch to tabs automatically via hasOnboarded
   };
 
-  const SectionHeader = ({
-    title,
-    subtitle,
-    count,
-    type,
-  }: {
-    title: string;
-    subtitle: string;
-    count: number;
-    type: Section;
-  }) => (
-    <Pressable
-      onPress={() => setOpen(type)}
-      className={`mt-4 w-full rounded-2xl border px-4 py-4 ${
-        open === type
-          ? "border-green-600 bg-green-50"
-          : "border-gray-200 bg-white"
-      }`}
-    >
-      <View className="flex-row items-center justify-between">
-        <View className="pr-4">
-          <Text className="text-base font-semibold text-gray-900">{title}</Text>
-          <Text className="mt-1 text-xs text-gray-600">{subtitle}</Text>
+  const ProgressBar = () => {
+    const pct = ((step + 1) / totalSteps) * 100;
+
+    return (
+      <View className="mb-6">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-xs font-semibold text-gray-600">
+            Step {step + 1} of {totalSteps}
+          </Text>
+
+          {step < setupStartIndex ? (
+            <Pressable onPress={skipToSetup} className="rounded-full px-3 py-1">
+              <Text className="text-xs font-semibold text-gray-900">
+                Skip to setup
+              </Text>
+            </Pressable>
+          ) : (
+            <View />
+          )}
         </View>
 
-        <View className="items-end">
-          <Text className="text-sm font-bold text-gray-900">{count}</Text>
-          <Text className="text-xs text-gray-500">selected</Text>
+        <View className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+          <View
+            style={{ width: `${pct}%` }}
+            className="h-2 rounded-full bg-green-600"
+          />
         </View>
+
+        {step >= setupStartIndex ? (
+          <Text className="mt-2 text-xs text-gray-500">
+            Setup remaining: {totalSteps - step} step
+            {totalSteps - step === 1 ? "" : "s"}
+          </Text>
+        ) : null}
       </View>
-    </Pressable>
-  );
+    );
+  };
 
   const ChipList = <T extends { id: number; name: string; isCustom: 0 | 1 }>({
     data,
@@ -162,7 +199,7 @@ export default function OnboardingScreen() {
     selected: Set<number>;
     type: Section;
   }) => (
-    <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white p-4">
+    <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-white p-4">
       <Text className="text-sm font-semibold text-gray-900">Tap to select</Text>
 
       <View className="mt-3 flex-row flex-wrap gap-2">
@@ -174,8 +211,8 @@ export default function OnboardingScreen() {
               onPress={() => toggle(item.id, type)}
               className={`rounded-full border px-3 py-2 ${
                 isSelected
-                  ? "bg-green-600 border-green-600"
-                  : "bg-white border-gray-200"
+                  ? "border-green-600 bg-green-600"
+                  : "border-gray-200 bg-white"
               }`}
             >
               <Text
@@ -233,64 +270,148 @@ export default function OnboardingScreen() {
     </View>
   );
 
-  // For compactness: show one section expanded at a time.
-  return (
-    <View className="flex-1 bg-white px-6 pt-12">
-      <Text className="text-3xl font-bold text-gray-900">Set up</Text>
-      <Text className="mt-2 text-gray-600">
-        Choose what you want to track. You can change these later.
-      </Text>
-
-      {/* Habits */}
-      <SectionHeader
-        title="Habits"
-        subtitle="Required (pick at least 1)"
-        count={habitIds.length}
-        type="habits"
-      />
-      {open === "habits" ? (
-        <ChipList<Habit> data={habits} selected={habitSet} type="habits" />
+  const StepNav = ({
+    primaryText,
+    onPrimary,
+    showBack,
+  }: {
+    primaryText: string;
+    onPrimary: () => void;
+    showBack: boolean;
+  }) => (
+    <View className="mt-6 flex-row items-center gap-3">
+      {showBack ? (
+        <Pressable
+          onPress={goBack}
+          className="flex-1 rounded-2xl border border-gray-200 bg-white px-5 py-4"
+        >
+          <Text className="text-center text-base font-semibold text-gray-900">
+            Back
+          </Text>
+        </Pressable>
       ) : null}
 
-      {/* Cues */}
-      <SectionHeader
-        title="Cues"
-        subtitle="Optional (common triggers)"
-        count={cueIds.length}
-        type="cues"
-      />
-      {open === "cues" ? (
-        <ChipList<Cue> data={cues} selected={cueSet} type="cues" />
-      ) : null}
+      <Pressable
+        onPress={onPrimary}
+        className={`rounded-2xl bg-green-600 px-5 py-4 ${showBack ? "flex-1" : "w-full"}`}
+      >
+        <Text className="text-center text-base font-semibold text-white">
+          {primaryText}
+        </Text>
+      </Pressable>
+    </View>
+  );
 
-      {/* Locations */}
-      <SectionHeader
-        title="Locations"
-        subtitle="Optional (where it happens)"
-        count={locationIds.length}
-        type="locations"
-      />
-      {open === "locations" ? (
+  const renderStep = () => {
+    // Info steps (0..infoSteps.length-1)
+    if (step < infoSteps.length) {
+      const s = infoSteps[step];
+      return (
+        <View className="mt-4">
+          <Text className="text-3xl font-bold text-gray-900">{s.title}</Text>
+          <Text className="mt-3 text-base leading-6 text-gray-600">
+            {s.body}
+          </Text>
+
+          <View className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <Text className="text-sm font-semibold text-gray-900">
+              What you’ll do next
+            </Text>
+            <Text className="mt-2 text-sm text-gray-600">
+              Pick the habits you want to track, then optionally add cues and
+              locations to make patterns obvious.
+            </Text>
+          </View>
+
+          <StepNav
+            primaryText={step === infoSteps.length - 1 ? "Start setup" : "Next"}
+            onPrimary={step === infoSteps.length - 1 ? skipToSetup : goNext}
+            showBack={step !== 0}
+          />
+        </View>
+      );
+    }
+
+    // Setup steps
+    const setupIndex = step - setupStartIndex; // 0=habits, 1=cues, 2=locations
+
+    if (setupIndex === 0) {
+      return (
+        <View className="mt-2">
+          <Text className="text-3xl font-bold text-gray-900">Pick habits</Text>
+          <Text className="mt-2 text-gray-600">
+            Required — choose at least one.
+          </Text>
+
+          <ChipList<Habit> data={habits} selected={habitSet} type="habits" />
+
+          <Text className="mt-3 text-xs text-gray-500">
+            Tip: start small. You can always add more later.
+          </Text>
+
+          <StepNav primaryText="Next" onPrimary={goNext} showBack />
+        </View>
+      );
+    }
+
+    if (setupIndex === 1) {
+      return (
+        <View className="mt-2">
+          <Text className="text-3xl font-bold text-gray-900">Pick cues</Text>
+          <Text className="mt-2 text-gray-600">
+            Optional — common triggers that lead to the habit.
+          </Text>
+
+          <ChipList<Cue> data={cues} selected={cueSet} type="cues" />
+
+          <StepNav primaryText="Next" onPrimary={goNext} showBack />
+        </View>
+      );
+    }
+
+    // setupIndex === 2
+    return (
+      <View className="mt-2">
+        <Text className="text-3xl font-bold text-gray-900">Pick locations</Text>
+        <Text className="mt-2 text-gray-600">
+          Optional — where it usually happens.
+        </Text>
+
         <ChipList<Place>
           data={locations}
           selected={locationSet}
           type="locations"
         />
-      ) : null}
 
-      {/* Continue */}
-      <Pressable
-        onPress={onContinue}
-        className="mb-8 mt-6 w-full rounded-2xl bg-green-600 px-5 py-4"
-      >
-        <Text className="text-center text-lg font-semibold text-white">
-          Continue
+        <Pressable
+          onPress={onFinish}
+          className="mt-6 w-full rounded-2xl bg-green-600 px-5 py-4"
+        >
+          <Text className="text-center text-lg font-semibold text-white">
+            Finish
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={goBack}
+          className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4"
+        >
+          <Text className="text-center text-base font-semibold text-gray-900">
+            Back
+          </Text>
+        </Pressable>
+
+        <Text className="mb-6 mt-4 text-center text-xs text-gray-500">
+          Data stays on-device (SQLite). You can add export/backup later.
         </Text>
-      </Pressable>
+      </View>
+    );
+  };
 
-      <Text className="mb-6 text-center text-xs text-gray-500">
-        Data stays on-device (SQLite). You can add export/backup later.
-      </Text>
+  return (
+    <View className="flex-1 bg-white px-6 pt-12">
+      <ProgressBar />
+      {renderStep()}
     </View>
   );
 }
