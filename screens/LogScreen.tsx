@@ -167,7 +167,7 @@ export default function LogScreen() {
             : false;
 
       const base = "mr-2 rounded-full border px-4 py-2";
-      const selected = "bg-blue-600 border-blue-600";
+      const selected = "bg-green-600 border-green-600";
       const unselected = "bg-white border-gray-200";
 
       // "+ Add" chip styling: neutral
@@ -362,7 +362,7 @@ export default function LogScreen() {
           <Pressable
             onPress={onSave}
             disabled={saving}
-            className={`mt-3 w-full rounded-2xl px-5 py-3.5 ${saving ? "bg-blue-300" : "bg-blue-600"}`}
+            className={`mt-3 w-full rounded-2xl px-5 py-3.5 ${saving ? "bg-green-300" : "bg-green-600"}`}
           >
             <Text className="text-center text-base font-semibold text-white">
               {saving ? "Saving..." : "Save"}

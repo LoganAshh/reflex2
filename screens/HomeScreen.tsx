@@ -157,7 +157,7 @@ export default function HomeScreen() {
       {/* Primary actions */}
       <Pressable
         onPress={() => navigation.navigate("Log")}
-        className="mt-6 w-full rounded-2xl bg-blue-600 px-5 py-4"
+        className="mt-6 w-full rounded-2xl bg-green-600 px-5 py-4"
       >
         <Text className="text-center text-lg font-semibold text-white">
           Log a Check-In

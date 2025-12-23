@@ -37,7 +37,7 @@ function Tabs() {
       screenOptions={({ route }) => ({
         headerShown: true,
         tabBarShowLabel: false,
-        tabBarActiveTintColor: "#2563EB", // blue-600
+        tabBarActiveTintColor: "#16A34A", // green-600
         tabBarInactiveTintColor: "#6B7280", // gray-500
         tabBarStyle: {
           height: 76, // ↓ shorter
