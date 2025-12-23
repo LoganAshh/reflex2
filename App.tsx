@@ -3,6 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
 import HomeScreen from "./screens/HomeScreen";
 import ShopScreen from "./screens/ShopScreen";
@@ -32,7 +33,49 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function Tabs() {
   return (
-    <Tab.Navigator screenOptions={{ headerShown: true }}>
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: true,
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: "#2563EB", // blue-600
+        tabBarInactiveTintColor: "#6B7280", // gray-500
+        tabBarStyle: {
+          height: 52, // ↓ shorter
+          paddingBottom: 6, // ↑ content lifted
+          paddingTop: 0,
+        },
+        tabBarIconStyle: {
+          marginTop: 2, // ↑ visually raises icons
+        },
+        tabBarIcon: ({ color, size, focused }) => {
+          let iconName: keyof typeof Ionicons.glyphMap;
+
+          switch (route.name) {
+            case "Home":
+              iconName = focused ? "home" : "home-outline";
+              break;
+            case "Shop":
+              iconName = focused ? "flash" : "flash-outline";
+              break;
+            case "Log":
+              iconName = focused ? "add-circle" : "add-circle-outline";
+              break;
+            case "Analytics":
+              iconName = focused ? "bar-chart" : "bar-chart-outline";
+              break;
+            case "Profile":
+              iconName = focused ? "person" : "person-outline";
+              break;
+            default:
+              iconName = "ellipse";
+          }
+
+          const iconSize = route.name === "Log" ? size + 4 : size;
+
+          return <Ionicons name={iconName} size={iconSize} color={color} />;
+        },
+      })}
+    >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Shop" component={ShopScreen} />
       <Tab.Screen name="Log" component={LogScreen} />
