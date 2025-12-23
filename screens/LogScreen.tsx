@@ -28,6 +28,17 @@ type ChipItem = {
   kind: "value" | "none" | "add";
 };
 
+function moveIdToFront<T extends { id: number }>(
+  items: T[],
+  pinnedId: number | null
+) {
+  if (pinnedId == null) return items;
+  const idx = items.findIndex((x) => x.id === pinnedId);
+  if (idx <= 0) return items; // already first or not found
+  const picked = items[idx];
+  return [picked, ...items.slice(0, idx), ...items.slice(idx + 1)];
+}
+
 export default function LogScreen() {
   const navigation = useNavigation<Nav>();
   const { selectedHabits, selectedCues, selectedLocations, addLog } = useData();
@@ -44,6 +55,24 @@ export default function LogScreen() {
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // "Pinned" = last successfully submitted selection (reorders ONLY after submit).
+  const [pinnedHabitId, setPinnedHabitId] = useState<number | null>(null);
+  const [pinnedCueId, setPinnedCueId] = useState<number | null>(null);
+  const [pinnedLocationId, setPinnedLocationId] = useState<number | null>(null);
+
+  const orderedHabits = useMemo(
+    () => moveIdToFront(selectedHabits, pinnedHabitId),
+    [selectedHabits, pinnedHabitId]
+  );
+  const orderedCues = useMemo(
+    () => moveIdToFront(selectedCues, pinnedCueId),
+    [selectedCues, pinnedCueId]
+  );
+  const orderedLocations = useMemo(
+    () => moveIdToFront(selectedLocations, pinnedLocationId),
+    [selectedLocations, pinnedLocationId]
+  );
 
   useEffect(() => {
     if (habitId == null && selectedHabits.length > 0) {
@@ -69,16 +98,28 @@ export default function LogScreen() {
       return;
     }
 
+    // Capture what was selected for THIS submission (so we can reorder after success).
+    const submittedHabitId = habitId;
+    const submittedCueId = cueId;
+    const submittedLocationId = locationId;
+
     try {
       setSaving(true);
       await addLog({
-        habitId,
-        cueId,
-        locationId,
+        habitId: submittedHabitId,
+        cueId: submittedCueId,
+        locationId: submittedLocationId,
         intensity,
         didResist,
         notes: notes.trim() || undefined,
       });
+
+      // Reorder only AFTER submit.
+      setPinnedHabitId(submittedHabitId);
+
+      // Exclude "None" (null) from pinning; "None" chips always stay far left.
+      if (submittedCueId != null) setPinnedCueId(submittedCueId);
+      if (submittedLocationId != null) setPinnedLocationId(submittedLocationId);
 
       resetForm();
       setSavedMsg("Saved ✅");
@@ -233,7 +274,7 @@ export default function LogScreen() {
         <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
           <ChipRow<SelectedHabit>
             title="Habit"
-            items={selectedHabits}
+            items={orderedHabits}
             selectedId={habitId}
             onSelect={setHabitId}
             addType="habits"
@@ -241,7 +282,7 @@ export default function LogScreen() {
 
           <ChipRow<SelectedCue>
             title="Cue"
-            items={selectedCues}
+            items={orderedCues}
             selectedId={cueId}
             onSelect={setCueId}
             allowNone
@@ -250,7 +291,7 @@ export default function LogScreen() {
 
           <ChipRow<SelectedPlace>
             title="Location"
-            items={selectedLocations}
+            items={orderedLocations}
             selectedId={locationId}
             onSelect={setLocationId}
             allowNone
