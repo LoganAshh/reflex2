@@ -30,15 +30,34 @@ type ChipItem = {
 
 type BaseItem = { id: number; name: string };
 
-function moveIdToFront<T extends { id: number }>(
+// Keep a "most-recent-first" ordering that persists across submissions.
+// When a new id is submitted, it moves to the front, pushing others right,
+// and stays that way until changed again.
+function applyRecentOrdering<T extends { id: number }>(
   items: T[],
-  pinnedId: number | null
+  recentIds: number[]
 ) {
-  if (pinnedId == null) return items;
-  const idx = items.findIndex((x) => x.id === pinnedId);
-  if (idx <= 0) return items; // already first or not found
-  const picked = items[idx];
-  return [picked, ...items.slice(0, idx), ...items.slice(idx + 1)];
+  if (items.length === 0) return items;
+
+  const byId = new Map(items.map((x) => [x.id, x] as const));
+  const used = new Set<number>();
+  const ordered: T[] = [];
+
+  // First: ids in recentIds order (most recent first), if they still exist
+  for (const id of recentIds) {
+    const it = byId.get(id);
+    if (it && !used.has(id)) {
+      ordered.push(it);
+      used.add(id);
+    }
+  }
+
+  // Then: whatever remains in the original order
+  for (const it of items) {
+    if (!used.has(it.id)) ordered.push(it);
+  }
+
+  return ordered;
 }
 
 function IntensityRow({
@@ -200,22 +219,22 @@ export default function LogScreen() {
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // "Pinned" = last successfully submitted selection (reorders ONLY after submit).
-  const [pinnedHabitId, setPinnedHabitId] = useState<number | null>(null);
-  const [pinnedCueId, setPinnedCueId] = useState<number | null>(null);
-  const [pinnedLocationId, setPinnedLocationId] = useState<number | null>(null);
+  // Most-recent-first lists (persist the ordering across submissions)
+  const [recentHabitIds, setRecentHabitIds] = useState<number[]>([]);
+  const [recentCueIds, setRecentCueIds] = useState<number[]>([]);
+  const [recentLocationIds, setRecentLocationIds] = useState<number[]>([]);
 
   const orderedHabits = useMemo(
-    () => moveIdToFront(selectedHabits, pinnedHabitId),
-    [selectedHabits, pinnedHabitId]
+    () => applyRecentOrdering(selectedHabits, recentHabitIds),
+    [selectedHabits, recentHabitIds]
   );
   const orderedCues = useMemo(
-    () => moveIdToFront(selectedCues, pinnedCueId),
-    [selectedCues, pinnedCueId]
+    () => applyRecentOrdering(selectedCues, recentCueIds),
+    [selectedCues, recentCueIds]
   );
   const orderedLocations = useMemo(
-    () => moveIdToFront(selectedLocations, pinnedLocationId),
-    [selectedLocations, pinnedLocationId]
+    () => applyRecentOrdering(selectedLocations, recentLocationIds),
+    [selectedLocations, recentLocationIds]
   );
 
   // Keep scroll position stable during selection; after submit we scroll back to start.
@@ -244,6 +263,15 @@ export default function LogScreen() {
     locationListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
+  const bumpRecent = (
+    prev: number[],
+    id: number,
+    max = 25 // optional cap so it doesn't grow forever
+  ) => {
+    const next = [id, ...prev.filter((x) => x !== id)];
+    return next.slice(0, max);
+  };
+
   const onSave = async () => {
     setErrorMsg(null);
     setSavedMsg(null);
@@ -268,17 +296,20 @@ export default function LogScreen() {
         notes: notes.trim() || undefined,
       });
 
-      // Reorder only AFTER submit.
-      setPinnedHabitId(submittedHabitId);
+      // Update recent ordering AFTER submit:
+      setRecentHabitIds((prev) => bumpRecent(prev, submittedHabitId));
 
-      // Exclude "None" (null) from pinning; "None" chip stays far left.
-      if (submittedCueId != null) setPinnedCueId(submittedCueId);
-      if (submittedLocationId != null) setPinnedLocationId(submittedLocationId);
+      // Exclude "None" from recents; "None" chip stays far left and shouldn't reorder items.
+      if (submittedCueId != null) {
+        setRecentCueIds((prev) => bumpRecent(prev, submittedCueId));
+      }
+      if (submittedLocationId != null) {
+        setRecentLocationIds((prev) => bumpRecent(prev, submittedLocationId));
+      }
 
       resetForm();
 
-      // After the log is submitted, reset chip scroll back to far left.
-      // Use rAF so the list has a frame to render with any updated ordering.
+      // Now that ordering updated, reset chip scroll back to far left.
       requestAnimationFrame(scrollAllToStart);
 
       setSavedMsg("Saved ✅");
