@@ -40,9 +40,9 @@ function Tabs() {
         tabBarActiveTintColor: "#2563EB", // blue-600
         tabBarInactiveTintColor: "#6B7280", // gray-500
         tabBarStyle: {
-          height: 52, // ↓ shorter
+          height: 76, // ↓ shorter
           paddingBottom: 6, // ↑ content lifted
-          paddingTop: 0,
+          paddingTop: 8,
         },
         tabBarIconStyle: {
           marginTop: 2, // ↑ visually raises icons
