@@ -86,8 +86,10 @@ type DataContextType = {
   selectedCues: SelectedCue[];
   selectedLocations: SelectedPlace[];
 
-  // onboarding completion
+  // onboarding completion (SEPARATE FLAG — not derived from selectedHabits)
   hasOnboarded: boolean;
+  completeOnboarding: () => Promise<void>;
+  resetOnboarding: () => Promise<void>;
 
   // selection setters
   setSelectedHabits: (habitIds: number[]) => Promise<void>;
@@ -113,6 +115,26 @@ type DataContextType = {
 };
 
 const DataContext = createContext<DataContextType | null>(null);
+
+// ---------- Onboarding flag helpers ----------
+const ONBOARD_KEY = "hasOnboarded";
+
+async function loadOnboardedFlag(): Promise<boolean> {
+  try {
+    const v = await SecureStore.getItemAsync(ONBOARD_KEY);
+    return v === "true";
+  } catch {
+    return false;
+  }
+}
+
+async function saveOnboardedFlag(value: boolean): Promise<void> {
+  try {
+    await SecureStore.setItemAsync(ONBOARD_KEY, value ? "true" : "false");
+  } catch {
+    // ignore (simulator / platform edge cases)
+  }
+}
 
 // ---------- DB Init / Seed ----------
 async function initDb() {
@@ -181,7 +203,6 @@ async function seedDefaultHabitsIfEmpty() {
   );
   if ((rows?.[0]?.count ?? 0) > 0) return;
 
-  // Insert in the exact order you want shown.
   await db.execAsync(`
     INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Alcohol', 0);
     INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Doomscrolling', 0);
@@ -271,10 +292,12 @@ async function resetDbForDev() {
   await seedDefaultCuesIfEmpty();
   await seedDefaultLocationsIfEmpty();
   await seedDefaultActionsIfEmpty();
+
+  // If you're wiping DB in dev, you usually want to re-run onboarding too.
+  await saveOnboardedFlag(false);
 }
 
 // ---------- Loaders (NO alphabetical sorting) ----------
-// Goal: presets first (isCustom ASC), then preserve insertion order (id ASC).
 async function loadHabits(): Promise<Habit[]> {
   return db.getAllAsync<Habit>(
     "SELECT * FROM habits ORDER BY isCustom ASC, id ASC;"
@@ -294,8 +317,6 @@ async function loadLocations(): Promise<Place[]> {
 }
 
 async function loadSelectedHabits(): Promise<SelectedHabit[]> {
-  // Preserve selection insertion order by the user_habits rowid (insertion order).
-  // (rowid exists because user_habits is not WITHOUT ROWID)
   return db.getAllAsync<SelectedHabit>(`
     SELECT h.*
     FROM user_habits uh
@@ -345,7 +366,6 @@ async function loadLogs(): Promise<LogEntry[]> {
 }
 
 async function loadActions(): Promise<ReplacementAction[]> {
-  // Same idea: presets first, then insertion order
   return db.getAllAsync<ReplacementAction>(
     "SELECT * FROM actions ORDER BY isCustom ASC, id ASC;"
   );
@@ -368,9 +388,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [actions, setActions] = useState<ReplacementAction[]>([]);
 
+  // IMPORTANT: onboarding completion is its own flag
+  const [hasOnboarded, setHasOnboarded] = useState(false);
+
   useEffect(() => {
     (async () => {
+      // If you are still iterating on schema, keep this.
+      // When you stop iterating, remove the resetDbForDev() call.
       await resetDbForDev();
+
+      setHasOnboarded(await loadOnboardedFlag());
       await refresh();
     })();
   }, []);
@@ -399,11 +426,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setActions(a);
   };
 
-  // Require at least 1 habit selected to consider onboarding complete
-  const hasOnboarded = selectedHabits.length > 0;
+  // ---------- Onboarding controls ----------
+  const completeOnboarding = async () => {
+    await saveOnboardedFlag(true);
+    setHasOnboarded(true);
+  };
+
+  const resetOnboarding = async () => {
+    await saveOnboardedFlag(false);
+    setHasOnboarded(false);
+  };
 
   // ---------- Selection setters ----------
-  // NOTE: we preserve insertion order by inserting ids in the order passed in.
   const setSelectedHabits: DataContextType["setSelectedHabits"] = async (
     habitIds
   ) => {
@@ -455,7 +489,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ---------- Custom creators ----------
-  // NOTE: We do a refresh after insert so we get the new row id reliably (and preserve order).
+  // KEY CHANGE: these functions DO NOT flip hasOnboarded anymore.
+  // They can auto-select, but onboarding completion is only via completeOnboarding().
   const addCustomHabit: DataContextType["addCustomHabit"] = async (
     name,
     autoSelect = true
@@ -578,10 +613,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setActions(await loadActions());
   };
 
-  // SecureStore is reserved for later (auth token, encryption key, app lock).
-  // Example:
-  // await SecureStore.setItemAsync("authToken", token);
-
   const value = useMemo(
     () => ({
       habits,
@@ -591,6 +622,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       selectedCues,
       selectedLocations,
       hasOnboarded,
+      completeOnboarding,
+      resetOnboarding,
       setSelectedHabits,
       setSelectedCues,
       setSelectedLocations,
@@ -613,6 +646,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       selectedLocations,
       logs,
       actions,
+      hasOnboarded,
     ]
   );
 

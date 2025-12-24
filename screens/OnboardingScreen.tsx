@@ -1,6 +1,122 @@
-import { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { View, Text, Pressable, TextInput, Alert } from "react-native";
 import { useData, type Habit, type Cue, type Place } from "../data/DataContext";
+
+type ChipListProps<T extends { id: number; name: string; isCustom: 0 | 1 }> = {
+  data: T[];
+  selected: Set<number>;
+  type: "habits" | "cues" | "locations";
+  toggle: (id: number, type: "habits" | "cues" | "locations") => void;
+
+  customHabit: string;
+  setCustomHabit: (v: string) => void;
+  customCue: string;
+  setCustomCue: (v: string) => void;
+  customLocation: string;
+  setCustomLocation: (v: string) => void;
+
+  onAddCustom: (type: "habits" | "cues" | "locations") => void;
+};
+
+function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
+  data,
+  selected,
+  type,
+  toggle,
+  customHabit,
+  setCustomHabit,
+  customCue,
+  setCustomCue,
+  customLocation,
+  setCustomLocation,
+  onAddCustom,
+}: ChipListProps<T>) {
+  const value =
+    type === "habits"
+      ? customHabit
+      : type === "cues"
+        ? customCue
+        : customLocation;
+
+  const onChangeText =
+    type === "habits"
+      ? setCustomHabit
+      : type === "cues"
+        ? setCustomCue
+        : setCustomLocation;
+
+  const placeholder =
+    type === "habits"
+      ? "e.g., nail biting"
+      : type === "cues"
+        ? "e.g., after coffee"
+        : "e.g., office parking lot";
+
+  return (
+    <View className="w-full rounded-2xl border border-gray-200 bg-white p-4">
+      <Text className="text-sm font-semibold text-gray-900">Tap to select</Text>
+
+      <View className="mt-3 flex-row flex-wrap gap-2">
+        {data.map((item) => {
+          const isSelected = selected.has(item.id);
+          return (
+            <Pressable
+              key={item.id}
+              onPress={() => toggle(item.id, type)}
+              className={`rounded-full border px-3 py-2 ${
+                isSelected
+                  ? "border-green-600 bg-green-600"
+                  : "border-gray-200 bg-white"
+              }`}
+            >
+              <Text
+                className={`${
+                  isSelected ? "text-white" : "text-gray-900"
+                } text-sm font-semibold`}
+              >
+                {item.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View className="mt-4">
+        <Text className="text-xs font-semibold text-gray-700">Add custom</Text>
+
+        <View className="mt-2 flex-row items-center gap-3">
+          <TextInput
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor="#9CA3AF"
+            className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+            returnKeyType="done"
+          />
+
+          <Pressable
+            onPress={() => onAddCustom(type)}
+            className="rounded-xl bg-gray-900 px-4 py-3"
+            style={({ pressed }) => ({
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: pressed ? 2 : 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: pressed ? 3 : 4,
+              elevation: pressed ? 4 : 6,
+              transform: [{ translateY: pressed ? 1 : 0 }],
+            })}
+          >
+            <Text className="text-base font-bold text-white">Add</Text>
+          </Pressable>
+        </View>
+
+        <Text className="mt-2 text-xs text-gray-500">
+          Custom items are saved locally on your device.
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 export default function OnboardingScreen() {
   const {
@@ -16,6 +132,7 @@ export default function OnboardingScreen() {
     addCustomHabit,
     addCustomCue,
     addCustomLocation,
+    completeOnboarding,
   } = useData();
 
   // Local selections (user can toggle freely then persist at the end)
@@ -37,7 +154,7 @@ export default function OnboardingScreen() {
       },
       {
         title: "Did you know?",
-        body: "Over time, your habits can become so automatic that you do them without even thinking, just like your bodys' reflexes.",
+        body: "Over time, your habits can become so automatic that you do them without even thinking, just like your body's reflexes.",
       },
       {
         title: "Why most apps\ndon’t work",
@@ -53,7 +170,7 @@ export default function OnboardingScreen() {
       },
       {
         title: "Free Forever",
-        body: "Reflex's essential tracking and insights will always remain 100% free. Premium features will be optional add-ons to enhance your experience.",
+        body: "Reflex's tracking and insights will always remain 100% free. Premium features will be optional add-ons to enhance your experience.",
       },
     ],
     []
@@ -92,8 +209,15 @@ export default function OnboardingScreen() {
     if (type === "habits") {
       const name = customHabit.trim();
       if (!name) return;
+
+      // IMPORTANT: allow auto-select for convenience,
+      // but onboarding completion is separate (Finish button).
       await addCustomHabit(name, true);
+
       setCustomHabit("");
+
+      // After refresh, auto-select may have already persisted.
+      // Also mirror it locally so the chip lights up immediately.
       const match = habits.find(
         (h) => h.name.toLowerCase() === name.toLowerCase()
       );
@@ -105,8 +229,10 @@ export default function OnboardingScreen() {
     if (type === "cues") {
       const name = customCue.trim();
       if (!name) return;
+
       await addCustomCue(name, true);
       setCustomCue("");
+
       const match = cues.find(
         (c) => c.name.toLowerCase() === name.toLowerCase()
       );
@@ -116,8 +242,10 @@ export default function OnboardingScreen() {
 
     const name = customLocation.trim();
     if (!name) return;
+
     await addCustomLocation(name, true);
     setCustomLocation("");
+
     const match = locations.find(
       (l) => l.name.toLowerCase() === name.toLowerCase()
     );
@@ -144,7 +272,6 @@ export default function OnboardingScreen() {
   };
 
   const goBack = () => setStep((s) => Math.max(0, s - 1));
-
   const skipToSetup = () => setStep(setupStartIndex);
 
   const onFinish = async () => {
@@ -159,7 +286,7 @@ export default function OnboardingScreen() {
     await setSelectedHabits(habitIds);
     await setSelectedCues(cueIds);
     await setSelectedLocations(locationIds);
-    // App.tsx gate will switch to tabs automatically via hasOnboarded
+    await completeOnboarding();
   };
 
   // Progress bar + larger text
@@ -203,94 +330,6 @@ export default function OnboardingScreen() {
       </View>
     );
   };
-
-  const ChipList = <T extends { id: number; name: string; isCustom: 0 | 1 }>({
-    data,
-    selected,
-    type,
-  }: {
-    data: T[];
-    selected: Set<number>;
-    type: "habits" | "cues" | "locations";
-  }) => (
-    <View className="w-full rounded-2xl border border-gray-200 bg-white p-4">
-      <Text className="text-sm font-semibold text-gray-900">Tap to select</Text>
-
-      <View className="mt-3 flex-row flex-wrap gap-2">
-        {data.map((item) => {
-          const isSelected = selected.has(item.id);
-          return (
-            <Pressable
-              key={item.id}
-              onPress={() => toggle(item.id, type)}
-              className={`rounded-full border px-3 py-2 ${
-                isSelected
-                  ? "border-green-600 bg-green-600"
-                  : "border-gray-200 bg-white"
-              }`}
-            >
-              <Text
-                className={`${
-                  isSelected ? "text-white" : "text-gray-900"
-                } text-sm font-semibold`}
-              >
-                {item.name}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <View className="mt-4">
-        <Text className="text-xs font-semibold text-gray-700">Add custom</Text>
-
-        <View className="mt-2 flex-row items-center gap-3">
-          <TextInput
-            value={
-              type === "habits"
-                ? customHabit
-                : type === "cues"
-                  ? customCue
-                  : customLocation
-            }
-            onChangeText={
-              type === "habits"
-                ? setCustomHabit
-                : type === "cues"
-                  ? setCustomCue
-                  : setCustomLocation
-            }
-            placeholder={
-              type === "habits"
-                ? "e.g., nail biting"
-                : type === "cues"
-                  ? "e.g., after coffee"
-                  : "e.g., office parking lot"
-            }
-            placeholderTextColor="#9CA3AF"
-            className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-          />
-          <Pressable
-            onPress={() => onAddCustom(type)}
-            className="rounded-xl bg-gray-900 px-4 py-3"
-            style={{
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.2,
-              shadowRadius: 4,
-              elevation: 6,
-            }}
-          >
-            <Text className="text-base font-bold text-white">Add</Text>
-          </Pressable>
-        </View>
-
-        <Text className="mt-2 text-xs text-gray-500">
-          Custom items are saved locally on your device.
-        </Text>
-      </View>
-    </View>
-  );
 
   // Fixed bottom nav (same spot every step)
   const BottomNav = () => {
@@ -385,7 +424,19 @@ export default function OnboardingScreen() {
           </Text>
 
           <View className="mt-4 flex-1">
-            <ChipList<Habit> data={habits} selected={habitSet} type="habits" />
+            <ChipList<Habit>
+              data={habits}
+              selected={habitSet}
+              type="habits"
+              toggle={toggle}
+              customHabit={customHabit}
+              setCustomHabit={setCustomHabit}
+              customCue={customCue}
+              setCustomCue={setCustomCue}
+              customLocation={customLocation}
+              setCustomLocation={setCustomLocation}
+              onAddCustom={onAddCustom}
+            />
           </View>
         </View>
       );
@@ -400,7 +451,19 @@ export default function OnboardingScreen() {
           </Text>
 
           <View className="mt-4 flex-1">
-            <ChipList<Cue> data={cues} selected={cueSet} type="cues" />
+            <ChipList<Cue>
+              data={cues}
+              selected={cueSet}
+              type="cues"
+              toggle={toggle}
+              customHabit={customHabit}
+              setCustomHabit={setCustomHabit}
+              customCue={customCue}
+              setCustomCue={setCustomCue}
+              customLocation={customLocation}
+              setCustomLocation={setCustomLocation}
+              onAddCustom={onAddCustom}
+            />
           </View>
         </View>
       );
@@ -418,6 +481,14 @@ export default function OnboardingScreen() {
             data={locations}
             selected={locationSet}
             type="locations"
+            toggle={toggle}
+            customHabit={customHabit}
+            setCustomHabit={setCustomHabit}
+            customCue={customCue}
+            setCustomCue={setCustomCue}
+            customLocation={customLocation}
+            setCustomLocation={setCustomLocation}
+            onAddCustom={onAddCustom}
           />
         </View>
 

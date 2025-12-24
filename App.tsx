@@ -37,10 +37,7 @@ function Tabs() {
       screenOptions={({ route }) => ({
         headerShown: true,
         tabBarShowLabel: false,
-
-        // Keep inactive color subtle
         tabBarInactiveTintColor: "#9CA3AF", // gray-400
-
         tabBarStyle: {
           height: 76,
           paddingBottom: 6,
@@ -48,11 +45,9 @@ function Tabs() {
           borderTopWidth: 0.5,
           borderTopColor: "#E5E7EB",
         },
-
         tabBarIconStyle: {
           marginTop: 2,
         },
-
         tabBarIcon: ({ focused, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
@@ -76,14 +71,13 @@ function Tabs() {
               iconName = "ellipse";
           }
 
-          // Color rules
           const color =
             route.name === "Log"
               ? focused
                 ? "#16A34A" // green-600
                 : "#9CA3AF" // gray-400
               : focused
-                ? "#1F2937" // gray-800 (dark gray)
+                ? "#1F2937" // gray-800
                 : "#9CA3AF"; // gray-400
 
           const iconSize = route.name === "Log" ? size + 4 : size;
@@ -104,6 +98,8 @@ function Tabs() {
 function RootStack() {
   const { hasOnboarded } = useData();
 
+  // Gate: ONLY this SecureStore-backed flag controls onboarding now.
+  // (Selections like selectedHabits can change during onboarding without booting the user out.)
   if (!hasOnboarded) return <OnboardingScreen />;
 
   return (
