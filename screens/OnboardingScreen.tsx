@@ -2,8 +2,6 @@ import { useMemo, useState, useEffect } from "react";
 import { View, Text, Pressable, TextInput, Alert } from "react-native";
 import { useData, type Habit, type Cue, type Place } from "../data/DataContext";
 
-type Section = "habits" | "cues" | "locations";
-
 export default function OnboardingScreen() {
   const {
     habits,
@@ -65,7 +63,7 @@ export default function OnboardingScreen() {
   const cueSet = useMemo(() => new Set(cueIds), [cueIds]);
   const locationSet = useMemo(() => new Set(locationIds), [locationIds]);
 
-  const toggle = (id: number, type: Section) => {
+  const toggle = (id: number, type: "habits" | "cues" | "locations") => {
     const updater =
       type === "habits"
         ? setHabitIds
@@ -78,7 +76,7 @@ export default function OnboardingScreen() {
     );
   };
 
-  const onAddCustom = async (type: Section) => {
+  const onAddCustom = async (type: "habits" | "cues" | "locations") => {
     if (type === "habits") {
       const name = customHabit.trim();
       if (!name) return;
@@ -152,19 +150,24 @@ export default function OnboardingScreen() {
     // App.tsx gate will switch to tabs automatically via hasOnboarded
   };
 
+  // UPDATED: bigger progress bar + bigger text
   const ProgressBar = () => {
     const pct = ((step + 1) / totalSteps) * 100;
 
     return (
-      <View className="mb-6">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-xs font-semibold text-gray-600">
+      <View className="mt-10 mb-8">
+        {/* Top row */}
+        <View className="mb-3 flex-row items-center justify-between">
+          <Text className="text-sm font-semibold text-gray-700">
             Step {step + 1} of {totalSteps}
           </Text>
 
           {step < setupStartIndex ? (
-            <Pressable onPress={skipToSetup} className="rounded-full px-3 py-1">
-              <Text className="text-xs font-semibold text-gray-900">
+            <Pressable
+              onPress={skipToSetup}
+              className="rounded-full px-4 py-1.5"
+            >
+              <Text className="text-sm font-semibold text-gray-900">
                 Skip to setup
               </Text>
             </Pressable>
@@ -173,17 +176,19 @@ export default function OnboardingScreen() {
           )}
         </View>
 
-        <View className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200">
+        {/* Progress bar */}
+        <View className="h-4 w-full overflow-hidden rounded-full bg-gray-200">
           <View
             style={{ width: `${pct}%` }}
-            className="h-2 rounded-full bg-green-600"
+            className="h-4 rounded-full bg-green-600"
           />
         </View>
 
+        {/* Optional helper text */}
         {step >= setupStartIndex ? (
-          <Text className="mt-2 text-xs text-gray-500">
-            Setup remaining: {totalSteps - step} step
-            {totalSteps - step === 1 ? "" : "s"}
+          <Text className="mt-3 text-sm text-gray-500">
+            {totalSteps - step} step{totalSteps - step === 1 ? "" : "s"}{" "}
+            remaining
           </Text>
         ) : null}
       </View>
@@ -197,7 +202,7 @@ export default function OnboardingScreen() {
   }: {
     data: T[];
     selected: Set<number>;
-    type: Section;
+    type: "habits" | "cues" | "locations";
   }) => (
     <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-white p-4">
       <Text className="text-sm font-semibold text-gray-900">Tap to select</Text>
@@ -216,7 +221,9 @@ export default function OnboardingScreen() {
               }`}
             >
               <Text
-                className={`${isSelected ? "text-white" : "text-gray-900"} text-sm font-semibold`}
+                className={`${
+                  isSelected ? "text-white" : "text-gray-900"
+                } text-sm font-semibold`}
               >
                 {item.name}
               </Text>
