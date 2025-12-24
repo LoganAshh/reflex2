@@ -290,11 +290,14 @@ export default function OnboardingScreen() {
     const isFirst = step === 0;
     const isLast = step === totalSteps - 1;
 
-    const primaryText = isLast
-      ? "Finish"
-      : step === infoSteps.length - 1
-        ? "Start setup"
-        : "Next";
+    const primaryText =
+      step === 0
+        ? "Get Started!"
+        : isLast
+          ? "Finish"
+          : step === infoSteps.length - 1
+            ? "Start setup"
+            : "Next";
 
     const onPrimary = isLast
       ? onFinish
