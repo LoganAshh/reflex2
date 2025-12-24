@@ -33,15 +33,15 @@ export default function OnboardingScreen() {
     () => [
       {
         title: "Welcome to Reflex!",
-        body: "Reflex is built for quick, low-friction logging. The goal is to catch patterns early — not make you fill out a survey every time you slip.",
+        body: "Congratulations! You have just taken the first step towards breaking your bad habits!",
       },
       {
-        title: "Private by default",
-        body: "Your data stays on your device (SQLite). No account required. You stay in control of sensitive logs and personal patterns.",
+        title: "Did you know?",
+        body: "Over time, your habits can become so automatic that you do them without even thinking, just like your bodys' reflexes.",
       },
       {
-        title: "Pattern-first insights",
-        body: "Instead of just counting streaks, Reflex helps you connect the dots: what you did, what triggered it, and where it happened — so you can actually change the system around you.",
+        title: "Why most apps\ndon’t work",
+        body: "Most habit apps focus on streaks, punishment, or motivation. They tell you what you did, but not why.",
       },
     ],
     []
