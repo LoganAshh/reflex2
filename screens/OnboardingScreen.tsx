@@ -145,6 +145,12 @@ export default function OnboardingScreen() {
   const [customCue, setCustomCue] = useState("");
   const [customLocation, setCustomLocation] = useState("");
 
+  const [pendingHabitName, setPendingHabitName] = useState<string | null>(null);
+  const [pendingCueName, setPendingCueName] = useState<string | null>(null);
+  const [pendingLocationName, setPendingLocationName] = useState<string | null>(
+    null
+  );
+
   // Multi-step flow
   const infoSteps = useMemo(
     () => [
@@ -176,8 +182,8 @@ export default function OnboardingScreen() {
     []
   );
 
-  const setupStartIndex = infoSteps.length; // first of last 3 steps
-  const totalSteps = infoSteps.length + 3; // + habits, cues, locations
+  const setupStartIndex = infoSteps.length;
+  const totalSteps = infoSteps.length + 3;
   const [step, setStep] = useState(0);
 
   // Initialize local selections from stored selections
@@ -187,6 +193,36 @@ export default function OnboardingScreen() {
     setLocationIds(selectedLocations.map((l) => l.id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!pendingHabitName) return;
+    const match = habits.find(
+      (h) => h.name.toLowerCase() === pendingHabitName.toLowerCase()
+    );
+    if (!match) return;
+    setHabitIds((prev) => Array.from(new Set([...prev, match.id])));
+    setPendingHabitName(null);
+  }, [habits, pendingHabitName]);
+
+  useEffect(() => {
+    if (!pendingCueName) return;
+    const match = cues.find(
+      (c) => c.name.toLowerCase() === pendingCueName.toLowerCase()
+    );
+    if (!match) return;
+    setCueIds((prev) => Array.from(new Set([...prev, match.id])));
+    setPendingCueName(null);
+  }, [cues, pendingCueName]);
+
+  useEffect(() => {
+    if (!pendingLocationName) return;
+    const match = locations.find(
+      (l) => l.name.toLowerCase() === pendingLocationName.toLowerCase()
+    );
+    if (!match) return;
+    setLocationIds((prev) => Array.from(new Set([...prev, match.id])));
+    setPendingLocationName(null);
+  }, [locations, pendingLocationName]);
 
   const habitSet = useMemo(() => new Set(habitIds), [habitIds]);
   const cueSet = useMemo(() => new Set(cueIds), [cueIds]);
@@ -210,19 +246,9 @@ export default function OnboardingScreen() {
       const name = customHabit.trim();
       if (!name) return;
 
-      // IMPORTANT: allow auto-select for convenience,
-      // but onboarding completion is separate (Finish button).
-      await addCustomHabit(name, true);
-
+      setPendingHabitName(name);
       setCustomHabit("");
-
-      // After refresh, auto-select may have already persisted.
-      // Also mirror it locally so the chip lights up immediately.
-      const match = habits.find(
-        (h) => h.name.toLowerCase() === name.toLowerCase()
-      );
-      if (match)
-        setHabitIds((prev) => Array.from(new Set([...prev, match.id])));
+      await addCustomHabit(name, true);
       return;
     }
 
@@ -230,32 +256,22 @@ export default function OnboardingScreen() {
       const name = customCue.trim();
       if (!name) return;
 
-      await addCustomCue(name, true);
+      setPendingCueName(name);
       setCustomCue("");
-
-      const match = cues.find(
-        (c) => c.name.toLowerCase() === name.toLowerCase()
-      );
-      if (match) setCueIds((prev) => Array.from(new Set([...prev, match.id])));
+      await addCustomCue(name, true);
       return;
     }
 
     const name = customLocation.trim();
     if (!name) return;
 
-    await addCustomLocation(name, true);
+    setPendingLocationName(name);
     setCustomLocation("");
-
-    const match = locations.find(
-      (l) => l.name.toLowerCase() === name.toLowerCase()
-    );
-    if (match)
-      setLocationIds((prev) => Array.from(new Set([...prev, match.id])));
+    await addCustomLocation(name, true);
   };
 
   const validateBeforeNext = () => {
-    // Only enforce "at least one habit" once user reaches/leaves the Habits step
-    const habitsStepIndex = setupStartIndex; // first setup step
+    const habitsStepIndex = setupStartIndex;
     if (step === habitsStepIndex && habitIds.length === 0) {
       Alert.alert(
         "Pick at least one habit",
@@ -289,7 +305,6 @@ export default function OnboardingScreen() {
     await completeOnboarding();
   };
 
-  // Progress bar + larger text
   const ProgressBar = () => {
     const pct = ((step + 1) / totalSteps) * 100;
 
@@ -331,7 +346,6 @@ export default function OnboardingScreen() {
     );
   };
 
-  // Fixed bottom nav (same spot every step)
   const BottomNav = () => {
     const isFirst = step === 0;
     const isLast = step === totalSteps - 1;
@@ -397,7 +411,6 @@ export default function OnboardingScreen() {
   };
 
   const renderContent = () => {
-    // Info steps
     if (step < infoSteps.length) {
       const s = infoSteps[step];
       return (
@@ -412,8 +425,7 @@ export default function OnboardingScreen() {
       );
     }
 
-    // Setup steps
-    const setupIndex = step - setupStartIndex; // 0=habits, 1=cues, 2=locations
+    const setupIndex = step - setupStartIndex;
 
     if (setupIndex === 0) {
       return (
@@ -502,11 +514,7 @@ export default function OnboardingScreen() {
   return (
     <View className="flex-1 bg-white px-6 pt-12">
       <ProgressBar />
-
-      {/* Middle content expands to fill available space */}
       <View className="flex-1 pt-6">{renderContent()}</View>
-
-      {/* Bottom nav stays fixed in the same spot */}
       <BottomNav />
     </View>
   );
