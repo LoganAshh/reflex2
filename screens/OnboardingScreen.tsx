@@ -43,6 +43,18 @@ export default function OnboardingScreen() {
         title: "Why most apps\ndon’t work",
         body: "Most habit apps focus on streaks, punishment, or motivation. They tell you what you did, but not why.",
       },
+      {
+        title: "Patterns over Perfection",
+        body: "Reflex helps you understand the triggers behind the urge, not shame you for having one.",
+      },
+      {
+        title: "Your Privacy Matters",
+        body: "Your data is stored locally on your phone. We never collect or share your personal information.",
+      },
+      {
+        title: "Free Forever",
+        body: "Reflex's essential tracking and insights will always remain 100% free. Premium features will be optional add-ons to enhance your experience.",
+      },
     ],
     []
   );
