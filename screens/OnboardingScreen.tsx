@@ -32,7 +32,7 @@ export default function OnboardingScreen() {
   const infoSteps = useMemo(
     () => [
       {
-        title: "Welcome to Reflex",
+        title: "Welcome to Reflex!",
         body: "Reflex is built for quick, low-friction logging. The goal is to catch patterns early — not make you fill out a survey every time you slip.",
       },
       {
@@ -324,9 +324,13 @@ export default function OnboardingScreen() {
     if (step < infoSteps.length) {
       const s = infoSteps[step];
       return (
-        <View className="flex-1 justify-center">
-          <Text className="text-4xl font-bold text-gray-900">{s.title}</Text>
-          <Text className="mt-5 text-lg leading-7 text-gray-700">{s.body}</Text>
+        <View className="flex-1 items-center justify-center px-4">
+          <Text className="text-center text-4xl font-bold text-gray-900">
+            {s.title}
+          </Text>
+          <Text className="mt-5 text-center text-lg leading-7 text-gray-700">
+            {s.body}
+          </Text>
         </View>
       );
     }
