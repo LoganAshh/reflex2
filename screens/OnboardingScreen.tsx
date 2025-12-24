@@ -273,8 +273,15 @@ export default function OnboardingScreen() {
           <Pressable
             onPress={() => onAddCustom(type)}
             className="rounded-xl bg-gray-900 px-4 py-3"
+            style={{
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+              elevation: 6,
+            }}
           >
-            <Text className="font-semibold text-white">Add</Text>
+            <Text className="text-base font-bold text-white">Add</Text>
           </Pressable>
         </View>
 
@@ -312,8 +319,16 @@ export default function OnboardingScreen() {
             <Pressable
               onPress={goBack}
               className="flex-1 rounded-2xl border border-gray-200 bg-white px-5 py-4"
+              style={({ pressed }) => ({
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: pressed ? 1 : 4 },
+                shadowOpacity: 0.18,
+                shadowRadius: pressed ? 2 : 4,
+                elevation: pressed ? 2 : 5,
+                transform: [{ translateY: pressed ? 1 : 0 }],
+              })}
             >
-              <Text className="text-center text-base font-semibold text-gray-900">
+              <Text className="text-center text-lg font-bold text-gray-900">
                 Back
               </Text>
             </Pressable>
@@ -324,8 +339,16 @@ export default function OnboardingScreen() {
             className={`rounded-2xl bg-green-600 px-5 py-4 ${
               !isFirst ? "flex-1" : "w-full"
             }`}
+            style={({ pressed }) => ({
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: pressed ? 2 : 6 },
+              shadowOpacity: 0.25,
+              shadowRadius: pressed ? 3 : 6,
+              elevation: pressed ? 3 : 8,
+              transform: [{ translateY: pressed ? 2 : 0 }],
+            })}
           >
-            <Text className="text-center text-base font-semibold text-white">
+            <Text className="text-center text-lg font-bold text-white">
               {primaryText}
             </Text>
           </Pressable>
