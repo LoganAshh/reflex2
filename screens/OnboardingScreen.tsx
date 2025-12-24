@@ -150,13 +150,12 @@ export default function OnboardingScreen() {
     // App.tsx gate will switch to tabs automatically via hasOnboarded
   };
 
-  // UPDATED: bigger progress bar + bigger text
+  // Progress bar + larger text
   const ProgressBar = () => {
     const pct = ((step + 1) / totalSteps) * 100;
 
     return (
-      <View className="mt-10 mb-8">
-        {/* Top row */}
+      <View className="mt-10">
         <View className="mb-3 flex-row items-center justify-between">
           <Text className="text-sm font-semibold text-gray-700">
             Step {step + 1} of {totalSteps}
@@ -176,7 +175,6 @@ export default function OnboardingScreen() {
           )}
         </View>
 
-        {/* Progress bar */}
         <View className="h-4 w-full overflow-hidden rounded-full bg-gray-200">
           <View
             style={{ width: `${pct}%` }}
@@ -184,7 +182,6 @@ export default function OnboardingScreen() {
           />
         </View>
 
-        {/* Optional helper text */}
         {step >= setupStartIndex ? (
           <Text className="mt-3 text-sm text-gray-500">
             {totalSteps - step} step{totalSteps - step === 1 ? "" : "s"}{" "}
@@ -204,7 +201,7 @@ export default function OnboardingScreen() {
     selected: Set<number>;
     type: "habits" | "cues" | "locations";
   }) => (
-    <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-white p-4">
+    <View className="w-full rounded-2xl border border-gray-200 bg-white p-4">
       <Text className="text-sm font-semibold text-gray-900">Tap to select</Text>
 
       <View className="mt-3 flex-row flex-wrap gap-2">
@@ -232,7 +229,6 @@ export default function OnboardingScreen() {
         })}
       </View>
 
-      {/* Add custom */}
       <View className="mt-4">
         <Text className="text-xs font-semibold text-gray-700">Add custom</Text>
 
@@ -277,64 +273,60 @@ export default function OnboardingScreen() {
     </View>
   );
 
-  const StepNav = ({
-    primaryText,
-    onPrimary,
-    showBack,
-  }: {
-    primaryText: string;
-    onPrimary: () => void;
-    showBack: boolean;
-  }) => (
-    <View className="mt-6 flex-row items-center gap-3">
-      {showBack ? (
-        <Pressable
-          onPress={goBack}
-          className="flex-1 rounded-2xl border border-gray-200 bg-white px-5 py-4"
-        >
-          <Text className="text-center text-base font-semibold text-gray-900">
-            Back
-          </Text>
-        </Pressable>
-      ) : null}
+  // Fixed bottom nav (same spot every step)
+  const BottomNav = () => {
+    const isFirst = step === 0;
+    const isLast = step === totalSteps - 1;
 
-      <Pressable
-        onPress={onPrimary}
-        className={`rounded-2xl bg-green-600 px-5 py-4 ${showBack ? "flex-1" : "w-full"}`}
-      >
-        <Text className="text-center text-base font-semibold text-white">
-          {primaryText}
-        </Text>
-      </Pressable>
-    </View>
-  );
+    const primaryText = isLast
+      ? "Finish"
+      : step === infoSteps.length - 1
+        ? "Start setup"
+        : "Next";
 
-  const renderStep = () => {
-    // Info steps (0..infoSteps.length-1)
+    const onPrimary = isLast
+      ? onFinish
+      : step === infoSteps.length - 1
+        ? skipToSetup
+        : goNext;
+
+    return (
+      <View className="pb-8 pt-4 mb-10">
+        <View className="flex-row items-center gap-3">
+          {!isFirst ? (
+            <Pressable
+              onPress={goBack}
+              className="flex-1 rounded-2xl border border-gray-200 bg-white px-5 py-4"
+            >
+              <Text className="text-center text-base font-semibold text-gray-900">
+                Back
+              </Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            onPress={onPrimary}
+            className={`rounded-2xl bg-green-600 px-5 py-4 ${
+              !isFirst ? "flex-1" : "w-full"
+            }`}
+          >
+            <Text className="text-center text-base font-semibold text-white">
+              {primaryText}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  };
+
+  const renderContent = () => {
+    // Info steps
     if (step < infoSteps.length) {
       const s = infoSteps[step];
       return (
-        <View className="mt-4">
-          <Text className="text-3xl font-bold text-gray-900">{s.title}</Text>
-          <Text className="mt-3 text-base leading-6 text-gray-600">
-            {s.body}
-          </Text>
-
-          <View className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <Text className="text-sm font-semibold text-gray-900">
-              What you’ll do next
-            </Text>
-            <Text className="mt-2 text-sm text-gray-600">
-              Pick the habits you want to track, then optionally add cues and
-              locations to make patterns obvious.
-            </Text>
-          </View>
-
-          <StepNav
-            primaryText={step === infoSteps.length - 1 ? "Start setup" : "Next"}
-            onPrimary={step === infoSteps.length - 1 ? skipToSetup : goNext}
-            showBack={step !== 0}
-          />
+        <View className="flex-1 justify-center">
+          <Text className="text-4xl font-bold text-gray-900">{s.title}</Text>
+          <Text className="mt-5 text-lg leading-7 text-gray-700">{s.body}</Text>
         </View>
       );
     }
@@ -344,71 +336,50 @@ export default function OnboardingScreen() {
 
     if (setupIndex === 0) {
       return (
-        <View className="mt-2">
+        <View className="flex-1">
           <Text className="text-3xl font-bold text-gray-900">Pick habits</Text>
           <Text className="mt-2 text-gray-600">
             Required — choose at least one.
           </Text>
 
-          <ChipList<Habit> data={habits} selected={habitSet} type="habits" />
-
-          <Text className="mt-3 text-xs text-gray-500">
-            Tip: start small. You can always add more later.
-          </Text>
-
-          <StepNav primaryText="Next" onPrimary={goNext} showBack />
+          <View className="mt-4 flex-1">
+            <ChipList<Habit> data={habits} selected={habitSet} type="habits" />
+          </View>
         </View>
       );
     }
 
     if (setupIndex === 1) {
       return (
-        <View className="mt-2">
+        <View className="flex-1">
           <Text className="text-3xl font-bold text-gray-900">Pick cues</Text>
           <Text className="mt-2 text-gray-600">
             Optional — common triggers that lead to the habit.
           </Text>
 
-          <ChipList<Cue> data={cues} selected={cueSet} type="cues" />
-
-          <StepNav primaryText="Next" onPrimary={goNext} showBack />
+          <View className="mt-4 flex-1">
+            <ChipList<Cue> data={cues} selected={cueSet} type="cues" />
+          </View>
         </View>
       );
     }
 
-    // setupIndex === 2
     return (
-      <View className="mt-2">
+      <View className="flex-1">
         <Text className="text-3xl font-bold text-gray-900">Pick locations</Text>
         <Text className="mt-2 text-gray-600">
           Optional — where it usually happens.
         </Text>
 
-        <ChipList<Place>
-          data={locations}
-          selected={locationSet}
-          type="locations"
-        />
+        <View className="mt-4 flex-1">
+          <ChipList<Place>
+            data={locations}
+            selected={locationSet}
+            type="locations"
+          />
+        </View>
 
-        <Pressable
-          onPress={onFinish}
-          className="mt-6 w-full rounded-2xl bg-green-600 px-5 py-4"
-        >
-          <Text className="text-center text-lg font-semibold text-white">
-            Finish
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={goBack}
-          className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4"
-        >
-          <Text className="text-center text-base font-semibold text-gray-900">
-            Back
-          </Text>
-        </Pressable>
-
-        <Text className="mb-6 mt-4 text-center text-xs text-gray-500">
+        <Text className="mt-4 text-center text-xs text-gray-500">
           Data stays on-device (SQLite). You can add export/backup later.
         </Text>
       </View>
@@ -418,7 +389,12 @@ export default function OnboardingScreen() {
   return (
     <View className="flex-1 bg-white px-6 pt-12">
       <ProgressBar />
-      {renderStep()}
+
+      {/* Middle content expands to fill available space */}
+      <View className="flex-1 pt-6">{renderContent()}</View>
+
+      {/* Bottom nav stays fixed in the same spot */}
+      <BottomNav />
     </View>
   );
 }
