@@ -53,6 +53,8 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
         ? "e.g., After Coffee"
         : "e.g., Office Parking Lot";
 
+  const canAdd = value.trim().length > 0;
+
   return (
     <View className="w-full rounded-2xl border border-gray-200 bg-white p-4">
       <Text className="text-sm font-semibold text-gray-900">Tap to select</Text>
@@ -96,18 +98,30 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
           />
 
           <Pressable
-            onPress={() => onAddCustom(type)}
-            className="rounded-xl bg-gray-900 px-4 py-3"
+            onPress={() => {
+              if (!canAdd) return;
+              onAddCustom(type);
+            }}
+            disabled={!canAdd}
+            className={`rounded-xl px-4 py-3 ${
+              canAdd ? "bg-gray-900" : "bg-white border border-gray-200"
+            }`}
             style={({ pressed }) => ({
-              shadowColor: "#000",
+              shadowColor: canAdd ? "#000" : "transparent",
               shadowOffset: { width: 0, height: pressed ? 2 : 4 },
-              shadowOpacity: 0.2,
+              shadowOpacity: canAdd ? 0.2 : 0,
               shadowRadius: pressed ? 3 : 4,
-              elevation: pressed ? 4 : 6,
-              transform: [{ translateY: pressed ? 1 : 0 }],
+              elevation: canAdd ? (pressed ? 4 : 6) : 0,
+              transform: [{ translateY: canAdd && pressed ? 1 : 0 }],
             })}
           >
-            <Text className="text-base font-bold text-white">Add</Text>
+            <Text
+              className={`text-base font-bold ${
+                canAdd ? "text-white" : "text-gray-400"
+              }`}
+            >
+              Add
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -150,7 +164,6 @@ export default function OnboardingScreen() {
 
   // Haptics
   const buzz = () => {
-    // Small, subtle tap
     Haptics.selectionAsync();
   };
 
