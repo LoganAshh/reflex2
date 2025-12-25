@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { RootTabParamList } from "../App";
@@ -11,7 +11,7 @@ function startOfDayMs(d: Date) {
 
 function startOfWeekMs(d: Date) {
   // Week starts Monday
-  const day = d.getDay(); // 0=Sun, 1=Mon, ...
+  const day = d.getDay(); // 0=Sun, 1=Mon
   const diffToMonday = (day + 6) % 7;
   const monday = new Date(
     d.getFullYear(),
@@ -38,6 +38,7 @@ export default function HomeScreen() {
     const todaysLogs = logs.filter(
       (l) => l.createdAt >= todayStart && l.createdAt < tomorrowStart
     );
+
     const todayLogs = todaysLogs.length;
     const todayResists = todaysLogs.reduce(
       (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
@@ -51,43 +52,42 @@ export default function HomeScreen() {
       0
     );
 
-    // Streaks are based on "days with >= 1 resist"
+    // Streaks = days with ≥1 resist
     const resistDays = new Set<string>();
     for (const l of logs) {
-      if (l.didResist !== 1) continue;
-      resistDays.add(dayKey(new Date(l.createdAt)));
+      if (l.didResist === 1) {
+        resistDays.add(dayKey(new Date(l.createdAt)));
+      }
     }
 
     const hasResistOnDay = (d: Date) => resistDays.has(dayKey(d));
 
-    // Current streak up to today
     let currentStreak = 0;
     {
       const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       while (hasResistOnDay(cursor)) {
-        currentStreak += 1;
+        currentStreak++;
         cursor.setDate(cursor.getDate() - 1);
       }
     }
 
-    // Best streak ever
-    const resistDayDates = Array.from(resistDays).map((k) => {
-      const [y, m, d] = k.split("-").map(Number);
-      return new Date(y, m - 1, d).getTime();
-    });
-    resistDayDates.sort((a, b) => a - b);
+    const resistDates = Array.from(resistDays)
+      .map((k) => {
+        const [y, m, d] = k.split("-").map(Number);
+        return new Date(y, m - 1, d).getTime();
+      })
+      .sort((a, b) => a - b);
 
     let bestStreak = 0;
     let run = 0;
     const oneDay = 24 * 60 * 60 * 1000;
 
-    for (let i = 0; i < resistDayDates.length; i++) {
+    for (let i = 0; i < resistDates.length; i++) {
       if (i === 0) run = 1;
       else {
-        run =
-          resistDayDates[i] - resistDayDates[i - 1] === oneDay ? run + 1 : 1;
+        run = resistDates[i] - resistDates[i - 1] === oneDay ? run + 1 : 1;
       }
-      if (run > bestStreak) bestStreak = run;
+      bestStreak = Math.max(bestStreak, run);
     }
 
     return {
@@ -117,15 +117,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <ScrollView
-      className="flex-1 bg-white"
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{
-        paddingHorizontal: 24,
-        paddingTop: 40,
-        paddingBottom: 120, // prevents border from hitting tab bar
-      }}
-    >
+    <View className="flex-1 bg-white px-6 pt-10">
       <Text className="text-3xl font-bold text-gray-900">Welcome back!</Text>
       <Text className="mt-2 text-gray-600">
         Small wins. Consistent progress.
@@ -152,7 +144,7 @@ export default function HomeScreen() {
       <View className="mt-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-5">
         <Text className="text-base font-semibold text-gray-900">Dashboard</Text>
         <Text className="mt-1 text-sm text-gray-600">
-          Focus on consistency — you’re building the skill.
+          Focus on consistency, you’re building the skill.
         </Text>
 
         <View className="mt-4 flex-row gap-3">
@@ -181,9 +173,9 @@ export default function HomeScreen() {
         <Text className="mt-4 text-sm text-gray-600">
           {stats.todayLogs === 0
             ? "Quick check-in takes 10 seconds. Do one now."
-            : "Nice. Keep the momentum going."}
+            : "Nice! Keep the momentum going."}
         </Text>
       </View>
-    </ScrollView>
+    </View>
   );
 }
