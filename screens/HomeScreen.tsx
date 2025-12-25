@@ -21,6 +21,10 @@ function startOfWeekMs(d: Date) {
   return startOfDayMs(monday);
 }
 
+function dayKey(d: Date) {
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
 export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { logs } = useData();
@@ -34,28 +38,29 @@ export default function HomeScreen() {
     const todaysLogs = logs.filter(
       (l) => l.createdAt >= todayStart && l.createdAt < tomorrowStart
     );
-    const todayCheckins = todaysLogs.length;
-
-    const weekLogs = logs.filter((l) => l.createdAt >= weekStart);
-    const weekCheckins = weekLogs.length;
-
-    const weekResists = weekLogs.reduce(
+    const todayLogs = todaysLogs.length;
+    const todayResists = todaysLogs.reduce(
       (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
       0
     );
 
+    const weekLogsArr = logs.filter((l) => l.createdAt >= weekStart);
+    const weekLogs = weekLogsArr.length;
+    const weekResists = weekLogsArr.reduce(
+      (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
+      0
+    );
+
+    // Streaks are based on "days with >= 1 resist"
     const resistDays = new Set<string>();
     for (const l of logs) {
       if (l.didResist !== 1) continue;
-      const dt = new Date(l.createdAt);
-      resistDays.add(
-        `${dt.getFullYear()}-${dt.getMonth() + 1}-${dt.getDate()}`
-      );
+      resistDays.add(dayKey(new Date(l.createdAt)));
     }
 
-    const hasResistOnDay = (d: Date) =>
-      resistDays.has(`${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`);
+    const hasResistOnDay = (d: Date) => resistDays.has(dayKey(d));
 
+    // Current streak up to today
     let currentStreak = 0;
     {
       const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -65,6 +70,7 @@ export default function HomeScreen() {
       }
     }
 
+    // Best streak ever
     const resistDayDates = Array.from(resistDays).map((k) => {
       const [y, m, d] = k.split("-").map(Number);
       return new Date(y, m - 1, d).getTime();
@@ -84,30 +90,13 @@ export default function HomeScreen() {
       if (run > bestStreak) bestStreak = run;
     }
 
-    const cueCounts = new Map<string, number>();
-    for (const l of logs) {
-      const cue = (l.cueName ?? "").trim();
-      if (!cue) continue;
-      cueCounts.set(cue, (cueCounts.get(cue) ?? 0) + 1);
-    }
-
-    let topCue: string | null = null;
-    let topCueCount = 0;
-    for (const [cue, count] of cueCounts.entries()) {
-      if (count > topCueCount) {
-        topCue = cue;
-        topCueCount = count;
-      }
-    }
-
     return {
-      todayCheckins,
-      weekCheckins,
+      todayLogs,
+      weekLogs,
+      todayResists,
       weekResists,
       currentStreak,
       bestStreak,
-      topCue,
-      topCueCount,
     };
   }, [logs]);
 
@@ -126,16 +115,6 @@ export default function HomeScreen() {
       {sub ? <Text className="mt-1 text-xs text-gray-500">{sub}</Text> : null}
     </View>
   );
-
-  const streakHeadline =
-    stats.currentStreak > 0
-      ? `${stats.currentStreak}-day streak 🔥`
-      : "Start a streak today";
-
-  const streakSub =
-    stats.currentStreak > 0
-      ? "Days in a row with at least one resist"
-      : "One resist today kicks it off";
 
   return (
     <ScrollView
@@ -177,23 +156,20 @@ export default function HomeScreen() {
         </Text>
 
         <View className="mt-4 flex-row gap-3">
-          <Card
-            label="Today’s check-ins"
-            value={`${stats.todayCheckins}`}
-            sub="Awareness is a win"
-          />
-          <Card
-            label="This week"
-            value={`${stats.weekCheckins}`}
-            sub="Total check-ins"
-          />
+          <Card label="Logs today" value={`${stats.todayLogs}`} />
+          <Card label="Logs this week" value={`${stats.weekLogs}`} />
+        </View>
+
+        <View className="mt-3 flex-row gap-3">
+          <Card label="Resists today" value={`${stats.todayResists}`} />
+          <Card label="Resists this week" value={`${stats.weekResists}`} />
         </View>
 
         <View className="mt-3 flex-row gap-3">
           <Card
-            label="Resists this week"
-            value={`${stats.weekResists}`}
-            sub="Count your wins"
+            label="Current streak"
+            value={`${stats.currentStreak}`}
+            sub="Days with ≥1 resist"
           />
           <Card
             label="Best streak"
@@ -202,32 +178,8 @@ export default function HomeScreen() {
           />
         </View>
 
-        <View className="mt-3 flex-row gap-3">
-          <View className="flex-1 rounded-2xl border border-gray-200 bg-white p-4">
-            <Text className="text-xs font-semibold text-gray-500">Streak</Text>
-            <Text className="mt-2 text-base font-semibold text-gray-900">
-              {streakHeadline}
-            </Text>
-            <Text className="mt-1 text-xs text-gray-500">{streakSub}</Text>
-          </View>
-
-          <View className="flex-1 rounded-2xl border border-gray-200 bg-white p-4">
-            <Text className="text-xs font-semibold text-gray-500">
-              Top trigger to plan for
-            </Text>
-            <Text className="mt-2 text-base font-semibold text-gray-900">
-              {stats.topCue ?? "—"}
-            </Text>
-            <Text className="mt-1 text-xs text-gray-500">
-              {stats.topCue
-                ? `${stats.topCueCount} time(s)`
-                : "Log cues to spot patterns"}
-            </Text>
-          </View>
-        </View>
-
         <Text className="mt-4 text-sm text-gray-600">
-          {stats.todayCheckins === 0
+          {stats.todayLogs === 0
             ? "Quick check-in takes 10 seconds. Do one now."
             : "Nice. Keep the momentum going."}
         </Text>
