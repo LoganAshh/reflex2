@@ -109,10 +109,6 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
             <Text className="text-base font-bold text-white">Add</Text>
           </Pressable>
         </View>
-
-        <Text className="mt-2 text-xs text-gray-500">
-          Custom items are saved locally on your device.
-        </Text>
       </View>
     </View>
   );
@@ -335,13 +331,6 @@ export default function OnboardingScreen() {
             className="h-4 rounded-full bg-green-600"
           />
         </View>
-
-        {step >= setupStartIndex ? (
-          <Text className="mt-3 text-sm text-gray-500">
-            {totalSteps - step} step{totalSteps - step === 1 ? "" : "s"}{" "}
-            remaining
-          </Text>
-        ) : null}
       </View>
     );
   };
@@ -431,8 +420,12 @@ export default function OnboardingScreen() {
       return (
         <View className="flex-1">
           <Text className="text-3xl font-bold text-gray-900">Pick habits</Text>
-          <Text className="mt-2 text-gray-600">
-            Required — choose at least one.
+          <Text className="mt-3 text-sm font-semibold text-gray-700">
+            Tip: Start small
+          </Text>
+          <Text className="mt-1 text-sm leading-6 text-gray-600">
+            It’s usually easier to focus on one or two habits at first. You can
+            always add more later.
           </Text>
 
           <View className="mt-4 flex-1">
