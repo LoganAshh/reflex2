@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { View, Text, Pressable, TextInput, Alert } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useData, type Habit, type Cue, type Place } from "../data/DataContext";
 
 type ChipListProps<T extends { id: number; name: string; isCustom: 0 | 1 }> = {
@@ -147,6 +148,12 @@ export default function OnboardingScreen() {
     null
   );
 
+  // Haptics
+  const buzz = () => {
+    // Small, subtle tap
+    Haptics.selectionAsync();
+  };
+
   // Multi-step flow
   const infoSteps = useMemo(
     () => [
@@ -172,7 +179,7 @@ export default function OnboardingScreen() {
       },
       {
         title: "Free Forever",
-        body: "Reflex's tracking and insights will always remain 100% free. Premium features will be optional add-ons to enhance your experience.",
+        body: "Reflex's essential tracking and insights will always remain 100% free. Subscriptions will be offered for optional advanced features.",
       },
     ],
     []
@@ -313,7 +320,10 @@ export default function OnboardingScreen() {
 
           {step < setupStartIndex ? (
             <Pressable
-              onPress={skipToSetup}
+              onPress={() => {
+                buzz();
+                skipToSetup();
+              }}
               className="rounded-full px-4 py-1.5"
             >
               <Text className="text-sm font-semibold text-gray-700">
@@ -359,7 +369,10 @@ export default function OnboardingScreen() {
         <View className="flex-row items-center gap-3">
           {!isFirst ? (
             <Pressable
-              onPress={goBack}
+              onPress={() => {
+                buzz();
+                goBack();
+              }}
               className="flex-1 rounded-2xl border border-gray-200 bg-white px-5 py-4"
               style={({ pressed }) => ({
                 shadowColor: "#000",
@@ -377,7 +390,10 @@ export default function OnboardingScreen() {
           ) : null}
 
           <Pressable
-            onPress={onPrimary}
+            onPress={() => {
+              buzz();
+              onPrimary();
+            }}
             className={`rounded-2xl bg-green-600 px-5 py-4 ${
               !isFirst ? "flex-1" : "w-full"
             }`}
@@ -420,6 +436,7 @@ export default function OnboardingScreen() {
       return (
         <View className="flex-1">
           <Text className="text-3xl font-bold text-gray-900">Pick habits</Text>
+
           <Text className="mt-3 text-sm font-semibold text-gray-700">
             Tip: Start small
           </Text>
@@ -496,10 +513,6 @@ export default function OnboardingScreen() {
             onAddCustom={onAddCustom}
           />
         </View>
-
-        <Text className="mt-4 text-center text-xs text-gray-500">
-          Data stays on-device (SQLite). You can add export/backup later.
-        </Text>
       </View>
     );
   };
