@@ -47,10 +47,10 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
 
   const placeholder =
     type === "habits"
-      ? "e.g., nail biting"
+      ? "e.g., Nail Biting"
       : type === "cues"
-        ? "e.g., after coffee"
-        : "e.g., office parking lot";
+        ? "e.g., After Coffee"
+        : "e.g., Office Parking Lot";
 
   return (
     <View className="w-full rounded-2xl border border-gray-200 bg-white p-4">
@@ -320,7 +320,7 @@ export default function OnboardingScreen() {
               onPress={skipToSetup}
               className="rounded-full px-4 py-1.5"
             >
-              <Text className="text-sm font-semibold text-gray-900">
+              <Text className="text-sm font-semibold text-gray-700">
                 Skip to setup
               </Text>
             </Pressable>
