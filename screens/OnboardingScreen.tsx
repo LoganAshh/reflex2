@@ -50,7 +50,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
     type === "habits"
       ? "e.g., Nail Biting"
       : type === "cues"
-        ? "e.g., After Coffee"
+        ? "e.g., After coffee"
         : "e.g., Office Parking Lot";
 
   const canAdd = value.trim().length > 0;

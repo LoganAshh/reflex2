@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { View, Text, FlatList, ScrollView } from "react-native";
+import { useMemo, useState } from "react";
+import { View, Text, FlatList, ScrollView, Pressable } from "react-native";
 import { useData, type LogEntry } from "../data/DataContext";
 
 function startOfDayMs(d: Date) {
@@ -22,17 +22,38 @@ function dayKey(ms: number) {
   return `${dt.getFullYear()}-${dt.getMonth() + 1}-${dt.getDate()}`;
 }
 
+type TabKey = "Overall" | string;
+
 export default function AnalyticsScreen() {
   const { logs } = useData();
+  const [activeTab, setActiveTab] = useState<TabKey>("Overall");
+
+  // Build tabs (Overall + unique habit names)
+  const habitTabs = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of logs) {
+      const h = (l.habitName ?? "").trim();
+      if (h) set.add(h);
+    }
+    return [
+      "Overall",
+      ...Array.from(set).sort((a, b) => a.localeCompare(b)),
+    ] as TabKey[];
+  }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    if (activeTab === "Overall") return logs;
+    return logs.filter((l) => (l.habitName ?? "").trim() === activeTab);
+  }, [logs, activeTab]);
 
   const data = useMemo(() => {
     const now = new Date();
     const weekStart = startOfWeekMs(now);
 
-    const weekLogs = logs.filter((l) => l.createdAt >= weekStart);
+    const weekLogs = filteredLogs.filter((l) => l.createdAt >= weekStart);
 
     const resistDays = new Set<string>();
-    for (const l of logs) {
+    for (const l of filteredLogs) {
       if (l.didResist === 1) resistDays.add(dayKey(l.createdAt));
     }
 
@@ -47,12 +68,14 @@ export default function AnalyticsScreen() {
     const habitCounts = new Map<string, number>();
 
     for (const l of weekLogs) {
-      if (l.cueName)
-        cueCounts.set(l.cueName, (cueCounts.get(l.cueName) ?? 0) + 1);
-      if (l.locationName)
-        locCounts.set(l.locationName, (locCounts.get(l.locationName) ?? 0) + 1);
-      if (l.habitName)
-        habitCounts.set(l.habitName, (habitCounts.get(l.habitName) ?? 0) + 1);
+      const cue = (l.cueName ?? "").trim();
+      if (cue) cueCounts.set(cue, (cueCounts.get(cue) ?? 0) + 1);
+
+      const loc = (l.locationName ?? "").trim();
+      if (loc) locCounts.set(loc, (locCounts.get(loc) ?? 0) + 1);
+
+      const habit = (l.habitName ?? "").trim();
+      if (habit) habitCounts.set(habit, (habitCounts.get(habit) ?? 0) + 1);
     }
 
     return {
@@ -61,7 +84,42 @@ export default function AnalyticsScreen() {
       topHabits: topN(habitCounts, 3),
       weekLogsPreview: weekLogs.slice(0, 10),
     };
-  }, [logs]);
+  }, [filteredLogs]);
+
+  const Tabs = () => (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      className="mt-4"
+      contentContainerStyle={{ paddingRight: 24 }}
+    >
+      <View className="flex-row gap-2">
+        {habitTabs.map((t) => {
+          const selected = t === activeTab;
+          return (
+            <Pressable
+              key={t}
+              onPress={() => setActiveTab(t)}
+              className={`rounded-full border px-4 py-2 ${
+                selected
+                  ? "border-gray-900 bg-gray-900"
+                  : "border-gray-200 bg-white"
+              }`}
+            >
+              <Text
+                className={`text-sm font-semibold ${
+                  selected ? "text-white" : "text-gray-900"
+                }`}
+                numberOfLines={1}
+              >
+                {t}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
 
   const ListBlock = ({
     title,
@@ -128,6 +186,11 @@ export default function AnalyticsScreen() {
     );
   };
 
+  const patternTitle =
+    activeTab === "Overall"
+      ? "Weekly patterns"
+      : `Weekly patterns — ${activeTab}`;
+
   return (
     <ScrollView
       className="flex-1 bg-white px-6 pt-10"
@@ -139,9 +202,11 @@ export default function AnalyticsScreen() {
         Look for patterns, not perfection.
       </Text>
 
-      <View className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-5">
+      <Tabs />
+
+      <View className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-5">
         <Text className="text-base font-semibold text-gray-900">
-          Weekly patterns
+          {patternTitle}
         </Text>
 
         <ListBlock
@@ -169,7 +234,11 @@ export default function AnalyticsScreen() {
 
         {data.weekLogsPreview.length === 0 ? (
           <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-5">
-            <Text className="text-gray-700">No logs this week yet.</Text>
+            <Text className="text-gray-700">
+              {activeTab === "Overall"
+                ? "No logs this week yet."
+                : `No logs for “${activeTab}” this week yet.`}
+            </Text>
           </View>
         ) : (
           <FlatList
