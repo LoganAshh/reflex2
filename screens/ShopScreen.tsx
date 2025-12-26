@@ -9,20 +9,49 @@ import {
 } from "react-native";
 import { useData, type ReplacementAction } from "../data/DataContext";
 
-type Filter = "all" | "preset" | "custom";
+const ALL = "all";
+const CUSTOM = "custom";
+const UNCATEGORIZED = "__uncategorized__";
+
+type Filter = string; // "all" | "custom" | category string | "__uncategorized__"
 
 export default function ShopScreen() {
   const { actions, addAction } = useData();
 
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>(ALL);
   const [text, setText] = useState("");
 
-  const filtered = useMemo(() => {
-    if (filter === "all") return actions;
+  // Build category chips from PRESET actions (isCustom === 0)
+  const presetCategories = useMemo(() => {
+    const set = new Set<string>();
+    let hasUncategorized = false;
 
-    return actions.filter((a) =>
-      filter === "preset" ? a.isCustom === 0 : a.isCustom === 1
-    );
+    for (const a of actions) {
+      if (a.isCustom !== 0) continue;
+      const cat = a.category?.trim();
+      if (cat) set.add(cat);
+      else hasUncategorized = true;
+    }
+
+    const arr = Array.from(set).sort((a, b) => a.localeCompare(b));
+    if (hasUncategorized) arr.push(UNCATEGORIZED);
+    return arr;
+  }, [actions]);
+
+  const filtered = useMemo(() => {
+    if (filter === ALL) return actions;
+
+    if (filter === CUSTOM) {
+      return actions.filter((a) => a.isCustom === 1);
+    }
+
+    // Category filter (presets only)
+    return actions.filter((a) => {
+      if (a.isCustom !== 0) return false;
+
+      if (filter === UNCATEGORIZED) return !a.category || !a.category.trim();
+      return (a.category?.trim() ?? "") === filter;
+    });
   }, [actions, filter]);
 
   const onTry = (action: ReplacementAction) => {
@@ -99,14 +128,22 @@ export default function ShopScreen() {
       </Text>
 
       {/* Filters */}
-      <View className="mt-5 flex-row gap-2">
-        <FilterPill label="All" value="all" />
-        <FilterPill label="Presets" value="preset" />
-        <FilterPill label="Custom" value="custom" />
+      <View className="mt-5 flex-row flex-wrap gap-2">
+        <FilterPill label="All" value={ALL} />
+
+        {presetCategories.map((cat) => (
+          <FilterPill
+            key={cat}
+            value={cat}
+            label={cat === UNCATEGORIZED ? "Other" : cat}
+          />
+        ))}
+
+        <FilterPill label="Custom" value={CUSTOM} />
       </View>
 
       {/* Add new action (ONLY when Custom selected) */}
-      {filter === "custom" ? (
+      {filter === CUSTOM ? (
         <View className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
           <Text className="text-sm font-semibold text-gray-900">
             Add an action
@@ -147,9 +184,9 @@ export default function ShopScreen() {
         {filtered.length === 0 ? (
           <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-5">
             <Text className="text-gray-700">
-              {filter === "custom"
+              {filter === CUSTOM
                 ? "No custom actions yet. Add one above."
-                : "No actions yet."}
+                : "No actions in this category yet."}
             </Text>
           </View>
         ) : (
