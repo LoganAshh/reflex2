@@ -24,19 +24,19 @@ export default function ShopScreen() {
   const [filter, setFilter] = useState<Filter>(ALL);
   const [text, setText] = useState("");
 
-  // Tracks actions the user has pressed "Try" on (keeps order, unique)
-  const [triedIds, setTriedIds] = useState<number[]>([]);
+  // Tracks actions the user has selected (unique, preserves order)
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  const triedActions = useMemo(() => {
-    if (triedIds.length === 0) return [];
+  const selectedActions = useMemo(() => {
+    if (selectedIds.length === 0) return [];
     const map = new Map(actions.map((a) => [a.id, a]));
-    return triedIds
+    return selectedIds
       .map((id) => map.get(id))
       .filter(Boolean) as ReplacementAction[];
-  }, [actions, triedIds]);
+  }, [actions, selectedIds]);
 
   const filtered = useMemo(() => {
-    if (filter === SELECTED) return triedActions;
+    if (filter === SELECTED) return selectedActions;
     if (filter === ALL) return actions;
 
     if (filter === CUSTOM) {
@@ -47,18 +47,11 @@ export default function ShopScreen() {
     return actions.filter(
       (a) => a.isCustom === 0 && (a.category ?? "") === filter
     );
-  }, [actions, filter, triedActions]);
+  }, [actions, filter, selectedActions]);
 
-  const onTry = (action: ReplacementAction) => {
-    // Record this action in "Selected" list (unique, preserve first time order)
-    setTriedIds((prev) =>
+  const onSelect = (action: ReplacementAction) => {
+    setSelectedIds((prev) =>
       prev.includes(action.id) ? prev : [action.id, ...prev]
-    );
-
-    Alert.alert(
-      "Nice choice ✅",
-      `Try: "${action.title}"\n\nEven a small replacement action is progress.`,
-      [{ text: "Got it" }]
     );
   };
 
@@ -91,6 +84,7 @@ export default function ShopScreen() {
 
   const renderItem = ({ item }: { item: ReplacementAction }) => {
     const isCustom = item.isCustom === 1;
+    const isSelected = selectedIds.includes(item.id);
 
     return (
       <View className="mb-3 rounded-2xl border border-gray-200 bg-white p-4">
@@ -106,10 +100,19 @@ export default function ShopScreen() {
           </View>
 
           <Pressable
-            onPress={() => onTry(item)}
-            className="rounded-xl bg-green-600 px-4 py-2"
+            onPress={() => onSelect(item)}
+            disabled={isSelected}
+            className={`rounded-xl px-4 py-2 ${
+              isSelected ? "bg-gray-300" : "bg-green-600"
+            }`}
           >
-            <Text className="font-semibold text-white">Try</Text>
+            <Text
+              className={`font-semibold ${
+                isSelected ? "text-gray-700" : "text-white"
+              }`}
+            >
+              {isSelected ? "Selected" : "Select"}
+            </Text>
           </Pressable>
         </View>
 
@@ -129,9 +132,9 @@ export default function ShopScreen() {
 
       {/* Filters */}
       <View className="mt-5 flex-row flex-wrap gap-2">
-        {/* Stays first */}
+        {/* Always first */}
         <FilterPill
-          label={`Selected${triedIds.length ? ` (${triedIds.length})` : ""}`}
+          label={`Selected${selectedIds.length ? ` (${selectedIds.length})` : ""}`}
           value={SELECTED}
         />
 
@@ -182,14 +185,14 @@ export default function ShopScreen() {
           {filter === SELECTED ? "Selected actions" : "Actions"}
         </Text>
         <Text className="mt-1 text-sm text-gray-500">
-          Tap “Try” to use one right now.
+          Tap “Select” to add an action to your Selected list.
         </Text>
 
         {filtered.length === 0 ? (
           <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-5">
             <Text className="text-gray-700">
               {filter === SELECTED
-                ? "No selected actions yet. Tap “Try” on an action to add it here."
+                ? "No selected actions yet. Tap “Select” on an action to add it here."
                 : filter === CUSTOM
                   ? "No custom actions yet. Add one above."
                   : "No actions in this category yet."}
