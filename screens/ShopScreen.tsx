@@ -105,35 +105,37 @@ export default function ShopScreen() {
         <FilterPill label="Custom" value="custom" />
       </View>
 
-      {/* Add new action */}
-      <View className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
-        <Text className="text-sm font-semibold text-gray-900">
-          Add an action
-        </Text>
-        <View className="mt-3 flex-row items-center gap-3">
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="e.g., 10 push-ups, call a friend"
-            placeholderTextColor="#9CA3AF"
-            className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-          />
+      {/* Add new action (ONLY when Custom selected) */}
+      {filter === "custom" ? (
+        <View className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
+          <Text className="text-sm font-semibold text-gray-900">
+            Add an action
+          </Text>
+          <View className="mt-3 flex-row items-center gap-3">
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder="e.g., 10 push-ups, call a friend"
+              placeholderTextColor="#9CA3AF"
+              className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+            />
 
-          <Pressable
-            onPress={onAdd}
-            className={`rounded-xl px-4 py-3 ${
-              text.trim() ? "bg-gray-900" : "bg-gray-300"
-            }`}
-            disabled={!text.trim()}
-          >
-            <Text className="font-semibold text-white">Add</Text>
-          </Pressable>
+            <Pressable
+              onPress={onAdd}
+              className={`rounded-xl px-4 py-3 ${
+                text.trim() ? "bg-gray-900" : "bg-gray-300"
+              }`}
+              disabled={!text.trim()}
+            >
+              <Text className="font-semibold text-white">Add</Text>
+            </Pressable>
+          </View>
+
+          <Text className="mt-2 text-xs text-gray-500">
+            Actions are stored locally on your device.
+          </Text>
         </View>
-
-        <Text className="mt-2 text-xs text-gray-500">
-          Actions are stored locally on your device.
-        </Text>
-      </View>
+      ) : null}
 
       {/* List */}
       <View className="mt-6 flex-1">
@@ -147,7 +149,7 @@ export default function ShopScreen() {
             <Text className="text-gray-700">
               {filter === "custom"
                 ? "No custom actions yet. Add one above."
-                : "No actions yet. Add your first one above."}
+                : "No actions yet."}
             </Text>
           </View>
         ) : (
