@@ -133,10 +133,7 @@ export default function ShopScreen() {
 
       {/* Filters */}
       <View className="mt-5 flex-row flex-wrap gap-2">
-        <FilterPill
-          label={`Selected${selectedIds.length ? ` (${selectedIds.length})` : ""}`}
-          value={SELECTED}
-        />
+        <FilterPill label="Selected" value={SELECTED} />
         <FilterPill label="All" value={ALL} />
         {PRESET_CATEGORIES.map((cat) => (
           <FilterPill key={cat} label={cat} value={cat} />
