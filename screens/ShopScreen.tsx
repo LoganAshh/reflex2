@@ -39,9 +39,7 @@ export default function ShopScreen() {
     if (filter === SELECTED) return selectedActions;
     if (filter === ALL) return actions;
 
-    if (filter === CUSTOM) {
-      return actions.filter((a) => a.isCustom === 1);
-    }
+    if (filter === CUSTOM) return actions.filter((a) => a.isCustom === 1);
 
     // Preset category filter (presets only)
     return actions.filter(
@@ -49,9 +47,11 @@ export default function ShopScreen() {
     );
   }, [actions, filter, selectedActions]);
 
-  const onSelect = (action: ReplacementAction) => {
+  const toggleSelected = (actionId: number) => {
     setSelectedIds((prev) =>
-      prev.includes(action.id) ? prev : [action.id, ...prev]
+      prev.includes(actionId)
+        ? prev.filter((id) => id !== actionId)
+        : [actionId, ...prev]
     );
   };
 
@@ -100,15 +100,16 @@ export default function ShopScreen() {
           </View>
 
           <Pressable
-            onPress={() => onSelect(item)}
-            disabled={isSelected}
-            className={`rounded-xl px-4 py-2 ${
-              isSelected ? "bg-gray-300" : "bg-green-600"
+            onPress={() => toggleSelected(item.id)}
+            className={`rounded-xl border px-4 py-2 ${
+              isSelected
+                ? "bg-white border-gray-300"
+                : "bg-green-600 border-green-600"
             }`}
           >
             <Text
               className={`font-semibold ${
-                isSelected ? "text-gray-700" : "text-white"
+                isSelected ? "text-gray-900" : "text-white"
               }`}
             >
               {isSelected ? "Selected" : "Select"}
@@ -132,18 +133,14 @@ export default function ShopScreen() {
 
       {/* Filters */}
       <View className="mt-5 flex-row flex-wrap gap-2">
-        {/* Always first */}
         <FilterPill
           label={`Selected${selectedIds.length ? ` (${selectedIds.length})` : ""}`}
           value={SELECTED}
         />
-
         <FilterPill label="All" value={ALL} />
-
         {PRESET_CATEGORIES.map((cat) => (
           <FilterPill key={cat} label={cat} value={cat} />
         ))}
-
         <FilterPill label="Custom" value={CUSTOM} />
       </View>
 
@@ -185,14 +182,14 @@ export default function ShopScreen() {
           {filter === SELECTED ? "Selected actions" : "Actions"}
         </Text>
         <Text className="mt-1 text-sm text-gray-500">
-          Tap “Select” to add an action to your Selected list.
+          Tap “Select” to add or remove an action.
         </Text>
 
         {filtered.length === 0 ? (
           <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-5">
             <Text className="text-gray-700">
               {filter === SELECTED
-                ? "No selected actions yet. Tap “Select” on an action to add it here."
+                ? "No selected actions yet."
                 : filter === CUSTOM
                   ? "No custom actions yet. Add one above."
                   : "No actions in this category yet."}
