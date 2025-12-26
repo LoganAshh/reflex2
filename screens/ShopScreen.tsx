@@ -11,32 +11,16 @@ import { useData, type ReplacementAction } from "../data/DataContext";
 
 const ALL = "all";
 const CUSTOM = "custom";
-const UNCATEGORIZED = "__uncategorized__";
 
-type Filter = string; // "all" | "custom" | category string | "__uncategorized__"
+const PRESET_CATEGORIES = ["Physical", "Mental", "Social", "Creative"] as const;
+type PresetCategory = (typeof PRESET_CATEGORIES)[number];
+type Filter = typeof ALL | typeof CUSTOM | PresetCategory;
 
 export default function ShopScreen() {
   const { actions, addAction } = useData();
 
   const [filter, setFilter] = useState<Filter>(ALL);
   const [text, setText] = useState("");
-
-  // Build category chips from PRESET actions (isCustom === 0)
-  const presetCategories = useMemo(() => {
-    const set = new Set<string>();
-    let hasUncategorized = false;
-
-    for (const a of actions) {
-      if (a.isCustom !== 0) continue;
-      const cat = a.category?.trim();
-      if (cat) set.add(cat);
-      else hasUncategorized = true;
-    }
-
-    const arr = Array.from(set).sort((a, b) => a.localeCompare(b));
-    if (hasUncategorized) arr.push(UNCATEGORIZED);
-    return arr;
-  }, [actions]);
 
   const filtered = useMemo(() => {
     if (filter === ALL) return actions;
@@ -45,13 +29,10 @@ export default function ShopScreen() {
       return actions.filter((a) => a.isCustom === 1);
     }
 
-    // Category filter (presets only)
-    return actions.filter((a) => {
-      if (a.isCustom !== 0) return false;
-
-      if (filter === UNCATEGORIZED) return !a.category || !a.category.trim();
-      return (a.category?.trim() ?? "") === filter;
-    });
+    // Preset category filter (presets only)
+    return actions.filter(
+      (a) => a.isCustom === 0 && (a.category ?? "") === filter
+    );
   }, [actions, filter]);
 
   const onTry = (action: ReplacementAction) => {
@@ -130,15 +111,9 @@ export default function ShopScreen() {
       {/* Filters */}
       <View className="mt-5 flex-row flex-wrap gap-2">
         <FilterPill label="All" value={ALL} />
-
-        {presetCategories.map((cat) => (
-          <FilterPill
-            key={cat}
-            value={cat}
-            label={cat === UNCATEGORIZED ? "Other" : cat}
-          />
+        {PRESET_CATEGORIES.map((cat) => (
+          <FilterPill key={cat} label={cat} value={cat} />
         ))}
-
         <FilterPill label="Custom" value={CUSTOM} />
       </View>
 
