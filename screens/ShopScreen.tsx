@@ -24,7 +24,6 @@ export default function ShopScreen() {
   const [filter, setFilter] = useState<Filter>(ALL);
   const [text, setText] = useState("");
 
-  // Tracks actions the user has selected (unique, preserves order)
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const selectedActions = useMemo(() => {
@@ -41,7 +40,6 @@ export default function ShopScreen() {
 
     if (filter === CUSTOM) return actions.filter((a) => a.isCustom === 1);
 
-    // Preset category filter (presets only)
     return actions.filter(
       (a) => a.isCustom === 0 && (a.category ?? "") === filter
     );
@@ -127,8 +125,14 @@ export default function ShopScreen() {
   return (
     <View className="flex-1 bg-white px-6 pt-10">
       <Text className="text-3xl font-bold text-gray-900">Shop</Text>
-      <Text className="mt-2 text-gray-600">
-        Replacement actions to do instead of the habit.
+
+      {/* Tip copy */}
+      <Text className="mt-2 text-base font-semibold text-gray-900">
+        Tip: Make it easy
+      </Text>
+      <Text className="mt-1 text-sm text-gray-600">
+        Pick something you genuinely enjoy doing, then choose the easiest
+        possible version of it.
       </Text>
 
       {/* Filters */}
