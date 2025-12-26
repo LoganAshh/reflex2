@@ -16,7 +16,6 @@ export default function ShopScreen() {
 
   const [filter, setFilter] = useState<Filter>("all");
   const [text, setText] = useState("");
-  const [suggestionId, setSuggestionId] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     if (filter === "all") return actions;
@@ -25,18 +24,6 @@ export default function ShopScreen() {
       filter === "preset" ? a.isCustom === 0 : a.isCustom === 1
     );
   }, [actions, filter]);
-
-  const activeSuggestion = useMemo(() => {
-    if (filtered.length === 0) return null;
-    if (suggestionId == null) return filtered[0];
-    return filtered.find((a) => a.id === suggestionId) ?? filtered[0];
-  }, [filtered, suggestionId]);
-
-  const pickRandomSuggestion = () => {
-    if (filtered.length === 0) return;
-    const idx = Math.floor(Math.random() * filtered.length);
-    setSuggestionId(filtered[idx].id);
-  };
 
   const onTry = (action: ReplacementAction) => {
     Alert.alert(
@@ -50,7 +37,7 @@ export default function ShopScreen() {
     const title = text.trim();
     if (!title) return;
 
-    await addAction({ title, isCustom: true }); // ✅ FIX: matches AddActionInput
+    await addAction({ title, isCustom: true });
     setText("");
     Alert.alert("Added ✅", `"${title}" is now in your actions list.`);
   };
@@ -110,49 +97,6 @@ export default function ShopScreen() {
       <Text className="mt-2 text-gray-600">
         Replacement actions to do instead of the habit.
       </Text>
-
-      {/* Suggestion */}
-      <View className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-5">
-        <Text className="text-base font-semibold text-gray-900">
-          Suggestion
-        </Text>
-
-        {activeSuggestion ? (
-          <>
-            <Text className="mt-2 text-xl font-bold text-gray-900">
-              {activeSuggestion.title}
-            </Text>
-
-            <View className="mt-4 flex-row gap-3">
-              <Pressable
-                onPress={() => onTry(activeSuggestion)}
-                className="flex-1 rounded-2xl bg-green-600 px-5 py-4"
-              >
-                <Text className="text-center text-base font-semibold text-white">
-                  Try this now
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={pickRandomSuggestion}
-                className="rounded-2xl border border-gray-200 bg-white px-5 py-4"
-              >
-                <Text className="text-center text-base font-semibold text-gray-900">
-                  Shuffle
-                </Text>
-              </Pressable>
-            </View>
-
-            <Text className="mt-3 text-xs text-gray-500">
-              Tip: You don’t need motivation — just a small replacement.
-            </Text>
-          </>
-        ) : (
-          <Text className="mt-2 text-sm text-gray-600">
-            No actions yet. Add one below.
-          </Text>
-        )}
-      </View>
 
       {/* Filters */}
       <View className="mt-5 flex-row gap-2">
