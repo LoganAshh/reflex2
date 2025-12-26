@@ -9,12 +9,14 @@ import {
 } from "react-native";
 import { useData, type ReplacementAction } from "../data/DataContext";
 
-const ALL = "all";
-const CUSTOM = "custom";
+const SELECTED = "selected" as const;
+const ALL = "all" as const;
+const CUSTOM = "custom" as const;
 
 const PRESET_CATEGORIES = ["Physical", "Mental", "Social", "Creative"] as const;
 type PresetCategory = (typeof PRESET_CATEGORIES)[number];
-type Filter = typeof ALL | typeof CUSTOM | PresetCategory;
+
+type Filter = typeof SELECTED | typeof ALL | typeof CUSTOM | PresetCategory;
 
 export default function ShopScreen() {
   const { actions, addAction } = useData();
@@ -22,7 +24,19 @@ export default function ShopScreen() {
   const [filter, setFilter] = useState<Filter>(ALL);
   const [text, setText] = useState("");
 
+  // Tracks actions the user has pressed "Try" on (keeps order, unique)
+  const [triedIds, setTriedIds] = useState<number[]>([]);
+
+  const triedActions = useMemo(() => {
+    if (triedIds.length === 0) return [];
+    const map = new Map(actions.map((a) => [a.id, a]));
+    return triedIds
+      .map((id) => map.get(id))
+      .filter(Boolean) as ReplacementAction[];
+  }, [actions, triedIds]);
+
   const filtered = useMemo(() => {
+    if (filter === SELECTED) return triedActions;
     if (filter === ALL) return actions;
 
     if (filter === CUSTOM) {
@@ -33,9 +47,14 @@ export default function ShopScreen() {
     return actions.filter(
       (a) => a.isCustom === 0 && (a.category ?? "") === filter
     );
-  }, [actions, filter]);
+  }, [actions, filter, triedActions]);
 
   const onTry = (action: ReplacementAction) => {
+    // Record this action in "Selected" list (unique, preserve first time order)
+    setTriedIds((prev) =>
+      prev.includes(action.id) ? prev : [action.id, ...prev]
+    );
+
     Alert.alert(
       "Nice choice ✅",
       `Try: "${action.title}"\n\nEven a small replacement action is progress.`,
@@ -110,10 +129,18 @@ export default function ShopScreen() {
 
       {/* Filters */}
       <View className="mt-5 flex-row flex-wrap gap-2">
+        {/* Stays first */}
+        <FilterPill
+          label={`Selected${triedIds.length ? ` (${triedIds.length})` : ""}`}
+          value={SELECTED}
+        />
+
         <FilterPill label="All" value={ALL} />
+
         {PRESET_CATEGORIES.map((cat) => (
           <FilterPill key={cat} label={cat} value={cat} />
         ))}
+
         <FilterPill label="Custom" value={CUSTOM} />
       </View>
 
@@ -151,7 +178,9 @@ export default function ShopScreen() {
 
       {/* List */}
       <View className="mt-6 flex-1">
-        <Text className="text-xl font-bold text-gray-900">Actions</Text>
+        <Text className="text-xl font-bold text-gray-900">
+          {filter === SELECTED ? "Selected actions" : "Actions"}
+        </Text>
         <Text className="mt-1 text-sm text-gray-500">
           Tap “Try” to use one right now.
         </Text>
@@ -159,9 +188,11 @@ export default function ShopScreen() {
         {filtered.length === 0 ? (
           <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-5">
             <Text className="text-gray-700">
-              {filter === CUSTOM
-                ? "No custom actions yet. Add one above."
-                : "No actions in this category yet."}
+              {filter === SELECTED
+                ? "No selected actions yet. Tap “Try” on an action to add it here."
+                : filter === CUSTOM
+                  ? "No custom actions yet. Add one above."
+                  : "No actions in this category yet."}
             </Text>
           </View>
         ) : (
