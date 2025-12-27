@@ -164,7 +164,7 @@ export default function OnboardingScreen() {
 
   // Haptics
   const buzz = () => {
-    Haptics.selectionAsync();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   // Multi-step flow
