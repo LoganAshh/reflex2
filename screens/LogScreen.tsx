@@ -8,6 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   TextInput,
+  ScrollView,
+  Keyboard,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -31,8 +33,6 @@ type ChipItem = {
 type BaseItem = { id: number; name: string };
 
 // Keep a "most-recent-first" ordering that persists across submissions.
-// When a new id is submitted, it moves to the front, pushing others right,
-// and stays that way until changed again.
 function applyRecentOrdering<T extends { id: number }>(
   items: T[],
   recentIds: number[]
@@ -43,7 +43,6 @@ function applyRecentOrdering<T extends { id: number }>(
   const used = new Set<number>();
   const ordered: T[] = [];
 
-  // First: ids in recentIds order (most recent first), if they still exist
   for (const id of recentIds) {
     const it = byId.get(id);
     if (it && !used.has(id)) {
@@ -52,7 +51,6 @@ function applyRecentOrdering<T extends { id: number }>(
     }
   }
 
-  // Then: whatever remains in the original order
   for (const it of items) {
     if (!used.has(it.id)) ordered.push(it);
   }
@@ -197,6 +195,7 @@ function ChipRow<T extends BaseItem>({
         keyExtractor={(x) => x.key}
         renderItem={renderItem}
         extraData={selectedId}
+        keyboardShouldPersistTaps="handled"
       />
     </View>
   );
@@ -219,7 +218,7 @@ export default function LogScreen() {
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Most-recent-first lists (persist the ordering across submissions)
+  // Most-recent-first lists
   const [recentHabitIds, setRecentHabitIds] = useState<number[]>([]);
   const [recentCueIds, setRecentCueIds] = useState<number[]>([]);
   const [recentLocationIds, setRecentLocationIds] = useState<number[]>([]);
@@ -242,6 +241,9 @@ export default function LogScreen() {
   const cueListRef = useRef<FlatList<ChipItem> | null>(null);
   const locationListRef = useRef<FlatList<ChipItem> | null>(null);
 
+  const scrollRef = useRef<ScrollView | null>(null);
+  const notesInputRef = useRef<TextInput | null>(null);
+
   useEffect(() => {
     if (habitId == null && selectedHabits.length > 0) {
       setHabitId(selectedHabits[0].id);
@@ -263,11 +265,7 @@ export default function LogScreen() {
     locationListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
-  const bumpRecent = (
-    prev: number[],
-    id: number,
-    max = 25 // optional cap so it doesn't grow forever
-  ) => {
+  const bumpRecent = (prev: number[], id: number, max = 25) => {
     const next = [id, ...prev.filter((x) => x !== id)];
     return next.slice(0, max);
   };
@@ -296,10 +294,7 @@ export default function LogScreen() {
         notes: notes.trim() || undefined,
       });
 
-      // Update recent ordering AFTER submit:
       setRecentHabitIds((prev) => bumpRecent(prev, submittedHabitId));
-
-      // Exclude "None" from recents; "None" chip stays far left and shouldn't reorder items.
       if (submittedCueId != null) {
         setRecentCueIds((prev) => bumpRecent(prev, submittedCueId));
       }
@@ -309,8 +304,10 @@ export default function LogScreen() {
 
       resetForm();
 
-      // Now that ordering updated, reset chip scroll back to far left.
-      requestAnimationFrame(scrollAllToStart);
+      requestAnimationFrame(() => {
+        scrollAllToStart();
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      });
 
       setSavedMsg("Saved ✅");
       setTimeout(() => setSavedMsg(null), 900);
@@ -321,101 +318,130 @@ export default function LogScreen() {
     }
   };
 
+  const onShowNotes = () => {
+    setShowNotes((v) => {
+      const next = !v;
+      if (!v && next) {
+        // Wait a frame for the input to render, then scroll + focus so it's visible
+        requestAnimationFrame(() => {
+          scrollRef.current?.scrollToEnd({ animated: true });
+          setTimeout(() => notesInputRef.current?.focus(), 50);
+        });
+      }
+      return next;
+    });
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       className="flex-1 bg-white"
+      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >
-      <View className="flex-1 px-5 pt-8">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-bold text-gray-900">Log</Text>
-        </View>
-
-        <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
-          <ChipRow<SelectedHabit>
-            title="Habit"
-            items={orderedHabits}
-            selectedId={habitId}
-            onSelect={setHabitId}
-            onAdd={() => navigation.navigate("ManageList", { type: "habits" })}
-            listRef={habitListRef}
-          />
-
-          <ChipRow<SelectedCue>
-            title="Cue"
-            items={orderedCues}
-            selectedId={cueId}
-            onSelect={setCueId}
-            allowNone
-            onAdd={() => navigation.navigate("ManageList", { type: "cues" })}
-            listRef={cueListRef}
-          />
-
-          <ChipRow<SelectedPlace>
-            title="Location"
-            items={orderedLocations}
-            selectedId={locationId}
-            onSelect={setLocationId}
-            allowNone
-            onAdd={() =>
-              navigation.navigate("ManageList", { type: "locations" })
-            }
-            listRef={locationListRef}
-          />
-
-          <IntensityRow intensity={intensity} setIntensity={setIntensity} />
-
-          <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
-            <Text className="text-sm font-semibold text-gray-900">
-              Resisted?
-            </Text>
-            <Switch value={didResist} onValueChange={setDidResist} />
+      <ScrollView
+        ref={scrollRef}
+        className="flex-1 bg-white"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 160 }}
+      >
+        <View className="flex-1 px-5 pt-8">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-2xl font-bold text-gray-900">Log</Text>
           </View>
 
-          <Pressable
-            onPress={() => setShowNotes((v) => !v)}
-            className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
-          >
-            <Text className="text-sm font-semibold text-gray-900">
-              {showNotes ? "Hide notes" : "Add notes (optional)"}
-            </Text>
-          </Pressable>
-
-          {showNotes ? (
-            <TextInput
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Anything useful to remember…"
-              placeholderTextColor="#9CA3AF"
-              className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
+          <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <ChipRow<SelectedHabit>
+              title="Habit"
+              items={orderedHabits}
+              selectedId={habitId}
+              onSelect={setHabitId}
+              onAdd={() =>
+                navigation.navigate("ManageList", { type: "habits" })
+              }
+              listRef={habitListRef}
             />
-          ) : null}
 
-          {errorMsg ? (
-            <Text className="mt-2 text-sm font-semibold text-red-600">
-              {errorMsg}
-            </Text>
-          ) : null}
+            <ChipRow<SelectedCue>
+              title="Cue"
+              items={orderedCues}
+              selectedId={cueId}
+              onSelect={setCueId}
+              allowNone
+              onAdd={() => navigation.navigate("ManageList", { type: "cues" })}
+              listRef={cueListRef}
+            />
 
-          {savedMsg ? (
-            <Text className="mt-2 text-sm font-semibold text-green-700">
-              {savedMsg}
-            </Text>
-          ) : null}
+            <ChipRow<SelectedPlace>
+              title="Location"
+              items={orderedLocations}
+              selectedId={locationId}
+              onSelect={setLocationId}
+              allowNone
+              onAdd={() =>
+                navigation.navigate("ManageList", { type: "locations" })
+              }
+              listRef={locationListRef}
+            />
 
-          <Pressable
-            onPress={onSave}
-            disabled={saving}
-            className={`mt-3 w-full rounded-2xl px-5 py-3.5 ${
-              saving ? "bg-green-300" : "bg-green-600"
-            }`}
-          >
-            <Text className="text-center text-base font-semibold text-white">
-              {saving ? "Saving..." : "Save"}
-            </Text>
-          </Pressable>
+            <IntensityRow intensity={intensity} setIntensity={setIntensity} />
+
+            <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <Text className="text-sm font-semibold text-gray-900">
+                Resisted?
+              </Text>
+              <Switch value={didResist} onValueChange={setDidResist} />
+            </View>
+
+            <Pressable
+              onPress={onShowNotes}
+              className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
+            >
+              <Text className="text-sm font-semibold text-gray-900">
+                {showNotes ? "Hide notes" : "Add notes (optional)"}
+              </Text>
+            </Pressable>
+
+            {showNotes ? (
+              <TextInput
+                ref={notesInputRef}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Anything useful to remember…"
+                placeholderTextColor="#9CA3AF"
+                className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={() => Keyboard.dismiss()}
+              />
+            ) : null}
+
+            {errorMsg ? (
+              <Text className="mt-2 text-sm font-semibold text-red-600">
+                {errorMsg}
+              </Text>
+            ) : null}
+
+            {savedMsg ? (
+              <Text className="mt-2 text-sm font-semibold text-green-700">
+                {savedMsg}
+              </Text>
+            ) : null}
+
+            <Pressable
+              onPress={onSave}
+              disabled={saving}
+              className={`mt-3 w-full rounded-2xl px-5 py-3.5 ${
+                saving ? "bg-green-300" : "bg-green-600"
+              }`}
+            >
+              <Text className="text-center text-base font-semibold text-white">
+                {saving ? "Saving..." : "Save"}
+              </Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
