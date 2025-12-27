@@ -6,6 +6,7 @@ import {
   Pressable,
   FlatList,
   Alert,
+  ScrollView,
 } from "react-native";
 import { useData, type ReplacementAction } from "../data/DataContext";
 
@@ -22,7 +23,6 @@ const PRESET_CATEGORIES = [
 ] as const;
 
 type PresetCategory = (typeof PRESET_CATEGORIES)[number];
-
 type Filter = typeof SELECTED | typeof ALL | typeof CUSTOM | PresetCategory;
 
 export default function ShopScreen() {
@@ -30,11 +30,7 @@ export default function ShopScreen() {
 
   const [filter, setFilter] = useState<Filter>(ALL);
   const [text, setText] = useState("");
-
-  // category for new custom action
   const [newCategory, setNewCategory] = useState<PresetCategory>("Physical");
-
-  // track which actions have been selected
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const selectedActions = useMemo(() => {
@@ -48,10 +44,8 @@ export default function ShopScreen() {
   const filtered = useMemo(() => {
     if (filter === SELECTED) return selectedActions;
     if (filter === ALL) return actions;
-
     if (filter === CUSTOM) return actions.filter((a) => a.isCustom === 1);
 
-    // preset category filter
     return actions.filter(
       (a) => a.isCustom === 0 && (a.category ?? "") === filter
     );
@@ -158,6 +152,18 @@ export default function ShopScreen() {
     );
   };
 
+  const EmptyState = () => (
+    <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-5">
+      <Text className="text-gray-700">
+        {filter === SELECTED
+          ? "No selected actions yet."
+          : filter === CUSTOM
+            ? "No custom actions yet. Add one above."
+            : "No actions in this category yet."}
+      </Text>
+    </View>
+  );
+
   return (
     <View className="flex-1 bg-white px-6 pt-10">
       <Text className="text-3xl font-bold text-gray-900">Shop</Text>
@@ -180,82 +186,99 @@ export default function ShopScreen() {
         <FilterPill label="Custom" value={CUSTOM} />
       </View>
 
-      {/* Add new action (ONLY when Custom selected) */}
+      {/* Custom view: everything below chips scrolls */}
       {filter === CUSTOM ? (
-        <View className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
-          <Text className="text-sm font-semibold text-gray-900">
-            Add an action
-          </Text>
-
-          <View className="mt-3 flex-row items-center gap-3">
-            <TextInput
-              value={text}
-              onChangeText={setText}
-              placeholder="e.g., 10 push-ups, call a friend"
-              placeholderTextColor="#9CA3AF"
-              className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-              returnKeyType="done"
-              onSubmitEditing={() => {
-                if (text.trim()) onAdd();
-              }}
-              blurOnSubmit={true}
-            />
-
-            <Pressable
-              onPress={onAdd}
-              className={`rounded-xl px-4 py-3 ${
-                text.trim() ? "bg-gray-900" : "bg-gray-300"
-              }`}
-              disabled={!text.trim()}
-            >
-              <Text className="font-semibold text-white">Add</Text>
-            </Pressable>
-          </View>
-
-          <Text className="mt-4 text-xs font-semibold text-gray-600">
-            Category
-          </Text>
-          <View className="mt-2 flex-row flex-wrap gap-2">
-            {PRESET_CATEGORIES.map((cat) => (
-              <CategoryPill key={cat} label={cat} />
-            ))}
-          </View>
-
-          <Text className="mt-2 text-xs text-gray-500">
-            Actions are stored locally on your device.
-          </Text>
-        </View>
-      ) : null}
-
-      {/* List */}
-      <View className="mt-6 flex-1">
-        <Text className="text-xl font-bold text-gray-900">
-          {filter === SELECTED ? "Selected actions" : "Actions"}
-        </Text>
-        <Text className="mt-1 text-sm text-gray-500">
-          Tap “Select” to add or remove an action.
-        </Text>
-
-        {filtered.length === 0 ? (
-          <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-5">
-            <Text className="text-gray-700">
-              {filter === SELECTED
-                ? "No selected actions yet."
-                : filter === CUSTOM
-                  ? "No custom actions yet. Add one above."
-                  : "No actions in this category yet."}
+        <ScrollView
+          className="mt-5 flex-1"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Add new action */}
+          <View className="rounded-2xl border border-gray-200 bg-white p-4">
+            <Text className="text-sm font-semibold text-gray-900">
+              Add an action
             </Text>
+
+            <View className="mt-3 flex-row items-center gap-3">
+              <TextInput
+                value={text}
+                onChangeText={setText}
+                placeholder="e.g., 10 push-ups, call a friend"
+                placeholderTextColor="#9CA3AF"
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  if (text.trim()) onAdd();
+                }}
+                blurOnSubmit
+              />
+
+              <Pressable
+                onPress={onAdd}
+                className={`rounded-xl px-4 py-3 ${
+                  text.trim() ? "bg-gray-900" : "bg-gray-300"
+                }`}
+                disabled={!text.trim()}
+              >
+                <Text className="font-semibold text-white">Add</Text>
+              </Pressable>
+            </View>
+
+            <Text className="mt-4 text-xs font-semibold text-gray-600">
+              Category
+            </Text>
+            <View className="mt-2 flex-row flex-wrap gap-2">
+              {PRESET_CATEGORIES.map((cat) => (
+                <CategoryPill key={cat} label={cat} />
+              ))}
+            </View>
           </View>
-        ) : (
-          <FlatList
-            className="mt-4"
-            data={filtered}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={renderItem}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-      </View>
+
+          {/* List */}
+          <View className="mt-6">
+            <Text className="text-xl font-bold text-gray-900">Actions</Text>
+            <Text className="mt-1 text-sm text-gray-500">
+              Tap “Select” to add or remove an action.
+            </Text>
+
+            {filtered.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <FlatList
+                className="mt-4"
+                data={filtered}
+                keyExtractor={(item) => String(item.id)}
+                renderItem={renderItem}
+                showsVerticalScrollIndicator={false}
+                scrollEnabled={false}
+              />
+            )}
+          </View>
+
+          <View className="h-6" />
+        </ScrollView>
+      ) : (
+        <View className="mt-6 flex-1">
+          <Text className="text-xl font-bold text-gray-900">
+            {filter === SELECTED ? "Selected actions" : "Actions"}
+          </Text>
+          <Text className="mt-1 text-sm text-gray-500">
+            Tap “Select” to add or remove an action.
+          </Text>
+
+          {filtered.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <FlatList
+              className="mt-4"
+              data={filtered}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={renderItem}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+      )}
     </View>
   );
 }
