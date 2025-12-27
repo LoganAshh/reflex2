@@ -126,7 +126,6 @@ export default function ShopScreen() {
     <View className="flex-1 bg-white px-6 pt-10">
       <Text className="text-3xl font-bold text-gray-900">Shop</Text>
 
-      {/* Tip copy */}
       <Text className="mt-2 text-base font-semibold text-gray-900">
         Tip: Make it easy
       </Text>
@@ -158,6 +157,11 @@ export default function ShopScreen() {
               placeholder="e.g., 10 push-ups, call a friend"
               placeholderTextColor="#9CA3AF"
               className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (text.trim()) onAdd();
+              }}
+              blurOnSubmit={true}
             />
 
             <Pressable
