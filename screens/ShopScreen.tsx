@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useData, type ReplacementAction } from "../data/DataContext";
 
 const SELECTED = "selected" as const;
@@ -52,6 +53,8 @@ export default function ShopScreen() {
   }, [actions, filter, selectedActions]);
 
   const toggleSelected = (actionId: number) => {
+    // light haptic on press
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedIds((prev) =>
       prev.includes(actionId)
         ? prev.filter((id) => id !== actionId)
