@@ -11,7 +11,6 @@ function startOfDayMs(d: Date) {
 }
 
 function startOfWeekMs(d: Date) {
-  // Week starts Monday
   const day = d.getDay(); // 0=Sun, 1=Mon
   const diffToMonday = (day + 6) % 7;
   const monday = new Date(
@@ -29,6 +28,8 @@ function dayKey(d: Date) {
 export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { logs } = useData();
+
+  const isFirstVisit = logs.length === 0;
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -53,7 +54,6 @@ export default function HomeScreen() {
       0
     );
 
-    // Streaks = days with ≥1 resist
     const resistDays = new Set<string>();
     for (const l of logs) {
       if (l.didResist === 1) {
@@ -119,7 +119,10 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-white px-6 pt-10">
-      <Text className="text-3xl font-bold text-gray-900">Welcome back!</Text>
+      <Text className="text-3xl font-bold text-gray-900">
+        {isFirstVisit ? "Welcome!" : "Welcome back!"}
+      </Text>
+
       <Text className="mt-2 text-gray-600">
         Every time you log or resist an urge, you're physically rewiring your
         brain to make the old habit weaker.
