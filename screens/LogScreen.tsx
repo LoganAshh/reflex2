@@ -10,6 +10,7 @@ import {
   TextInput,
   ScrollView,
   Keyboard,
+  Modal,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -56,58 +57,6 @@ function applyRecentOrdering<T extends { id: number }>(
   }
 
   return ordered;
-}
-
-function IntensityRow({
-  intensity,
-  setIntensity,
-}: {
-  intensity: number;
-  setIntensity: React.Dispatch<React.SetStateAction<number>>;
-}) {
-  return (
-    <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
-      <Text className="text-sm font-semibold text-gray-900">Intensity</Text>
-
-      <View className="flex-row items-center">
-        <Pressable
-          disabled={intensity <= 1}
-          onPress={() => setIntensity((v) => Math.max(1, v - 1))}
-          className={`rounded-xl px-3 py-2 ${
-            intensity <= 1 ? "bg-gray-200" : "bg-gray-900"
-          }`}
-        >
-          <Text
-            className={`${
-              intensity <= 1 ? "text-gray-600" : "text-white"
-            } font-semibold`}
-          >
-            −
-          </Text>
-        </Pressable>
-
-        <Text className="mx-3 text-base font-bold text-gray-900">
-          {intensity}
-        </Text>
-
-        <Pressable
-          disabled={intensity >= 10}
-          onPress={() => setIntensity((v) => Math.min(10, v + 1))}
-          className={`rounded-xl px-3 py-2 ${
-            intensity >= 10 ? "bg-gray-200" : "bg-gray-900"
-          }`}
-        >
-          <Text
-            className={`${
-              intensity >= 10 ? "text-gray-600" : "text-white"
-            } font-semibold`}
-          >
-            +
-          </Text>
-        </Pressable>
-      </View>
-    </View>
-  );
 }
 
 function ChipRow<T extends BaseItem>({
@@ -201,6 +150,94 @@ function ChipRow<T extends BaseItem>({
   );
 }
 
+function IntensityPickerModal({
+  visible,
+  value,
+  onPick,
+  onClear,
+  onClose,
+}: {
+  visible: boolean;
+  value: number | null;
+  onPick: (n: number) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const options = useMemo(
+    () => Array.from({ length: 10 }, (_, i) => i + 1),
+    []
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable
+        className="flex-1 items-center justify-center bg-black/40 px-6"
+        onPress={onClose}
+      >
+        <Pressable
+          className="w-full rounded-2xl bg-white p-4"
+          onPress={() => {
+            /* stop propagation */
+          }}
+        >
+          <Text className="text-base font-bold text-gray-900">
+            Pick intensity
+          </Text>
+          <Text className="mt-1 text-xs text-gray-500">
+            1 (low) → 10 (high)
+          </Text>
+
+          <View className="mt-4 flex-row flex-wrap">
+            {options.map((n) => {
+              const selected = value === n;
+              return (
+                <Pressable
+                  key={n}
+                  onPress={() => onPick(n)}
+                  className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                    selected
+                      ? "bg-green-600 border-green-600"
+                      : "bg-white border-gray-200"
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-semibold ${selected ? "text-white" : "text-gray-900"}`}
+                  >
+                    {n}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View className="mt-2 flex-row justify-between">
+            <Pressable
+              onPress={onClear}
+              className="rounded-xl border border-gray-200 bg-white px-4 py-3"
+            >
+              <Text className="text-sm font-semibold text-gray-900">
+                Set None
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={onClose}
+              className="rounded-xl bg-gray-900 px-4 py-3"
+            >
+              <Text className="text-sm font-semibold text-white">Done</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export default function LogScreen() {
   const navigation = useNavigation<Nav>();
   const { selectedHabits, selectedCues, selectedLocations, addLog } = useData();
@@ -211,8 +248,11 @@ export default function LogScreen() {
 
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
-  const [intensity, setIntensity] = useState<number>(5);
   const [didResist, setDidResist] = useState<boolean>(false);
+
+  // Intensity is now optional
+  const [intensity, setIntensity] = useState<number | null>(null);
+  const [showIntensityPicker, setShowIntensityPicker] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
@@ -255,8 +295,8 @@ export default function LogScreen() {
     setLocationId(null);
     setNotes("");
     setShowNotes(false);
-    setIntensity(5);
     setDidResist(false);
+    setIntensity(null);
   };
 
   const scrollAllToStart = () => {
@@ -285,11 +325,15 @@ export default function LogScreen() {
 
     try {
       setSaving(true);
+
+      // NOTE: If your DataContext requires intensity to be a number, we fall back to 5 when "None".
+      // If you later change your schema to allow null, swap this to `intensity: intensity ?? undefined`
+      // and make intensity optional in DataContext types.
       await addLog({
         habitId: submittedHabitId,
         cueId: submittedCueId,
         locationId: submittedLocationId,
-        intensity,
+        intensity: intensity ?? 5,
         didResist,
         notes: notes.trim() || undefined,
       });
@@ -322,7 +366,6 @@ export default function LogScreen() {
     setShowNotes((v) => {
       const next = !v;
       if (!v && next) {
-        // Wait a frame for the input to render, then scroll + focus so it's visible
         requestAnimationFrame(() => {
           scrollRef.current?.scrollToEnd({ animated: true });
           setTimeout(() => notesInputRef.current?.focus(), 50);
@@ -332,12 +375,28 @@ export default function LogScreen() {
     });
   };
 
+  const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       className="flex-1 bg-white"
       keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >
+      <IntensityPickerModal
+        visible={showIntensityPicker}
+        value={intensity}
+        onPick={(n) => {
+          setIntensity(n);
+          setShowIntensityPicker(false);
+        }}
+        onClear={() => {
+          setIntensity(null);
+          setShowIntensityPicker(false);
+        }}
+        onClose={() => setShowIntensityPicker(false)}
+      />
+
       <ScrollView
         ref={scrollRef}
         className="flex-1 bg-white"
@@ -384,7 +443,40 @@ export default function LogScreen() {
               listRef={locationListRef}
             />
 
-            <IntensityRow intensity={intensity} setIntensity={setIntensity} />
+            {/* Intensity: optional chip + modal picker */}
+            <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <Text className="text-sm font-semibold text-gray-900">
+                Intensity
+              </Text>
+
+              <View className="mt-2 flex-row">
+                <Pressable
+                  onPress={() => setShowIntensityPicker(true)}
+                  className={`mr-2 rounded-full border px-4 py-2 ${
+                    intensity == null
+                      ? "bg-white border-gray-200"
+                      : "bg-green-600 border-green-600"
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-semibold ${
+                      intensity == null ? "text-gray-900" : "text-white"
+                    }`}
+                  >
+                    {intensityLabel}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => setShowIntensityPicker(true)}
+                  className="rounded-full border border-gray-200 bg-white px-4 py-2"
+                >
+                  <Text className="text-sm font-semibold text-gray-900">
+                    Choose
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
 
             <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
               <Text className="text-sm font-semibold text-gray-900">
