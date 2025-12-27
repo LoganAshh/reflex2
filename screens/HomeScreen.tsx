@@ -4,6 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { RootTabParamList } from "../App";
 import { useData } from "../data/DataContext";
+import * as Haptics from "expo-haptics";
 
 function startOfDayMs(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -120,11 +121,15 @@ export default function HomeScreen() {
     <View className="flex-1 bg-white px-6 pt-10">
       <Text className="text-3xl font-bold text-gray-900">Welcome back!</Text>
       <Text className="mt-2 text-gray-600">
-        Small wins. Consistent progress.
+        Every time you log or resist an urge, you're physically rewiring your
+        brain to make the old habit weaker.
       </Text>
 
       <Pressable
-        onPress={() => navigation.navigate("Log")}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("Log");
+        }}
         className="mt-6 w-full rounded-2xl bg-green-600 px-5 py-4"
       >
         <Text className="text-center text-lg font-semibold text-white">
@@ -133,7 +138,10 @@ export default function HomeScreen() {
       </Pressable>
 
       <Pressable
-        onPress={() => navigation.navigate("Shop")}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("Shop");
+        }}
         className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4"
       >
         <Text className="text-center text-base font-semibold text-gray-900">
