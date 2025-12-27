@@ -13,7 +13,14 @@ const SELECTED = "selected" as const;
 const ALL = "all" as const;
 const CUSTOM = "custom" as const;
 
-const PRESET_CATEGORIES = ["Physical", "Mental", "Social", "Creative"] as const;
+const PRESET_CATEGORIES = [
+  "Physical",
+  "Mental",
+  "Social",
+  "Creative",
+  "Other",
+] as const;
+
 type PresetCategory = (typeof PRESET_CATEGORIES)[number];
 
 type Filter = typeof SELECTED | typeof ALL | typeof CUSTOM | PresetCategory;
@@ -24,9 +31,10 @@ export default function ShopScreen() {
   const [filter, setFilter] = useState<Filter>(ALL);
   const [text, setText] = useState("");
 
-  // NEW: selected category for custom action
+  // category for new custom action
   const [newCategory, setNewCategory] = useState<PresetCategory>("Physical");
 
+  // track which actions have been selected
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const selectedActions = useMemo(() => {
@@ -40,8 +48,10 @@ export default function ShopScreen() {
   const filtered = useMemo(() => {
     if (filter === SELECTED) return selectedActions;
     if (filter === ALL) return actions;
+
     if (filter === CUSTOM) return actions.filter((a) => a.isCustom === 1);
 
+    // preset category filter
     return actions.filter(
       (a) => a.isCustom === 0 && (a.category ?? "") === filter
     );
@@ -70,30 +80,41 @@ export default function ShopScreen() {
     Alert.alert("Added ✅", `"${title}" is now in your actions list.`);
   };
 
-  const FilterPill = ({
-    label,
-    value,
-    selected,
-    onPress,
-  }: {
-    label: string;
-    value?: any;
-    selected: boolean;
-    onPress: () => void;
-  }) => (
-    <Pressable
-      onPress={onPress}
-      className={`rounded-full border px-4 py-2 ${
-        selected ? "bg-gray-900 border-gray-900" : "bg-white border-gray-200"
-      }`}
-    >
-      <Text
-        className={`${selected ? "text-white" : "text-gray-900"} font-semibold`}
+  const FilterPill = ({ label, value }: { label: string; value: Filter }) => {
+    const selected = filter === value;
+    return (
+      <Pressable
+        onPress={() => setFilter(value)}
+        className={`rounded-full border px-4 py-2 ${
+          selected ? "bg-gray-900 border-gray-900" : "bg-white border-gray-200"
+        }`}
       >
-        {label}
-      </Text>
-    </Pressable>
-  );
+        <Text
+          className={`${selected ? "text-white" : "text-gray-900"} font-semibold`}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    );
+  };
+
+  const CategoryPill = ({ label }: { label: PresetCategory }) => {
+    const selected = newCategory === label;
+    return (
+      <Pressable
+        onPress={() => setNewCategory(label)}
+        className={`rounded-full border px-4 py-2 ${
+          selected ? "bg-gray-900 border-gray-900" : "bg-white border-gray-200"
+        }`}
+      >
+        <Text
+          className={`${selected ? "text-white" : "text-gray-900"} font-semibold`}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    );
+  };
 
   const renderItem = ({ item }: { item: ReplacementAction }) => {
     const isCustom = item.isCustom === 1;
@@ -151,79 +172,68 @@ export default function ShopScreen() {
 
       {/* Filters */}
       <View className="mt-5 flex-row flex-wrap gap-2">
-        <FilterPill
-          label="Selected"
-          selected={filter === SELECTED}
-          onPress={() => setFilter(SELECTED)}
-        />
-        <FilterPill
-          label="All"
-          selected={filter === ALL}
-          onPress={() => setFilter(ALL)}
-        />
+        <FilterPill label="Selected" value={SELECTED} />
+        <FilterPill label="All" value={ALL} />
         {PRESET_CATEGORIES.map((cat) => (
-          <FilterPill
-            key={cat}
-            label={cat}
-            selected={filter === cat}
-            onPress={() => setFilter(cat)}
-          />
+          <FilterPill key={cat} label={cat} value={cat} />
         ))}
-        <FilterPill
-          label="Custom"
-          selected={filter === CUSTOM}
-          onPress={() => setFilter(CUSTOM)}
-        />
+        <FilterPill label="Custom" value={CUSTOM} />
       </View>
 
       {/* Add new action (ONLY when Custom selected) */}
-      {filter === CUSTOM && (
+      {filter === CUSTOM ? (
         <View className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
           <Text className="text-sm font-semibold text-gray-900">
             Add an action
           </Text>
 
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="e.g., 10 push-ups, call a friend"
-            placeholderTextColor="#9CA3AF"
-            className="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-            returnKeyType="done"
-            onSubmitEditing={onAdd}
-          />
+          <View className="mt-3 flex-row items-center gap-3">
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder="e.g., 10 push-ups, call a friend"
+              placeholderTextColor="#9CA3AF"
+              className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (text.trim()) onAdd();
+              }}
+              blurOnSubmit={true}
+            />
 
-          {/* Category selector */}
+            <Pressable
+              onPress={onAdd}
+              className={`rounded-xl px-4 py-3 ${
+                text.trim() ? "bg-gray-900" : "bg-gray-300"
+              }`}
+              disabled={!text.trim()}
+            >
+              <Text className="font-semibold text-white">Add</Text>
+            </Pressable>
+          </View>
+
           <Text className="mt-4 text-xs font-semibold text-gray-600">
             Category
           </Text>
           <View className="mt-2 flex-row flex-wrap gap-2">
             {PRESET_CATEGORIES.map((cat) => (
-              <FilterPill
-                key={cat}
-                label={cat}
-                selected={newCategory === cat}
-                onPress={() => setNewCategory(cat)}
-              />
+              <CategoryPill key={cat} label={cat} />
             ))}
           </View>
 
-          <Pressable
-            onPress={onAdd}
-            disabled={!text.trim()}
-            className={`mt-4 rounded-xl px-4 py-3 ${
-              text.trim() ? "bg-gray-900" : "bg-gray-300"
-            }`}
-          >
-            <Text className="text-center font-semibold text-white">Add</Text>
-          </Pressable>
+          <Text className="mt-2 text-xs text-gray-500">
+            Actions are stored locally on your device.
+          </Text>
         </View>
-      )}
+      ) : null}
 
       {/* List */}
       <View className="mt-6 flex-1">
         <Text className="text-xl font-bold text-gray-900">
           {filter === SELECTED ? "Selected actions" : "Actions"}
+        </Text>
+        <Text className="mt-1 text-sm text-gray-500">
+          Tap “Select” to add or remove an action.
         </Text>
 
         {filtered.length === 0 ? (

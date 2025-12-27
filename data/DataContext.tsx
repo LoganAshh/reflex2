@@ -52,7 +52,7 @@ export type LogEntry = {
 export type ReplacementAction = {
   id: number;
   title: string;
-  category: string | null; // Physical | Mental | Social | Creative (for presets)
+  category: string | null; // Physical | Mental | Social | Creative | Other (for presets)
   isCustom: 0 | 1;
 };
 
@@ -290,6 +290,13 @@ async function seedDefaultActionsIfEmpty() {
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Make a quick playlist', 'Creative', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Take 3 photos of anything', 'Creative', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Brain-dump 10 ideas', 'Creative', 0);
+
+    -- Other (5+)
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Clean one small surface', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Take a quick shower', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Make your bed', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Set a 5-min tidy timer', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Put your phone in another room for 2 minutes', 'Other', 0);
   `);
 }
 
@@ -511,8 +518,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   // ---------- Custom creators ----------
-  // KEY CHANGE: these functions DO NOT flip hasOnboarded anymore.
-  // They can auto-select, but onboarding completion is only via completeOnboarding().
   const addCustomHabit: DataContextType["addCustomHabit"] = async (
     name,
     autoSelect = true
@@ -657,7 +662,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       actions,
       addAction,
       refresh,
-      resetDbForDev, // keep while iterating; remove later if you want
+      resetDbForDev,
     }),
     [
       habits,
