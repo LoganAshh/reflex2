@@ -181,9 +181,7 @@ function IntensityPickerModal({
       >
         <Pressable
           className="w-full rounded-2xl bg-white p-4"
-          onPress={() => {
-            /* stop propagation */
-          }}
+          onPress={() => {}}
         >
           <Text className="text-base font-bold text-gray-900">
             Pick intensity
@@ -206,7 +204,9 @@ function IntensityPickerModal({
                   }`}
                 >
                   <Text
-                    className={`text-sm font-semibold ${selected ? "text-white" : "text-gray-900"}`}
+                    className={`text-sm font-semibold ${
+                      selected ? "text-white" : "text-gray-900"
+                    }`}
                   >
                     {n}
                   </Text>
@@ -250,7 +250,7 @@ export default function LogScreen() {
   const [showNotes, setShowNotes] = useState(false);
   const [didResist, setDidResist] = useState<boolean>(false);
 
-  // Intensity is now optional
+  // Intensity is optional (null = "None")
   const [intensity, setIntensity] = useState<number | null>(null);
   const [showIntensityPicker, setShowIntensityPicker] = useState(false);
 
@@ -258,7 +258,6 @@ export default function LogScreen() {
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Most-recent-first lists
   const [recentHabitIds, setRecentHabitIds] = useState<number[]>([]);
   const [recentCueIds, setRecentCueIds] = useState<number[]>([]);
   const [recentLocationIds, setRecentLocationIds] = useState<number[]>([]);
@@ -276,7 +275,6 @@ export default function LogScreen() {
     [selectedLocations, recentLocationIds]
   );
 
-  // Keep scroll position stable during selection; after submit we scroll back to start.
   const habitListRef = useRef<FlatList<ChipItem> | null>(null);
   const cueListRef = useRef<FlatList<ChipItem> | null>(null);
   const locationListRef = useRef<FlatList<ChipItem> | null>(null);
@@ -326,9 +324,6 @@ export default function LogScreen() {
     try {
       setSaving(true);
 
-      // NOTE: If your DataContext requires intensity to be a number, we fall back to 5 when "None".
-      // If you later change your schema to allow null, swap this to `intensity: intensity ?? undefined`
-      // and make intensity optional in DataContext types.
       await addLog({
         habitId: submittedHabitId,
         cueId: submittedCueId,
@@ -375,7 +370,13 @@ export default function LogScreen() {
     });
   };
 
+  // Chip label stays "None" when null, or shows number like "7/10"
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
+
+  // ✅ Selected styling should be green for BOTH:
+  // - None (intensity == null)
+  // - A number selected (intensity != null)
+  const intensityChipSelected = true;
 
   return (
     <KeyboardAvoidingView
@@ -450,17 +451,18 @@ export default function LogScreen() {
               </Text>
 
               <View className="mt-2 flex-row">
+                {/* ✅ Always show the current selection as a GREEN chip (None OR number). */}
                 <Pressable
                   onPress={() => setShowIntensityPicker(true)}
                   className={`mr-2 rounded-full border px-4 py-2 ${
-                    intensity == null
-                      ? "bg-white border-gray-200"
-                      : "bg-green-600 border-green-600"
+                    intensityChipSelected
+                      ? "bg-green-600 border-green-600"
+                      : "bg-white border-gray-200"
                   }`}
                 >
                   <Text
                     className={`text-sm font-semibold ${
-                      intensity == null ? "text-gray-900" : "text-white"
+                      intensityChipSelected ? "text-white" : "text-gray-900"
                     }`}
                   >
                     {intensityLabel}
