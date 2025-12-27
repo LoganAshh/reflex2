@@ -12,6 +12,7 @@ import {
   Keyboard,
   Modal,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
@@ -309,6 +310,8 @@ export default function LogScreen() {
   };
 
   const onSave = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+
     setErrorMsg(null);
     setSavedMsg(null);
 
@@ -373,9 +376,7 @@ export default function LogScreen() {
   // Chip label stays "None" when null, or shows number like "7/10"
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
 
-  // ✅ Selected styling should be green for BOTH:
-  // - None (intensity == null)
-  // - A number selected (intensity != null)
+  // Always show intensity selection chip as green (None OR number)
   const intensityChipSelected = true;
 
   return (
@@ -451,7 +452,6 @@ export default function LogScreen() {
               </Text>
 
               <View className="mt-2 flex-row">
-                {/* ✅ Always show the current selection as a GREEN chip (None OR number). */}
                 <Pressable
                   onPress={() => setShowIntensityPicker(true)}
                   className={`mr-2 rounded-full border px-4 py-2 ${
