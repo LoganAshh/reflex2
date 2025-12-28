@@ -172,7 +172,7 @@ export default function OnboardingScreen() {
     () => [
       {
         title: "Welcome to Reflex!",
-        body: "Congratulations! You have just taken the first step towards breaking your bad habits!",
+        body: "Congratulations! You have just taken the first step toward building more intentional habits!",
       },
       {
         title: "Did you know?",
