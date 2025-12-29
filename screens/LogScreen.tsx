@@ -239,6 +239,84 @@ function IntensityPickerModal({
   );
 }
 
+function CountPickerModal({
+  visible,
+  value,
+  onPick,
+  onClose,
+}: {
+  visible: boolean;
+  value: number;
+  onPick: (n: number) => void;
+  onClose: () => void;
+}) {
+  const options = useMemo(
+    () => Array.from({ length: 10 }, (_, i) => i + 1),
+    []
+  );
+
+  const labelFor = (n: number) =>
+    n === 1 ? "Once" : n === 2 ? "Twice" : `${n}x`;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable
+        className="flex-1 items-center justify-center bg-black/40 px-6"
+        onPress={onClose}
+      >
+        <Pressable
+          className="w-full rounded-2xl bg-white p-4"
+          onPress={() => {}}
+        >
+          <Text className="text-base font-bold text-gray-900">Pick count</Text>
+          <Text className="mt-1 text-xs text-gray-500">
+            How many times did it happen?
+          </Text>
+
+          <View className="mt-4 flex-row flex-wrap">
+            {options.map((n) => {
+              const selected = value === n;
+              return (
+                <Pressable
+                  key={n}
+                  onPress={() => onPick(n)}
+                  className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                    selected
+                      ? "bg-green-600 border-green-600"
+                      : "bg-white border-gray-200"
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-semibold ${
+                      selected ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    {labelFor(n)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View className="mt-2 flex-row justify-end">
+            <Pressable
+              onPress={onClose}
+              className="rounded-xl bg-gray-900 px-4 py-3"
+            >
+              <Text className="text-sm font-semibold text-white">Done</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export default function LogScreen() {
   const navigation = useNavigation<Nav>();
   const { selectedHabits, selectedCues, selectedLocations, addLog } = useData();
@@ -254,6 +332,10 @@ export default function LogScreen() {
   // Intensity is optional (null = "None")
   const [intensity, setIntensity] = useState<number | null>(null);
   const [showIntensityPicker, setShowIntensityPicker] = useState(false);
+
+  // Count (defaults to Once)
+  const [count, setCount] = useState<number>(1);
+  const [showCountPicker, setShowCountPicker] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
@@ -296,6 +378,7 @@ export default function LogScreen() {
     setShowNotes(false);
     setDidResist(false);
     setIntensity(null);
+    setCount(1);
   };
 
   const scrollAllToStart = () => {
@@ -373,11 +456,14 @@ export default function LogScreen() {
     });
   };
 
-  // Chip label stays "None" when null, or shows number like "7/10"
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
-
-  // Always show intensity selection chip as green (None OR number)
   const intensityChipSelected = true;
+
+  const countLabel = count === 1 ? "Once" : count === 2 ? "Twice" : `${count}x`;
+
+  const chipBase = "rounded-full border px-3 py-1.5";
+  const chipSelected = "bg-green-600 border-green-600";
+  const chipUnselected = "bg-white border-gray-200";
 
   return (
     <KeyboardAvoidingView
@@ -397,6 +483,16 @@ export default function LogScreen() {
           setShowIntensityPicker(false);
         }}
         onClose={() => setShowIntensityPicker(false)}
+      />
+
+      <CountPickerModal
+        visible={showCountPicker}
+        value={count}
+        onPick={(n) => {
+          setCount(n);
+          setShowCountPicker(false);
+        }}
+        onClose={() => setShowCountPicker(false)}
       />
 
       <ScrollView
@@ -445,38 +541,65 @@ export default function LogScreen() {
               listRef={locationListRef}
             />
 
-            {/* Intensity: optional chip + modal picker */}
-            <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
-              <Text className="text-sm font-semibold text-gray-900">
-                Intensity
-              </Text>
+            <View className="mt-3 w-full flex-row gap-3">
+              {/* Count box */}
+              <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                <Text className="text-sm font-semibold text-gray-900">
+                  Count
+                </Text>
 
-              <View className="mt-2 flex-row">
-                <Pressable
-                  onPress={() => setShowIntensityPicker(true)}
-                  className={`mr-2 rounded-full border px-4 py-2 ${
-                    intensityChipSelected
-                      ? "bg-green-600 border-green-600"
-                      : "bg-white border-gray-200"
-                  }`}
-                >
-                  <Text
-                    className={`text-sm font-semibold ${
-                      intensityChipSelected ? "text-white" : "text-gray-900"
-                    }`}
+                <View className="mt-2 flex-row items-center">
+                  <Pressable
+                    onPress={() => setShowCountPicker(true)}
+                    className={`${chipBase} ${chipSelected} mr-2`}
                   >
-                    {intensityLabel}
-                  </Text>
-                </Pressable>
+                    <Text className="text-sm font-semibold text-white">
+                      {countLabel}
+                    </Text>
+                  </Pressable>
 
-                <Pressable
-                  onPress={() => setShowIntensityPicker(true)}
-                  className="rounded-full border border-gray-200 bg-white px-4 py-2"
-                >
-                  <Text className="text-sm font-semibold text-gray-900">
-                    Choose
-                  </Text>
-                </Pressable>
+                  <Pressable
+                    onPress={() => setShowCountPicker(true)}
+                    className={`${chipBase} ${chipUnselected}`}
+                  >
+                    <Text className="text-sm font-semibold text-gray-900">
+                      + Add
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Intensity box */}
+              <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                <Text className="text-sm font-semibold text-gray-900">
+                  Intensity
+                </Text>
+
+                <View className="mt-2 flex-row items-center">
+                  <Pressable
+                    onPress={() => setShowIntensityPicker(true)}
+                    className={`${chipBase} ${
+                      intensityChipSelected ? chipSelected : chipUnselected
+                    } mr-2`}
+                  >
+                    <Text
+                      className={`text-sm font-semibold ${
+                        intensityChipSelected ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {intensityLabel}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setShowIntensityPicker(true)}
+                    className={`${chipBase} ${chipUnselected}`}
+                  >
+                    <Text className="text-sm font-semibold text-gray-900">
+                      + Add
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
 

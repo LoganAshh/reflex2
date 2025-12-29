@@ -43,7 +43,11 @@ export type LogEntry = {
   locationId: number | null;
   locationName: string | null;
 
-  intensity: number; // 1–10
+  // UPDATED: intensity is optional now (null = "None")
+  intensity: number | null; // 1–10 or null
+  // NEW: count
+  count: number; // 1–10
+
   didResist: 0 | 1; // SQLite-friendly boolean
   notes: string | null;
   createdAt: number;
@@ -64,7 +68,11 @@ type AddLogInput = {
   habitId: number;
   cueId?: number | null;
   locationId?: number | null;
-  intensity?: number; // default 5
+
+  // UPDATED:
+  intensity?: number | null; // null = None, default null if omitted
+  count?: number; // default 1 if omitted
+
   didResist?: boolean; // default false
   notes?: string;
 };
@@ -174,12 +182,16 @@ async function initDb() {
       FOREIGN KEY (locationId) REFERENCES locations(id) ON DELETE CASCADE
     );
 
+    -- UPDATED: logs now has optional intensity + count
     CREATE TABLE IF NOT EXISTS logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       habitId INTEGER NOT NULL,
       cueId INTEGER,
       locationId INTEGER,
-      intensity INTEGER NOT NULL DEFAULT 5,
+
+      intensity INTEGER,                -- nullable (null = None)
+      count INTEGER NOT NULL DEFAULT 1, -- 1..10
+
       didResist INTEGER NOT NULL DEFAULT 0,
       notes TEXT,
       createdAt INTEGER NOT NULL,
@@ -383,6 +395,7 @@ async function loadLogs(): Promise<LogEntry[]> {
       l.locationId,
       loc.name AS locationName,
       l.intensity,
+      l.count,
       l.didResist,
       l.notes,
       l.createdAt
@@ -601,20 +614,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const habitId = input.habitId;
     if (!Number.isFinite(habitId)) return;
 
-    const intensityRaw = input.intensity ?? 5;
-    const intensity = Math.min(10, Math.max(1, Math.round(intensityRaw)));
+    // intensity: null means "None"
+    const intensityIn = input.intensity ?? null;
+    const intensity: number | null =
+      intensityIn == null
+        ? null
+        : Math.min(10, Math.max(1, Math.round(intensityIn)));
+
+    // count: default 1, clamp 1..10
+    const countIn = input.count ?? 1;
+    const count = Math.min(10, Math.max(1, Math.round(countIn)));
+
     const didResist: 0 | 1 = input.didResist ? 1 : 0;
 
     await db.runAsync(
       `
-      INSERT INTO logs (habitId, cueId, locationId, intensity, didResist, notes, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO logs (habitId, cueId, locationId, intensity, count, didResist, notes, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
       `,
       [
         habitId,
         input.cueId ?? null,
         input.locationId ?? null,
         intensity,
+        count,
         didResist,
         input.notes?.trim() ?? null,
         Date.now(),
