@@ -8,24 +8,9 @@ import React, {
 import * as SQLite from "expo-sqlite";
 import * as SecureStore from "expo-secure-store";
 
-// ---------- Types ----------
-export type Habit = {
-  id: number;
-  name: string;
-  isCustom: 0 | 1;
-};
-
-export type Cue = {
-  id: number;
-  name: string;
-  isCustom: 0 | 1;
-};
-
-export type Place = {
-  id: number;
-  name: string;
-  isCustom: 0 | 1;
-};
+export type Habit = { id: number; name: string; isCustom: 0 | 1 };
+export type Cue = { id: number; name: string; isCustom: 0 | 1 };
+export type Place = { id: number; name: string; isCustom: 0 | 1 };
 
 export type SelectedHabit = Habit;
 export type SelectedCue = Cue;
@@ -43,12 +28,10 @@ export type LogEntry = {
   locationId: number | null;
   locationName: string | null;
 
-  // UPDATED: intensity is optional now (null = "None")
-  intensity: number | null; // 1–10 or null
-  // NEW: count
-  count: number; // 1–10
+  intensity: number | null;
+  count: number;
 
-  didResist: 0 | 1; // SQLite-friendly boolean
+  didResist: 0 | 1;
   notes: string | null;
   createdAt: number;
 };
@@ -56,75 +39,61 @@ export type LogEntry = {
 export type ReplacementAction = {
   id: number;
   title: string;
-  category: string | null; // Physical | Mental | Social | Creative | Other (for presets)
+  category: string | null;
   isCustom: 0 | 1;
 };
 
-// ---------- Open DB ----------
 const db = SQLite.openDatabaseSync("reflex.db");
 
-// ---------- Context ----------
 type AddLogInput = {
   habitId: number;
   cueId?: number | null;
   locationId?: number | null;
-
-  // UPDATED:
-  intensity?: number | null; // null = None, default null if omitted
-  count?: number; // default 1 if omitted
-
-  didResist?: boolean; // default false
+  intensity?: number | null;
+  count?: number;
+  didResist?: boolean;
   notes?: string;
 };
 
 type AddActionInput = {
   title: string;
   category?: string;
-  isCustom?: boolean; // default true for user-created
+  isCustom?: boolean;
 };
 
 type DataContextType = {
-  // master lists (NOT alphabetical; preserve seed/insertion order)
   habits: Habit[];
   cues: Cue[];
   locations: Place[];
 
-  // user-selected lists (NOT alphabetical; preserve selection insertion order)
   selectedHabits: SelectedHabit[];
   selectedCues: SelectedCue[];
   selectedLocations: SelectedPlace[];
 
-  // onboarding completion (SEPARATE FLAG — not derived from selectedHabits)
   hasOnboarded: boolean;
   completeOnboarding: () => Promise<void>;
   resetOnboarding: () => Promise<void>;
 
-  // selection setters
   setSelectedHabits: (habitIds: number[]) => Promise<void>;
   setSelectedCues: (cueIds: number[]) => Promise<void>;
   setSelectedLocations: (locationIds: number[]) => Promise<void>;
 
-  // custom creators
   addCustomHabit: (name: string, autoSelect?: boolean) => Promise<void>;
   addCustomCue: (name: string, autoSelect?: boolean) => Promise<void>;
   addCustomLocation: (name: string, autoSelect?: boolean) => Promise<void>;
 
-  // logs
   logs: LogEntry[];
   addLog: (input: AddLogInput) => Promise<void>;
 
-  // actions
   actions: ReplacementAction[];
   addAction: (input: AddActionInput) => Promise<void>;
 
-  // utils
   refresh: () => Promise<void>;
   resetDbForDev?: () => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType | null>(null);
 
-// ---------- Onboarding flag helpers ----------
 const ONBOARD_KEY = "hasOnboarded";
 
 async function loadOnboardedFlag(): Promise<boolean> {
@@ -139,12 +108,9 @@ async function loadOnboardedFlag(): Promise<boolean> {
 async function saveOnboardedFlag(value: boolean): Promise<void> {
   try {
     await SecureStore.setItemAsync(ONBOARD_KEY, value ? "true" : "false");
-  } catch {
-    // ignore (simulator / platform edge cases)
-  }
+  } catch {}
 }
 
-// ---------- DB Init / Seed ----------
 async function initDb() {
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
@@ -182,16 +148,13 @@ async function initDb() {
       FOREIGN KEY (locationId) REFERENCES locations(id) ON DELETE CASCADE
     );
 
-    -- UPDATED: logs now has optional intensity + count
     CREATE TABLE IF NOT EXISTS logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       habitId INTEGER NOT NULL,
       cueId INTEGER,
       locationId INTEGER,
-
-      intensity INTEGER,                -- nullable (null = None)
-      count INTEGER NOT NULL DEFAULT 1, -- 1..10
-
+      intensity INTEGER,
+      count INTEGER NOT NULL DEFAULT 1,
       didResist INTEGER NOT NULL DEFAULT 0,
       notes TEXT,
       createdAt INTEGER NOT NULL,
@@ -275,35 +238,30 @@ async function seedDefaultActionsIfEmpty() {
   if ((rows?.[0]?.count ?? 0) > 0) return;
 
   await db.execAsync(`
-    -- Physical (5+)
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Do 10 push-ups', 'Physical', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Go for a 5-min walk', 'Physical', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Stretch for 2 minutes', 'Physical', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('20 jumping jacks', 'Physical', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Drink a full glass of water', 'Physical', 0);
 
-    -- Mental (5+)
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Deep breathing (60s)', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Name 5 things you can see', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Write 3 lines of journaling', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Set a 2-min timer and do nothing', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Read 1 page of a book', 'Mental', 0);
 
-    -- Social (5+)
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Text a friend', 'Social', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Call someone for 2 minutes', 'Social', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Send a “how are you?” message', 'Social', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Reply to one message you’ve been avoiding', 'Social', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Step outside and say hi to someone', 'Social', 0);
 
-    -- Creative (5+)
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Write one paragraph', 'Creative', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Sketch for 2 minutes', 'Creative', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Make a quick playlist', 'Creative', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Take 3 photos of anything', 'Creative', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Brain-dump 10 ideas', 'Creative', 0);
 
-    -- Other (5+)
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Clean one small surface', 'Other', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Take a quick shower', 'Other', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Make your bed', 'Other', 0);
@@ -312,10 +270,6 @@ async function seedDefaultActionsIfEmpty() {
   `);
 }
 
-/**
- * DEV ONLY: Recreate tables when you change schema.
- * Use once, then remove the call.
- */
 async function resetDbForDev() {
   await db.execAsync(`
     DROP TABLE IF EXISTS logs;
@@ -333,12 +287,9 @@ async function resetDbForDev() {
   await seedDefaultCuesIfEmpty();
   await seedDefaultLocationsIfEmpty();
   await seedDefaultActionsIfEmpty();
-
-  // If you're wiping DB in dev, you usually want to re-run onboarding too.
   await saveOnboardedFlag(false);
 }
 
-// ---------- Loaders (NO alphabetical sorting) ----------
 async function loadHabits(): Promise<Habit[]> {
   return db.getAllAsync<Habit>(
     "SELECT * FROM habits ORDER BY isCustom ASC, id ASC;"
@@ -413,7 +364,6 @@ async function loadActions(): Promise<ReplacementAction[]> {
   );
 }
 
-// ---------- Provider ----------
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [cues, setCues] = useState<Cue[]>([]);
@@ -430,15 +380,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [actions, setActions] = useState<ReplacementAction[]>([]);
 
-  // IMPORTANT: onboarding completion is its own flag
   const [hasOnboarded, setHasOnboarded] = useState(false);
 
   useEffect(() => {
     (async () => {
-      // If you are still iterating on schema, keep this.
-      // When you stop iterating, remove the resetDbForDev() call.
       await resetDbForDev();
-
       setHasOnboarded(await loadOnboardedFlag());
       await refresh();
     })();
@@ -459,16 +405,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setHabits(h);
     setCues(c);
     setLocations(loc);
-
     setSelectedHabitsState(sh);
     setSelectedCuesState(sc);
     setSelectedLocationsState(sl);
-
     setLogs(l);
     setActions(a);
   };
 
-  // ---------- Onboarding controls ----------
   const completeOnboarding = async () => {
     await saveOnboardedFlag(true);
     setHasOnboarded(true);
@@ -479,7 +422,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setHasOnboarded(false);
   };
 
-  // ---------- Selection setters ----------
   const setSelectedHabits: DataContextType["setSelectedHabits"] = async (
     habitIds
   ) => {
@@ -530,7 +472,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setSelectedLocationsState(await loadSelectedLocations());
   };
 
-  // ---------- Custom creators ----------
   const addCustomHabit: DataContextType["addCustomHabit"] = async (
     name,
     autoSelect = true
@@ -609,19 +550,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await setSelectedLocations(nextIds);
   };
 
-  // ---------- Logs ----------
   const addLog: DataContextType["addLog"] = async (input) => {
     const habitId = input.habitId;
     if (!Number.isFinite(habitId)) return;
 
-    // intensity: null means "None"
     const intensityIn = input.intensity ?? null;
     const intensity: number | null =
       intensityIn == null
         ? null
         : Math.min(10, Math.max(1, Math.round(intensityIn)));
 
-    // count: default 1, clamp 1..10
     const countIn = input.count ?? 1;
     const count = Math.min(10, Math.max(1, Math.round(countIn)));
 
@@ -647,7 +585,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setLogs(await loadLogs());
   };
 
-  // ---------- Actions ----------
   const addAction: DataContextType["addAction"] = async (input) => {
     const title = input.title.trim();
     if (!title) return;
@@ -703,7 +640,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
 
-// ---------- Hook ----------
 export function useData() {
   const ctx = useContext(DataContext);
   if (!ctx) throw new Error("useData must be used within DataProvider");
