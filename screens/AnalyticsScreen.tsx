@@ -48,9 +48,10 @@ type CalendarCell = {
   count: number | null;
   isToday: boolean;
   dayStartMs: number | null;
+  isInactive: boolean; // before install OR in the future
 };
 
-// Darkest at count=0 should be green-600 (not super dark).
+// Darkest at count=0 should be green-600.
 // Then gradually gets lighter as count increases.
 const GREEN_SCALE = [
   "bg-green-600", // 0
@@ -68,7 +69,6 @@ function greenBgForCount(count: number) {
 }
 
 function textColorForCount(count: number) {
-  // Darker tiles => white text; lighter tiles => dark text
   return count <= 2 ? "text-white" : "text-gray-900";
 }
 
@@ -82,6 +82,18 @@ export default function AnalyticsScreen() {
   // Day details modal
   const [dayModalOpen, setDayModalOpen] = useState(false);
   const [selectedDayMs, setSelectedDayMs] = useState<number | null>(null);
+
+  // Approx "install day" = first day we ever have a log for (across ALL logs, not filtered by tab)
+  const installDayStartMs = useMemo(() => {
+    if (!logs || logs.length === 0) return null;
+    let min = logs[0].createdAt;
+    for (let i = 1; i < logs.length; i++) {
+      if (logs[i].createdAt < min) min = logs[i].createdAt;
+    }
+    return startOfDayMs(min);
+  }, [logs]);
+
+  const todayStartMs = useMemo(() => startOfDayMs(Date.now()), []);
 
   // ---------- Tabs ----------
   const habitTabs = useMemo(() => {
@@ -138,6 +150,7 @@ export default function AnalyticsScreen() {
         count: null,
         isToday: false,
         dayStartMs: null,
+        isInactive: true,
       });
     }
 
@@ -146,13 +159,22 @@ export default function AnalyticsScreen() {
 
     for (let d = 1; d <= daysInMonth; d++) {
       const ms = new Date(shown.getFullYear(), shown.getMonth(), d).getTime();
-      const k = dayKey(ms);
+      const dayStart = startOfDayMs(ms);
+      const k = dayKey(dayStart);
+
+      const isFuture = dayStart > todayStartMs;
+      const isBeforeInstall =
+        installDayStartMs == null ? true : dayStart < installDayStartMs;
+
+      const isInactive = isFuture || isBeforeInstall;
+
       cells.push({
         key: k,
         label: String(d),
         count: giveInCounts.get(k) ?? 0,
         isToday: k === todayKeyStr,
-        dayStartMs: startOfDayMs(ms),
+        dayStartMs: dayStart,
+        isInactive,
       });
     }
 
@@ -163,6 +185,7 @@ export default function AnalyticsScreen() {
         count: null,
         isToday: false,
         dayStartMs: null,
+        isInactive: true,
       });
     }
 
@@ -177,7 +200,7 @@ export default function AnalyticsScreen() {
     });
 
     return { weeks, monthLabel };
-  }, [filteredLogs, monthOffset]);
+  }, [filteredLogs, monthOffset, installDayStartMs, todayStartMs]);
 
   // ---------- Selected day logs (for modal) ----------
   const selectedDayLogs = useMemo(() => {
@@ -437,47 +460,69 @@ export default function AnalyticsScreen() {
                   }
 
                   const count = c.count ?? 0;
-                  const bg = greenBgForCount(count);
-                  const textColor = textColorForCount(count);
 
-                  return (
-                    <View key={c.key} className="flex-1 p-1">
-                      <Pressable
-                        onPress={() => {
-                          if (c.dayStartMs != null) openDayModal(c.dayStartMs);
-                        }}
-                        hitSlop={6}
-                      >
+                  // Inactive days: future days OR before app existed => show white
+                  const bg = c.isInactive ? "bg-white" : greenBgForCount(count);
+                  const tileBorder = c.isInactive
+                    ? "border border-gray-200"
+                    : "";
+                  const textColor = c.isInactive
+                    ? "text-gray-400"
+                    : textColorForCount(count);
+
+                  const showBadge = !c.isInactive;
+
+                  const Tile = (
+                    <View
+                      className={[
+                        "aspect-square items-center justify-center rounded-xl",
+                        bg,
+                        tileBorder,
+                        c.isToday && !c.isInactive
+                          ? "ring-2 ring-gray-900"
+                          : "",
+                      ].join(" ")}
+                    >
+                      <Text className={`text-xs font-semibold ${textColor}`}>
+                        {c.label}
+                      </Text>
+
+                      {showBadge ? (
                         <View
                           className={[
-                            "aspect-square items-center justify-center rounded-xl",
-                            bg,
-                            c.isToday ? "ring-2 ring-gray-900" : "",
+                            "mt-1 rounded-full px-2 py-0.5",
+                            count <= 2 ? "bg-white/25" : "bg-black/10",
                           ].join(" ")}
                         >
                           <Text
-                            className={`text-xs font-semibold ${textColor}`}
-                          >
-                            {c.label}
-                          </Text>
-
-                          <View
                             className={[
-                              "mt-1 rounded-full px-2 py-0.5",
-                              count <= 2 ? "bg-white/25" : "bg-black/10",
+                              "text-[10px] font-semibold",
+                              count <= 2 ? "text-white" : "text-gray-900",
                             ].join(" ")}
                           >
-                            <Text
-                              className={[
-                                "text-[10px] font-semibold",
-                                count <= 2 ? "text-white" : "text-gray-900",
-                              ].join(" ")}
-                            >
-                              {count}
-                            </Text>
-                          </View>
+                            {count}
+                          </Text>
                         </View>
-                      </Pressable>
+                      ) : (
+                        <Text className="mt-1 text-[10px] text-transparent">
+                          0
+                        </Text>
+                      )}
+                    </View>
+                  );
+
+                  return (
+                    <View key={c.key} className="flex-1 p-1">
+                      {c.isInactive || c.dayStartMs == null ? (
+                        Tile
+                      ) : (
+                        <Pressable
+                          onPress={() => openDayModal(c.dayStartMs!)}
+                          hitSlop={6}
+                        >
+                          {Tile}
+                        </Pressable>
+                      )}
                     </View>
                   );
                 })}
@@ -486,7 +531,8 @@ export default function AnalyticsScreen() {
           </View>
 
           <Text className="mt-3 text-xs text-gray-500">
-            Number = times you gave in that day (0 = darkest green)
+            Green = days you could log (0 is darkest). White = before you
+            started or in the future.
           </Text>
         </View>
 
