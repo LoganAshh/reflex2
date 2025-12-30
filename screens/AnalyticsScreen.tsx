@@ -67,7 +67,9 @@ function greenBgForCount(count: number) {
 }
 
 function textColorForCount(count: number) {
-  return count <= 2 ? "text-white" : "text-gray-900";
+  // Darker greens => white text.
+  // Lighter greens => use the same light gray as the inactive (white) squares.
+  return count <= 2 ? "text-white" : "text-gray-400";
 }
 
 export default function AnalyticsScreen() {
@@ -456,9 +458,16 @@ export default function AnalyticsScreen() {
                     c.isToday && !c.isInactive
                       ? "border-2 border-gray-900"
                       : "";
+
+                  // ✅ change: for light greens use the same gray as inactive squares
                   const textColor = c.isInactive
                     ? "text-gray-400"
                     : textColorForCount(count);
+
+                  // Badge text should follow the same rule (white on dark greens, gray on light greens)
+                  const badgeTextColor =
+                    count <= 2 ? "text-white" : "text-gray-400";
+                  const badgeBg = count <= 2 ? "bg-white/25" : "bg-black/10";
 
                   const Tile = (
                     <View
@@ -477,20 +486,19 @@ export default function AnalyticsScreen() {
                         <View
                           className={[
                             "mt-1 rounded-full px-2 py-0.5",
-                            count <= 2 ? "bg-white/25" : "bg-black/10",
+                            badgeBg,
                           ].join(" ")}
                         >
                           <Text
                             className={[
                               "text-[10px] font-semibold",
-                              count <= 2 ? "text-white" : "text-gray-900",
+                              badgeTextColor,
                             ].join(" ")}
                           >
                             {count}
                           </Text>
                         </View>
                       ) : (
-                        // keep layout consistent without showing anything
                         <Text className="mt-1 text-[10px] text-transparent">
                           0
                         </Text>
