@@ -524,11 +524,6 @@ export default function AnalyticsScreen() {
               </View>
             ))}
           </View>
-
-          <Text className="mt-3 text-xs text-gray-500">
-            Green = days you could log (0 is darkest). White = before you
-            started or in the future.
-          </Text>
         </View>
 
         {/* Weekly patterns */}
