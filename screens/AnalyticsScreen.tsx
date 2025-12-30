@@ -51,8 +51,6 @@ type CalendarCell = {
   isInactive: boolean; // before install OR in the future
 };
 
-// Darkest at count=0 should be green-600.
-// Then gradually gets lighter as count increases.
 const GREEN_SCALE = [
   "bg-green-600", // 0
   "bg-green-500", // 1
@@ -75,15 +73,12 @@ function textColorForCount(count: number) {
 export default function AnalyticsScreen() {
   const { logs } = useData();
   const [activeTab, setActiveTab] = useState<TabKey>("Overall");
-
-  // Month navigation (0 = current month)
   const [monthOffset, setMonthOffset] = useState(0);
 
-  // Day details modal
   const [dayModalOpen, setDayModalOpen] = useState(false);
   const [selectedDayMs, setSelectedDayMs] = useState<number | null>(null);
 
-  // Approx "install day" = first day we ever have a log for (across ALL logs, not filtered by tab)
+  // Approx "install day" = first day we ever have a log for (across ALL logs, not filtered)
   const installDayStartMs = useMemo(() => {
     if (!logs || logs.length === 0) return null;
     let min = logs[0].createdAt;
@@ -95,7 +90,6 @@ export default function AnalyticsScreen() {
 
   const todayStartMs = useMemo(() => startOfDayMs(Date.now()), []);
 
-  // ---------- Tabs ----------
   const habitTabs = useMemo(() => {
     const set = new Set<string>();
     for (const l of logs) {
@@ -110,7 +104,6 @@ export default function AnalyticsScreen() {
     return logs.filter((l) => (l.habitName ?? "").trim() === activeTab);
   }, [logs, activeTab]);
 
-  // ---------- Calendar (gave in counts) ----------
   const calendar = useMemo(() => {
     const base = new Date();
     const shown = new Date(
@@ -122,7 +115,6 @@ export default function AnalyticsScreen() {
     const monthStart = startOfMonthMs(shown);
     const monthEnd = endOfMonthMs(shown);
 
-    // counts for days in shown month where user "gave in" (didResist === 0)
     const giveInCounts = new Map<string, number>();
     for (const l of filteredLogs) {
       if (l.createdAt < monthStart || l.createdAt >= monthEnd) continue;
@@ -138,7 +130,6 @@ export default function AnalyticsScreen() {
       0
     ).getDate();
 
-    // Monday=0 ... Sunday=6 offset
     const jsDay = firstDay.getDay(); // 0=Sun
     const mondayIndex = (jsDay + 6) % 7;
 
@@ -165,7 +156,6 @@ export default function AnalyticsScreen() {
       const isFuture = dayStart > todayStartMs;
       const isBeforeInstall =
         installDayStartMs == null ? true : dayStart < installDayStartMs;
-
       const isInactive = isFuture || isBeforeInstall;
 
       cells.push({
@@ -202,7 +192,6 @@ export default function AnalyticsScreen() {
     return { weeks, monthLabel };
   }, [filteredLogs, monthOffset, installDayStartMs, todayStartMs]);
 
-  // ---------- Selected day logs (for modal) ----------
   const selectedDayLogs = useMemo(() => {
     if (selectedDayMs == null) return [];
     const dayStart = startOfDayMs(selectedDayMs);
@@ -229,7 +218,6 @@ export default function AnalyticsScreen() {
     setDayModalOpen(true);
   };
 
-  // ---------- Weekly analytics ----------
   const data = useMemo(() => {
     const weekStart = startOfWeekMs(new Date());
     const weekLogs = filteredLogs.filter((l) => l.createdAt >= weekStart);
@@ -272,7 +260,6 @@ export default function AnalyticsScreen() {
   }) => (
     <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
       <Text className="text-base font-semibold text-gray-900">{title}</Text>
-
       {items.length === 0 ? (
         <Text className="mt-2 text-sm text-gray-600">{empty}</Text>
       ) : (
@@ -461,33 +448,32 @@ export default function AnalyticsScreen() {
 
                   const count = c.count ?? 0;
 
-                  // Inactive days: future days OR before app existed => show white
                   const bg = c.isInactive ? "bg-white" : greenBgForCount(count);
-                  const tileBorder = c.isInactive
+                  const baseBorder = c.isInactive
                     ? "border border-gray-200"
-                    : "";
+                    : "border border-transparent";
+                  const todayBorder =
+                    c.isToday && !c.isInactive
+                      ? "border-2 border-gray-900"
+                      : "";
                   const textColor = c.isInactive
                     ? "text-gray-400"
                     : textColorForCount(count);
 
-                  const showBadge = !c.isInactive;
-
                   const Tile = (
                     <View
                       className={[
-                        "aspect-square items-center justify-center rounded-xl",
+                        "aspect-square items-center justify-center rounded-xl overflow-hidden",
                         bg,
-                        tileBorder,
-                        c.isToday && !c.isInactive
-                          ? "ring-2 ring-gray-900"
-                          : "",
+                        baseBorder,
+                        todayBorder,
                       ].join(" ")}
                     >
                       <Text className={`text-xs font-semibold ${textColor}`}>
                         {c.label}
                       </Text>
 
-                      {showBadge ? (
+                      {!c.isInactive ? (
                         <View
                           className={[
                             "mt-1 rounded-full px-2 py-0.5",
@@ -504,6 +490,7 @@ export default function AnalyticsScreen() {
                           </Text>
                         </View>
                       ) : (
+                        // keep layout consistent without showing anything
                         <Text className="mt-1 text-[10px] text-transparent">
                           0
                         </Text>
