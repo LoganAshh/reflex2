@@ -48,7 +48,7 @@ type CalendarCell = {
   count: number | null;
   isToday: boolean;
   dayStartMs: number | null;
-  isInactive: boolean; // before install OR in the future
+  isInactive: boolean; // before install OR in the future (except: allow today on first open)
 };
 
 const GREEN_SCALE = [
@@ -68,7 +68,7 @@ function greenBgForCount(count: number) {
 
 function textColorForCount(count: number) {
   // Darker greens => white text.
-  // Lighter greens => use the same light gray as the inactive (white) squares.
+  // Lighter greens => use the same light gray as inactive (white) squares.
   return count <= 2 ? "text-white" : "text-gray-400";
 }
 
@@ -80,17 +80,19 @@ export default function AnalyticsScreen() {
   const [dayModalOpen, setDayModalOpen] = useState(false);
   const [selectedDayMs, setSelectedDayMs] = useState<number | null>(null);
 
+  const todayStartMs = useMemo(() => startOfDayMs(Date.now()), []);
+  const hasAnyLogs = logs.length > 0;
+
   // Approx "install day" = first day we ever have a log for (across ALL logs, not filtered)
+  // If there are no logs yet, treat "install day" as today so today isn't rendered as inactive.
   const installDayStartMs = useMemo(() => {
-    if (!logs || logs.length === 0) return null;
+    if (!logs || logs.length === 0) return todayStartMs;
     let min = logs[0].createdAt;
     for (let i = 1; i < logs.length; i++) {
       if (logs[i].createdAt < min) min = logs[i].createdAt;
     }
     return startOfDayMs(min);
-  }, [logs]);
-
-  const todayStartMs = useMemo(() => startOfDayMs(Date.now()), []);
+  }, [logs, todayStartMs]);
 
   const habitTabs = useMemo(() => {
     const set = new Set<string>();
@@ -147,24 +149,31 @@ export default function AnalyticsScreen() {
       });
     }
 
-    const today = new Date();
-    const todayKeyStr = dayKey(today.getTime());
+    const todayKeyStr = dayKey(todayStartMs);
 
     for (let d = 1; d <= daysInMonth; d++) {
       const ms = new Date(shown.getFullYear(), shown.getMonth(), d).getTime();
       const dayStart = startOfDayMs(ms);
       const k = dayKey(dayStart);
 
+      const isToday = k === todayKeyStr;
+
       const isFuture = dayStart > todayStartMs;
-      const isBeforeInstall =
-        installDayStartMs == null ? true : dayStart < installDayStartMs;
-      const isInactive = isFuture || isBeforeInstall;
+
+      // Before-install logic:
+      // - normally: days before install are inactive (white)
+      // - but on first open (no logs yet): allow TODAY to be active (green-600, count 0)
+      const isBeforeInstall = dayStart < installDayStartMs;
+      const treatTodayAsActiveOnFirstOpen = !hasAnyLogs && isToday;
+
+      const isInactive =
+        isFuture || (isBeforeInstall && !treatTodayAsActiveOnFirstOpen);
 
       cells.push({
         key: k,
         label: String(d),
         count: giveInCounts.get(k) ?? 0,
-        isToday: k === todayKeyStr,
+        isToday,
         dayStartMs: dayStart,
         isInactive,
       });
@@ -192,7 +201,7 @@ export default function AnalyticsScreen() {
     });
 
     return { weeks, monthLabel };
-  }, [filteredLogs, monthOffset, installDayStartMs, todayStartMs]);
+  }, [filteredLogs, monthOffset, installDayStartMs, todayStartMs, hasAnyLogs]);
 
   const selectedDayLogs = useMemo(() => {
     if (selectedDayMs == null) return [];
@@ -459,12 +468,10 @@ export default function AnalyticsScreen() {
                       ? "border-2 border-gray-900"
                       : "";
 
-                  // ✅ change: for light greens use the same gray as inactive squares
                   const textColor = c.isInactive
                     ? "text-gray-400"
                     : textColorForCount(count);
 
-                  // Badge text should follow the same rule (white on dark greens, gray on light greens)
                   const badgeTextColor =
                     count <= 2 ? "text-white" : "text-gray-400";
                   const badgeBg = count <= 2 ? "bg-white/25" : "bg-black/10";
