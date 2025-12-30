@@ -1,12 +1,5 @@
 import React, { useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  ScrollView,
-  Pressable,
-  Modal,
-} from "react-native";
+import { View, Text, ScrollView, Pressable, Modal } from "react-native";
 import { useData, type LogEntry } from "../data/DataContext";
 
 function startOfWeekMs(d: Date) {
@@ -54,7 +47,7 @@ type CalendarCell = {
   label: string;
   count: number | null;
   isToday: boolean;
-  dayStartMs: number | null; // <-- used for opening the day modal
+  dayStartMs: number | null;
 };
 
 export default function AnalyticsScreen() {
@@ -220,7 +213,6 @@ export default function AnalyticsScreen() {
       topCues: topN(cueCounts),
       topLocations: topN(locCounts),
       topHabits: topN(habitCounts),
-      weekLogsPreview: weekLogs.slice(0, 10),
     };
   }, [filteredLogs]);
 
@@ -258,40 +250,6 @@ export default function AnalyticsScreen() {
     </View>
   );
 
-  const renderMiniLog = ({ item }: { item: LogEntry }) => {
-    const t = new Date(item.createdAt).toLocaleString();
-    const win = item.didResist === 1;
-
-    return (
-      <View className="mb-2 rounded-2xl border border-gray-200 bg-white p-3">
-        <Text className="text-xs text-gray-500">{t}</Text>
-        <Text className="mt-1 text-sm font-semibold text-gray-900">
-          {item.habitName}
-        </Text>
-
-        <Text className="mt-1 text-xs text-gray-500" numberOfLines={1}>
-          {[
-            item.cueName ? `Cue: ${item.cueName}` : null,
-            item.locationName ? `Loc: ${item.locationName}` : null,
-          ]
-            .filter(Boolean)
-            .join(" • ")}
-        </Text>
-
-        <View className="mt-2 flex-row items-center justify-between">
-          <Text className="text-xs text-gray-500">Intensity</Text>
-          <Text className="text-xs font-semibold text-gray-900">
-            {item.intensity == null ? "None" : `${item.intensity}/10`}
-          </Text>
-        </View>
-
-        <Text className="mt-2 text-xs font-semibold text-gray-700">
-          {win ? "Win logged ✅" : "Check-in logged ✅"}
-        </Text>
-      </View>
-    );
-  };
-
   const renderDayLog = (item: LogEntry) => {
     const t = new Date(item.createdAt).toLocaleTimeString(undefined, {
       hour: "numeric",
@@ -307,12 +265,12 @@ export default function AnalyticsScreen() {
         <View className="flex-row items-center justify-between">
           <Text className="text-xs font-semibold text-gray-500">{t}</Text>
           <View
-            className={`rounded-full px-2 py-1 ${
-              win ? "bg-emerald-50" : "bg-gray-50"
-            }`}
+            className={`rounded-full px-2 py-1 ${win ? "bg-emerald-50" : "bg-gray-50"}`}
           >
             <Text
-              className={`text-[11px] font-semibold ${win ? "text-emerald-700" : "text-gray-700"}`}
+              className={`text-[11px] font-semibold ${
+                win ? "text-emerald-700" : "text-gray-700"
+              }`}
             >
               {win ? "Resisted" : "Gave in"}
             </Text>
@@ -531,30 +489,6 @@ export default function AnalyticsScreen() {
             items={data.topHabits}
             empty="Log a few check-ins and this will populate."
           />
-        </View>
-
-        {/* Recent */}
-        <View className="mt-6">
-          <Text className="text-xl font-bold text-gray-900">Recent (week)</Text>
-          <Text className="mt-1 text-sm text-gray-500">Last 10 check-ins</Text>
-
-          {data.weekLogsPreview.length === 0 ? (
-            <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-5">
-              <Text className="text-gray-700">
-                {activeTab === "Overall"
-                  ? "No logs this week yet."
-                  : `No logs for “${activeTab}” this week yet.`}
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              className="mt-4"
-              data={data.weekLogsPreview}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={renderMiniLog}
-              scrollEnabled={false}
-            />
-          )}
         </View>
       </ScrollView>
 
