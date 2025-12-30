@@ -67,9 +67,8 @@ function greenBgForCount(count: number) {
 }
 
 function textColorForCount(count: number) {
-  // Darker greens => white text.
-  // Lighter greens => use the same light gray as inactive (white) squares.
-  return count <= 2 ? "text-white" : "text-gray-400";
+  // ✅ change: stay white through 0–3; switch to light gray starting at 4+
+  return count <= 3 ? "text-white" : "text-gray-400";
 }
 
 export default function AnalyticsScreen() {
@@ -83,7 +82,6 @@ export default function AnalyticsScreen() {
   const todayStartMs = useMemo(() => startOfDayMs(Date.now()), []);
   const hasAnyLogs = logs.length > 0;
 
-  // Approx "install day" = first day we ever have a log for (across ALL logs, not filtered)
   // If there are no logs yet, treat "install day" as today so today isn't rendered as inactive.
   const installDayStartMs = useMemo(() => {
     if (!logs || logs.length === 0) return todayStartMs;
@@ -157,12 +155,8 @@ export default function AnalyticsScreen() {
       const k = dayKey(dayStart);
 
       const isToday = k === todayKeyStr;
-
       const isFuture = dayStart > todayStartMs;
 
-      // Before-install logic:
-      // - normally: days before install are inactive (white)
-      // - but on first open (no logs yet): allow TODAY to be active (green-600, count 0)
       const isBeforeInstall = dayStart < installDayStartMs;
       const treatTodayAsActiveOnFirstOpen = !hasAnyLogs && isToday;
 
@@ -473,8 +467,8 @@ export default function AnalyticsScreen() {
                     : textColorForCount(count);
 
                   const badgeTextColor =
-                    count <= 2 ? "text-white" : "text-gray-400";
-                  const badgeBg = count <= 2 ? "bg-white/25" : "bg-black/10";
+                    count <= 3 ? "text-white" : "text-gray-400";
+                  const badgeBg = count <= 3 ? "bg-white/25" : "bg-black/10";
 
                   const Tile = (
                     <View
