@@ -34,7 +34,6 @@ type ChipItem = {
 
 type BaseItem = { id: number; name: string };
 
-// Keep a "most-recent-first" ordering that persists across submissions.
 function applyRecentOrdering<T extends { id: number }>(
   items: T[],
   recentIds: number[]
@@ -329,11 +328,9 @@ export default function LogScreen() {
   const [showNotes, setShowNotes] = useState(false);
   const [didResist, setDidResist] = useState<boolean>(false);
 
-  // Intensity is optional (null = "None")
   const [intensity, setIntensity] = useState<number | null>(null);
   const [showIntensityPicker, setShowIntensityPicker] = useState(false);
 
-  // Count (defaults to Once)
   const [count, setCount] = useState<number>(1);
   const [showCountPicker, setShowCountPicker] = useState(false);
 
@@ -414,18 +411,17 @@ export default function LogScreen() {
         habitId: submittedHabitId,
         cueId: submittedCueId,
         locationId: submittedLocationId,
-        intensity: intensity ?? 5,
+        intensity: intensity ?? null,
+        count,
         didResist,
         notes: notes.trim() || undefined,
       });
 
       setRecentHabitIds((prev) => bumpRecent(prev, submittedHabitId));
-      if (submittedCueId != null) {
+      if (submittedCueId != null)
         setRecentCueIds((prev) => bumpRecent(prev, submittedCueId));
-      }
-      if (submittedLocationId != null) {
+      if (submittedLocationId != null)
         setRecentLocationIds((prev) => bumpRecent(prev, submittedLocationId));
-      }
 
       resetForm();
 
@@ -457,11 +453,9 @@ export default function LogScreen() {
   };
 
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
-  const intensityChipSelected = true;
-
   const countLabel = count === 1 ? "Once" : count === 2 ? "Twice" : `${count}x`;
 
-  const chipBase = "rounded-full border px-3 py-1.5";
+  const chipBase = "rounded-full border px-2.5 py-1.5";
   const chipSelected = "bg-green-600 border-green-600";
   const chipUnselected = "bg-white border-gray-200";
 
@@ -542,8 +536,7 @@ export default function LogScreen() {
             />
 
             <View className="mt-3 w-full flex-row gap-3">
-              {/* Count box */}
-              <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
                 <Text className="text-sm font-semibold text-gray-900">
                   Count
                 </Text>
@@ -569,8 +562,7 @@ export default function LogScreen() {
                 </View>
               </View>
 
-              {/* Intensity box */}
-              <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
                 <Text className="text-sm font-semibold text-gray-900">
                   Intensity
                 </Text>
@@ -578,15 +570,9 @@ export default function LogScreen() {
                 <View className="mt-2 flex-row items-center">
                   <Pressable
                     onPress={() => setShowIntensityPicker(true)}
-                    className={`${chipBase} ${
-                      intensityChipSelected ? chipSelected : chipUnselected
-                    } mr-2`}
+                    className={`${chipBase} ${chipSelected} mr-2`}
                   >
-                    <Text
-                      className={`text-sm font-semibold ${
-                        intensityChipSelected ? "text-white" : "text-gray-900"
-                      }`}
-                    >
+                    <Text className="text-sm font-semibold text-white">
                       {intensityLabel}
                     </Text>
                   </Pressable>
