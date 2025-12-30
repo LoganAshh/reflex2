@@ -50,6 +50,28 @@ type CalendarCell = {
   dayStartMs: number | null;
 };
 
+// Darkest at count=0 should be green-600 (not super dark).
+// Then gradually gets lighter as count increases.
+const GREEN_SCALE = [
+  "bg-green-600", // 0
+  "bg-green-500", // 1
+  "bg-green-400", // 2
+  "bg-green-300", // 3
+  "bg-green-200", // 4
+  "bg-green-100", // 5
+  "bg-green-50", // 6+
+] as const;
+
+function greenBgForCount(count: number) {
+  const idx = Math.min(Math.max(count, 0), GREEN_SCALE.length - 1);
+  return GREEN_SCALE[idx];
+}
+
+function textColorForCount(count: number) {
+  // Darker tiles => white text; lighter tiles => dark text
+  return count <= 2 ? "text-white" : "text-gray-900";
+}
+
 export default function AnalyticsScreen() {
   const { logs } = useData();
   const [activeTab, setActiveTab] = useState<TabKey>("Overall");
@@ -268,9 +290,7 @@ export default function AnalyticsScreen() {
             className={`rounded-full px-2 py-1 ${win ? "bg-emerald-50" : "bg-gray-50"}`}
           >
             <Text
-              className={`text-[11px] font-semibold ${
-                win ? "text-emerald-700" : "text-gray-700"
-              }`}
+              className={`text-[11px] font-semibold ${win ? "text-emerald-700" : "text-gray-700"}`}
             >
               {win ? "Resisted" : "Gave in"}
             </Text>
@@ -367,7 +387,7 @@ export default function AnalyticsScreen() {
 
         {/* Calendar */}
         <View className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
-          {/* Header with arrows + centered month */}
+          {/* Header */}
           <View className="flex-row items-center">
             <Pressable
               onPress={() => setMonthOffset((v) => v - 1)}
@@ -407,53 +427,57 @@ export default function AnalyticsScreen() {
               <View key={`week-${wi}`} className="flex-row">
                 {week.map((c) => {
                   const isBlank = c.count === null;
-                  const showBadge = !isBlank && (c.count ?? 0) > 0;
 
-                  const DayCell = (
-                    <View
-                      className={[
-                        "aspect-square items-center justify-center rounded-xl border",
-                        isBlank ? "border-transparent" : "border-gray-200",
-                        c.isToday && !isBlank ? "bg-gray-50" : "bg-white",
-                      ].join(" ")}
-                    >
-                      {isBlank ? null : (
-                        <>
-                          <Text className="text-xs font-semibold text-gray-900">
-                            {c.label}
-                          </Text>
+                  if (isBlank) {
+                    return (
+                      <View key={c.key} className="flex-1 p-1">
+                        <View className="aspect-square rounded-xl" />
+                      </View>
+                    );
+                  }
 
-                          {showBadge ? (
-                            <View className="mt-1 rounded-full bg-gray-900 px-2 py-0.5">
-                              <Text className="text-[10px] font-semibold text-white">
-                                {c.count}
-                              </Text>
-                            </View>
-                          ) : (
-                            <Text className="mt-1 text-[10px] text-gray-400">
-                              0
-                            </Text>
-                          )}
-                        </>
-                      )}
-                    </View>
-                  );
+                  const count = c.count ?? 0;
+                  const bg = greenBgForCount(count);
+                  const textColor = textColorForCount(count);
 
                   return (
                     <View key={c.key} className="flex-1 p-1">
-                      {isBlank ? (
-                        DayCell
-                      ) : (
-                        <Pressable
-                          onPress={() => {
-                            if (c.dayStartMs != null)
-                              openDayModal(c.dayStartMs);
-                          }}
-                          hitSlop={6}
+                      <Pressable
+                        onPress={() => {
+                          if (c.dayStartMs != null) openDayModal(c.dayStartMs);
+                        }}
+                        hitSlop={6}
+                      >
+                        <View
+                          className={[
+                            "aspect-square items-center justify-center rounded-xl",
+                            bg,
+                            c.isToday ? "ring-2 ring-gray-900" : "",
+                          ].join(" ")}
                         >
-                          {DayCell}
-                        </Pressable>
-                      )}
+                          <Text
+                            className={`text-xs font-semibold ${textColor}`}
+                          >
+                            {c.label}
+                          </Text>
+
+                          <View
+                            className={[
+                              "mt-1 rounded-full px-2 py-0.5",
+                              count <= 2 ? "bg-white/25" : "bg-black/10",
+                            ].join(" ")}
+                          >
+                            <Text
+                              className={[
+                                "text-[10px] font-semibold",
+                                count <= 2 ? "text-white" : "text-gray-900",
+                              ].join(" ")}
+                            >
+                              {count}
+                            </Text>
+                          </View>
+                        </View>
+                      </Pressable>
                     </View>
                   );
                 })}
@@ -462,7 +486,7 @@ export default function AnalyticsScreen() {
           </View>
 
           <Text className="mt-3 text-xs text-gray-500">
-            Number = times you gave in that day (tap any day for details)
+            Number = times you gave in that day (0 = darkest green)
           </Text>
         </View>
 
