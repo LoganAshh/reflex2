@@ -67,7 +67,7 @@ function greenBgForCount(count: number) {
 }
 
 function textColorForCount(count: number) {
-  // ✅ change: stay white through 0–3; switch to light gray starting at 4+
+  // ✅ stay white through 0–3; switch to light gray starting at 4+
   return count <= 3 ? "text-white" : "text-gray-400";
 }
 
@@ -92,13 +92,26 @@ export default function AnalyticsScreen() {
     return startOfDayMs(min);
   }, [logs, todayStartMs]);
 
+  // ---------- Tabs (sorted by most logs desc) ----------
   const habitTabs = useMemo(() => {
-    const set = new Set<string>();
+    const counts = new Map<string, number>();
+
     for (const l of logs) {
       const h = (l.habitName ?? "").trim();
-      if (h) set.add(h);
+      if (!h) continue;
+      counts.set(h, (counts.get(h) ?? 0) + 1);
     }
-    return ["Overall", ...Array.from(set).sort()] as TabKey[];
+
+    const sortedHabits = Array.from(counts.entries())
+      .sort((a, b) => {
+        // primary: log count desc
+        if (b[1] !== a[1]) return b[1] - a[1];
+        // tie-breaker: alphabetical
+        return a[0].localeCompare(b[0]);
+      })
+      .map(([name]) => name);
+
+    return ["Overall", ...sortedHabits] as TabKey[];
   }, [logs]);
 
   const filteredLogs = useMemo(() => {
@@ -302,10 +315,14 @@ export default function AnalyticsScreen() {
         <View className="flex-row items-center justify-between">
           <Text className="text-xs font-semibold text-gray-500">{t}</Text>
           <View
-            className={`rounded-full px-2 py-1 ${win ? "bg-emerald-50" : "bg-gray-50"}`}
+            className={`rounded-full px-2 py-1 ${
+              win ? "bg-emerald-50" : "bg-gray-50"
+            }`}
           >
             <Text
-              className={`text-[11px] font-semibold ${win ? "text-emerald-700" : "text-gray-700"}`}
+              className={`text-[11px] font-semibold ${
+                win ? "text-emerald-700" : "text-gray-700"
+              }`}
             >
               {win ? "Resisted" : "Gave in"}
             </Text>
