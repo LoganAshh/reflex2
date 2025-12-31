@@ -7,15 +7,18 @@ import {
   FlatList,
   Alert,
 } from "react-native";
-import { useRoute } from "@react-navigation/native";
+import { useRoute, useNavigation } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { useData } from "../data/DataContext";
 
 type ManageRoute = RouteProp<RootStackParamList, "ManageList">;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ManageListScreen() {
   const route = useRoute<ManageRoute>();
+  const navigation = useNavigation<Nav>();
   const type = route.params.type;
 
   const {
@@ -66,8 +69,6 @@ export default function ManageListScreen() {
   ]);
 
   const toggleSelected = async (id: number) => {
-    // Prevent removing the last habit (so you never fall back into onboarding
-    // and you always have something to log against).
     if (type === "habits" && selectedIds.has(id) && selectedIds.size === 1) {
       Alert.alert("Keep one habit", "You need at least one habit selected.");
       return;
@@ -127,7 +128,7 @@ export default function ManageListScreen() {
           />
           <Pressable
             onPress={onAdd}
-            className="rounded-xl bg-gray-900 px-4 py-3"
+            className="rounded-xl bg-gray-900 px-4 py-3 active:bg-gray-800"
           >
             <Text className="font-semibold text-white">Add</Text>
           </Pressable>
@@ -182,7 +183,20 @@ export default function ManageListScreen() {
           );
         }}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 110 }}
       />
+
+      {/* Bottom overlay Done button */}
+      <View className="absolute bottom-0 left-0 right-0 border-t border-gray-200 bg-white px-6 pb-6 pt-4">
+        <Pressable
+          onPress={() => navigation.goBack()}
+          className="w-full rounded-2xl bg-gray-900 py-4 active:bg-gray-800"
+        >
+          <Text className="text-center text-base font-semibold text-white">
+            Done
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
