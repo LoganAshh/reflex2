@@ -248,7 +248,7 @@ function CountPickerModal({
   onClose,
 }: {
   visible: boolean;
-  value: number;
+  value: number; // 0..10 (0 = None)
   onPick: (n: number) => void;
   onClose: () => void;
 }) {
@@ -258,7 +258,7 @@ function CountPickerModal({
   );
 
   const labelFor = (n: number) =>
-    n === 1 ? "Once" : n === 2 ? "Twice" : `${n}x`;
+    n === 0 ? "None" : n === 1 ? "Once" : n === 2 ? "Twice" : `${n}x`;
 
   return (
     <Modal
@@ -281,6 +281,23 @@ function CountPickerModal({
           </Text>
 
           <View className="mt-4 flex-row flex-wrap">
+            <Pressable
+              onPress={() => onPick(0)}
+              className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                value === 0
+                  ? "bg-green-600 border-green-600"
+                  : "bg-white border-gray-200"
+              }`}
+            >
+              <Text
+                className={`text-sm font-semibold ${
+                  value === 0 ? "text-white" : "text-gray-900"
+                }`}
+              >
+                None
+              </Text>
+            </Pressable>
+
             {options.map((n) => {
               const selected = value === n;
               return (
@@ -329,12 +346,13 @@ export default function LogScreen() {
 
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
+
   const [didResist, setDidResist] = useState<boolean>(false);
 
   const [intensity, setIntensity] = useState<number | null>(null);
   const [showIntensityPicker, setShowIntensityPicker] = useState(false);
 
-  const [count, setCount] = useState<number>(1);
+  const [count, setCount] = useState<number>(1); // 0 = None
   const [showCountPicker, setShowCountPicker] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -389,14 +407,16 @@ export default function LogScreen() {
     setErrorMsg(null);
     setSavedMsg(null);
 
-    setHabitId(habitOverrideId ?? getDefaultHabitId());
+    const nextHabit = habitOverrideId ?? getDefaultHabitId();
+    setHabitId(nextHabit);
+
     setCueId(null);
     setLocationId(null);
 
     setNotes("");
     setShowNotes(false);
-    setDidResist(false);
 
+    setDidResist(false);
     setIntensity(null);
     setCount(1);
 
@@ -419,7 +439,6 @@ export default function LogScreen() {
 
   const onSave = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-
     setErrorMsg(null);
     setSavedMsg(null);
 
@@ -439,7 +458,7 @@ export default function LogScreen() {
         habitId: submittedHabitId,
         cueId: submittedCueId,
         locationId: submittedLocationId,
-        intensity: intensity ?? null,
+        intensity,
         count,
         didResist,
         notes: notes.trim() || undefined,
@@ -451,7 +470,21 @@ export default function LogScreen() {
       if (submittedLocationId != null)
         setRecentLocationIds((prev) => bumpRecent(prev, submittedLocationId));
 
-      resetToDefaults(submittedHabitId);
+      setHabitId(submittedHabitId);
+      setCueId(null);
+      setLocationId(null);
+      setNotes("");
+      setShowNotes(false);
+      setDidResist(false);
+      setIntensity(null);
+      setCount(1);
+      setShowIntensityPicker(false);
+      setShowCountPicker(false);
+
+      requestAnimationFrame(() => {
+        scrollAllToStart();
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      });
 
       setSavedMsg("Saved ✅");
       setTimeout(() => setSavedMsg(null), 900);
@@ -475,8 +508,22 @@ export default function LogScreen() {
     });
   };
 
+  const setDidResistAndMaybeCount = (v: boolean) => {
+    setDidResist(v);
+    if (v)
+      setCount(0); // resisted => count becomes None
+    else if (count === 0) setCount(1); // toggling off restores default Once (unless user later changes)
+  };
+
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
-  const countLabel = count === 1 ? "Once" : count === 2 ? "Twice" : `${count}x`;
+  const countLabel =
+    count === 0
+      ? "None"
+      : count === 1
+        ? "Once"
+        : count === 2
+          ? "Twice"
+          : `${count}x`;
 
   const chipBase = "rounded-full border px-2.5 py-1.5";
   const chipSelected = "bg-green-600 border-green-600";
@@ -507,6 +554,7 @@ export default function LogScreen() {
         value={count}
         onPick={(n) => {
           setCount(n);
+          if (n > 0) setDidResist(false); // picking a positive count implies not resisted
           setShowCountPicker(false);
         }}
         onClose={() => setShowCountPicker(false)}
@@ -562,7 +610,10 @@ export default function LogScreen() {
               <Text className="text-sm font-semibold text-gray-900">
                 Resisted?
               </Text>
-              <Switch value={didResist} onValueChange={setDidResist} />
+              <Switch
+                value={didResist}
+                onValueChange={setDidResistAndMaybeCount}
+              />
             </View>
 
             <View className="mt-3 w-full flex-row gap-3">

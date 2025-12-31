@@ -29,7 +29,7 @@ export type LogEntry = {
   locationName: string | null;
 
   intensity: number | null;
-  count: number;
+  count: number; // 0 = None, 1..10 = times
 
   didResist: 0 | 1;
   notes: string | null;
@@ -50,7 +50,7 @@ type AddLogInput = {
   cueId?: number | null;
   locationId?: number | null;
   intensity?: number | null;
-  count?: number;
+  count?: number; // 0..10 (0 = None)
   didResist?: boolean;
   notes?: string;
 };
@@ -561,7 +561,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         : Math.min(10, Math.max(1, Math.round(intensityIn)));
 
     const countIn = input.count ?? 1;
-    const count = Math.min(10, Math.max(1, Math.round(countIn)));
+    const count = Math.min(10, Math.max(0, Math.round(countIn))); // 0 allowed
 
     const didResist: 0 | 1 = input.didResist ? 1 : 0;
 
