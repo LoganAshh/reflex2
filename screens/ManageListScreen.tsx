@@ -11,6 +11,7 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
+import * as Haptics from "expo-haptics";
 import { useData } from "../data/DataContext";
 
 type ManageRoute = RouteProp<RootStackParamList, "ManageList">;
@@ -88,11 +89,18 @@ export default function ManageListScreen() {
     const name = text.trim();
     if (!name) return;
 
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     if (type === "habits") await addCustomHabit(name, true);
     else if (type === "cues") await addCustomCue(name, true);
     else await addCustomLocation(name, true);
 
     setText("");
+  };
+
+  const onDone = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.goBack();
   };
 
   return (
@@ -189,7 +197,7 @@ export default function ManageListScreen() {
       {/* Bottom overlay Done button */}
       <View className="absolute bottom-0 left-0 right-0 border-t border-gray-200 bg-white px-6 pb-6 pt-4">
         <Pressable
-          onPress={() => navigation.goBack()}
+          onPress={onDone}
           className="w-full rounded-2xl bg-gray-900 py-4 active:bg-gray-800"
         >
           <Text className="text-center text-base font-semibold text-white">
