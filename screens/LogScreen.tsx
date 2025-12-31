@@ -558,6 +558,13 @@ export default function LogScreen() {
               listRef={locationListRef}
             />
 
+            <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <Text className="text-sm font-semibold text-gray-900">
+                Resisted?
+              </Text>
+              <Switch value={didResist} onValueChange={setDidResist} />
+            </View>
+
             <View className="mt-3 w-full flex-row gap-3">
               <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
                 <Text className="text-sm font-semibold text-gray-900">
@@ -610,13 +617,6 @@ export default function LogScreen() {
                   </Pressable>
                 </View>
               </View>
-            </View>
-
-            <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
-              <Text className="text-sm font-semibold text-gray-900">
-                Resisted?
-              </Text>
-              <Switch value={didResist} onValueChange={setDidResist} />
             </View>
 
             <Pressable
