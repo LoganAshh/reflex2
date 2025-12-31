@@ -244,11 +244,13 @@ function IntensityPickerModal({
 function CountPickerModal({
   visible,
   value,
+  allowNone,
   onPick,
   onClose,
 }: {
   visible: boolean;
   value: number; // 0..10 (0 = None)
+  allowNone: boolean;
   onPick: (n: number) => void;
   onClose: () => void;
 }) {
@@ -281,22 +283,24 @@ function CountPickerModal({
           </Text>
 
           <View className="mt-4 flex-row flex-wrap">
-            <Pressable
-              onPress={() => onPick(0)}
-              className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
-                value === 0
-                  ? "bg-green-600 border-green-600"
-                  : "bg-white border-gray-200"
-              }`}
-            >
-              <Text
-                className={`text-sm font-semibold ${
-                  value === 0 ? "text-white" : "text-gray-900"
+            {allowNone ? (
+              <Pressable
+                onPress={() => onPick(0)}
+                className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                  value === 0
+                    ? "bg-green-600 border-green-600"
+                    : "bg-white border-gray-200"
                 }`}
               >
-                None
-              </Text>
-            </Pressable>
+                <Text
+                  className={`text-sm font-semibold ${
+                    value === 0 ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  None
+                </Text>
+              </Pressable>
+            ) : null}
 
             {options.map((n) => {
               const selected = value === n;
@@ -352,7 +356,7 @@ export default function LogScreen() {
   const [intensity, setIntensity] = useState<number | null>(null);
   const [showIntensityPicker, setShowIntensityPicker] = useState(false);
 
-  const [count, setCount] = useState<number>(1); // 0 = None
+  const [count, setCount] = useState<number>(1); // 0 = None (only when resisted)
   const [showCountPicker, setShowCountPicker] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -407,9 +411,7 @@ export default function LogScreen() {
     setErrorMsg(null);
     setSavedMsg(null);
 
-    const nextHabit = habitOverrideId ?? getDefaultHabitId();
-    setHabitId(nextHabit);
-
+    setHabitId(habitOverrideId ?? getDefaultHabitId());
     setCueId(null);
     setLocationId(null);
 
@@ -510,9 +512,8 @@ export default function LogScreen() {
 
   const setDidResistAndMaybeCount = (v: boolean) => {
     setDidResist(v);
-    if (v)
-      setCount(0); // resisted => count becomes None
-    else if (count === 0) setCount(1); // toggling off restores default Once (unless user later changes)
+    if (v) setCount(0);
+    else if (count === 0) setCount(1);
   };
 
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
@@ -552,9 +553,10 @@ export default function LogScreen() {
       <CountPickerModal
         visible={showCountPicker}
         value={count}
+        allowNone={didResist}
         onPick={(n) => {
           setCount(n);
-          if (n > 0) setDidResist(false); // picking a positive count implies not resisted
+          if (n > 0) setDidResist(false);
           setShowCountPicker(false);
         }}
         onClose={() => setShowCountPicker(false)}
@@ -625,21 +627,25 @@ export default function LogScreen() {
                 <View className="mt-2 flex-row items-center">
                   <Pressable
                     onPress={() => setShowCountPicker(true)}
-                    className={`${chipBase} ${chipSelected} mr-2`}
+                    className={`${chipBase} ${chipSelected} ${
+                      didResist ? "" : "mr-2"
+                    }`}
                   >
                     <Text className="text-sm font-semibold text-white">
                       {countLabel}
                     </Text>
                   </Pressable>
 
-                  <Pressable
-                    onPress={() => setShowCountPicker(true)}
-                    className={`${chipBase} ${chipUnselected}`}
-                  >
-                    <Text className="text-sm font-semibold text-gray-900">
-                      + Add
-                    </Text>
-                  </Pressable>
+                  {!didResist ? (
+                    <Pressable
+                      onPress={() => setShowCountPicker(true)}
+                      className={`${chipBase} ${chipUnselected}`}
+                    >
+                      <Text className="text-sm font-semibold text-gray-900">
+                        + Add
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               </View>
 
