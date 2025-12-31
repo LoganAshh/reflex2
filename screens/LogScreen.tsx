@@ -14,8 +14,9 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../App";
+import type { RootStackParamList, RootTabParamList } from "../App";
 import {
   useData,
   type SelectedHabit,
@@ -23,7 +24,9 @@ import {
   type SelectedPlace,
 } from "../data/DataContext";
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+type StackNav = NativeStackNavigationProp<RootStackParamList>;
+type TabNav = BottomTabNavigationProp<RootTabParamList>;
+type Nav = StackNav & TabNav;
 
 type ChipItem = {
   key: string;
@@ -363,19 +366,14 @@ export default function LogScreen() {
   const notesInputRef = useRef<TextInput | null>(null);
 
   useEffect(() => {
-    if (habitId == null && selectedHabits.length > 0) {
-      setHabitId(selectedHabits[0].id);
+    if (habitId == null && orderedHabits.length > 0) {
+      setHabitId(orderedHabits[0].id);
     }
-  }, [selectedHabits, habitId]);
+  }, [orderedHabits, habitId]);
 
-  const resetForm = () => {
-    setCueId(null);
-    setLocationId(null);
-    setNotes("");
-    setShowNotes(false);
-    setDidResist(false);
-    setIntensity(null);
-    setCount(1);
+  const bumpRecent = (prev: number[], id: number, max = 25) => {
+    const next = [id, ...prev.filter((x) => x !== id)];
+    return next.slice(0, max);
   };
 
   const scrollAllToStart = () => {
@@ -384,10 +382,40 @@ export default function LogScreen() {
     locationListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
-  const bumpRecent = (prev: number[], id: number, max = 25) => {
-    const next = [id, ...prev.filter((x) => x !== id)];
-    return next.slice(0, max);
+  const getDefaultHabitId = () =>
+    recentHabitIds[0] ?? orderedHabits[0]?.id ?? selectedHabits[0]?.id ?? null;
+
+  const resetToDefaults = (habitOverrideId?: number) => {
+    setErrorMsg(null);
+    setSavedMsg(null);
+
+    setHabitId(habitOverrideId ?? getDefaultHabitId());
+    setCueId(null);
+    setLocationId(null);
+
+    setNotes("");
+    setShowNotes(false);
+    setDidResist(false);
+
+    setIntensity(null);
+    setCount(1);
+
+    setShowIntensityPicker(false);
+    setShowCountPicker(false);
+
+    requestAnimationFrame(() => {
+      scrollAllToStart();
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      Keyboard.dismiss();
+    });
   };
+
+  useEffect(() => {
+    const unsub = navigation.addListener("tabPress", () => {
+      if (navigation.isFocused?.()) resetToDefaults();
+    });
+    return unsub;
+  }, [navigation, orderedHabits, selectedHabits, recentHabitIds]);
 
   const onSave = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
@@ -423,12 +451,7 @@ export default function LogScreen() {
       if (submittedLocationId != null)
         setRecentLocationIds((prev) => bumpRecent(prev, submittedLocationId));
 
-      resetForm();
-
-      requestAnimationFrame(() => {
-        scrollAllToStart();
-        scrollRef.current?.scrollTo({ y: 0, animated: true });
-      });
+      resetToDefaults(submittedHabitId);
 
       setSavedMsg("Saved ✅");
       setTimeout(() => setSavedMsg(null), 900);
