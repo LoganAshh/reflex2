@@ -133,6 +133,10 @@ export default function ManageListScreen() {
             placeholder={`New ${type.slice(0, -1)}...`}
             placeholderTextColor="#9CA3AF"
             className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+            multiline={false}
+            returnKeyType="done"
+            blurOnSubmit
+            onSubmitEditing={onAdd}
           />
           <Pressable
             onPress={onAdd}
