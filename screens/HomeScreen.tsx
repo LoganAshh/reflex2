@@ -71,42 +71,27 @@ export default function HomeScreen() {
       0
     );
 
-    /**
-     * Clean-day streaks:
-     * A day counts only if there was >=1 log that day AND there were zero give-ins (didResist === 0)
-     * (Conservative: doesn't award streak days without any check-ins.)
-     */
-    const dayStatus = new Map<
-      string,
-      { hasAny: boolean; hasGiveIn: boolean }
-    >();
+    // Streaks = days with ≥1 resist (scoped to Overall or selected habit)
+    const resistDays = new Set<string>();
     for (const l of logsForStats) {
-      const key = dayKey(new Date(l.createdAt));
-      const cur = dayStatus.get(key) ?? { hasAny: false, hasGiveIn: false };
-      cur.hasAny = true;
-      if (l.didResist === 0) cur.hasGiveIn = true; // gave in
-      dayStatus.set(key, cur);
+      if (l.didResist === 1) {
+        resistDays.add(dayKey(new Date(l.createdAt)));
+      }
     }
 
-    const isCleanDay = (d: Date) => {
-      const s = dayStatus.get(dayKey(d));
-      return !!s && s.hasAny && !s.hasGiveIn;
-    };
+    const hasResistOnDay = (d: Date) => resistDays.has(dayKey(d));
 
-    // Current streak: consecutive clean days ending today
     let currentStreak = 0;
     {
       const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      while (isCleanDay(cursor)) {
+      while (hasResistOnDay(cursor)) {
         currentStreak++;
         cursor.setDate(cursor.getDate() - 1);
       }
     }
 
-    // Best streak: longest run of consecutive clean days across time
-    const cleanDayDates = Array.from(dayStatus.entries())
-      .filter(([, s]) => s.hasAny && !s.hasGiveIn)
-      .map(([k]) => {
+    const resistDates = Array.from(resistDays)
+      .map((k) => {
         const [y, m, d] = k.split("-").map(Number);
         return new Date(y, m - 1, d).getTime();
       })
@@ -116,10 +101,9 @@ export default function HomeScreen() {
     let run = 0;
     const oneDay = 24 * 60 * 60 * 1000;
 
-    for (let i = 0; i < cleanDayDates.length; i++) {
+    for (let i = 0; i < resistDates.length; i++) {
       if (i === 0) run = 1;
-      else
-        run = cleanDayDates[i] - cleanDayDates[i - 1] === oneDay ? run + 1 : 1;
+      else run = resistDates[i] - resistDates[i - 1] === oneDay ? run + 1 : 1;
       bestStreak = Math.max(bestStreak, run);
     }
 
@@ -212,8 +196,11 @@ export default function HomeScreen() {
         </Text>
       </Pressable>
 
-      <View className="mt-6 mb-24 w-full rounded-2xl border border-gray-200 bg-gray-50 p-5">
+      <View className="mt-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-5">
         <Text className="text-base font-semibold text-gray-900">Dashboard</Text>
+        <Text className="mt-1 text-sm text-gray-600">
+          Focus on consistency, you’re building the skill.
+        </Text>
 
         {/* Chips */}
         <ScrollView
@@ -253,8 +240,16 @@ export default function HomeScreen() {
         </View>
 
         <View className="mt-3 flex-row gap-3">
-          <Card label="Current streak" value={`${stats.currentStreak}`} />
-          <Card label="Best streak" value={`${stats.bestStreak}`} />
+          <Card
+            label="Current streak"
+            value={`${stats.currentStreak}`}
+            sub="Days with ≥1 resist"
+          />
+          <Card
+            label="Best streak"
+            value={`${stats.bestStreak}`}
+            sub="Days with ≥1 resist"
+          />
         </View>
 
         <Text className="mt-4 text-sm text-gray-600">
