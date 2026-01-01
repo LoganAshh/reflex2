@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { View, Text, Pressable } from "react-native";
+import { useMemo, useState } from "react";
+import { View, Text, Pressable, ScrollView } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { RootTabParamList } from "../App";
@@ -29,15 +29,32 @@ export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { logs } = useData();
 
+  // null = Overall, otherwise habitName
+  const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
+
   const isFirstVisit = logs.length === 0;
 
+  const habitOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of logs) {
+      const name = (l.habitName ?? "").trim();
+      if (name) set.add(name);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [logs]);
+
   const stats = useMemo(() => {
+    const logsForStats =
+      selectedHabit == null
+        ? logs
+        : logs.filter((l) => l.habitName === selectedHabit);
+
     const now = new Date();
     const todayStart = startOfDayMs(now);
     const tomorrowStart = todayStart + 24 * 60 * 60 * 1000;
     const weekStart = startOfWeekMs(now);
 
-    const todaysLogs = logs.filter(
+    const todaysLogs = logsForStats.filter(
       (l) => l.createdAt >= todayStart && l.createdAt < tomorrowStart
     );
 
@@ -47,15 +64,16 @@ export default function HomeScreen() {
       0
     );
 
-    const weekLogsArr = logs.filter((l) => l.createdAt >= weekStart);
+    const weekLogsArr = logsForStats.filter((l) => l.createdAt >= weekStart);
     const weekLogs = weekLogsArr.length;
     const weekResists = weekLogsArr.reduce(
       (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
       0
     );
 
+    // Streaks = days with ≥1 resist (scoped to Overall or selected habit)
     const resistDays = new Set<string>();
-    for (const l of logs) {
+    for (const l of logsForStats) {
       if (l.didResist === 1) {
         resistDays.add(dayKey(new Date(l.createdAt)));
       }
@@ -85,9 +103,7 @@ export default function HomeScreen() {
 
     for (let i = 0; i < resistDates.length; i++) {
       if (i === 0) run = 1;
-      else {
-        run = resistDates[i] - resistDates[i - 1] === oneDay ? run + 1 : 1;
-      }
+      else run = resistDates[i] - resistDates[i - 1] === oneDay ? run + 1 : 1;
       bestStreak = Math.max(bestStreak, run);
     }
 
@@ -99,7 +115,7 @@ export default function HomeScreen() {
       currentStreak,
       bestStreak,
     };
-  }, [logs]);
+  }, [logs, selectedHabit]);
 
   const Card = ({
     label,
@@ -115,6 +131,34 @@ export default function HomeScreen() {
       <Text className="mt-2 text-2xl font-bold text-gray-900">{value}</Text>
       {sub ? <Text className="mt-1 text-xs text-gray-500">{sub}</Text> : null}
     </View>
+  );
+
+  const Chip = ({
+    label,
+    selected,
+    onPress,
+  }: {
+    label: string;
+    selected: boolean;
+    onPress: () => void;
+  }) => (
+    <Pressable
+      onPress={onPress}
+      className={[
+        "mr-2 rounded-full border px-4 py-2",
+        selected ? "border-gray-900 bg-gray-900" : "border-gray-200 bg-white",
+      ].join(" ")}
+    >
+      <Text
+        className={[
+          "text-sm font-semibold",
+          selected ? "text-white" : "text-gray-900",
+        ].join(" ")}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 
   return (
@@ -154,9 +198,33 @@ export default function HomeScreen() {
 
       <View className="mt-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-5">
         <Text className="text-base font-semibold text-gray-900">Dashboard</Text>
-        <Text className="mt-1 text-sm text-gray-600">
-          Focus on consistency, you’re building the skill.
-        </Text>
+
+        {/* Chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mt-4"
+        >
+          <Chip
+            label="Overall"
+            selected={selectedHabit === null}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setSelectedHabit(null);
+            }}
+          />
+          {habitOptions.map((h) => (
+            <Chip
+              key={h}
+              label={h}
+              selected={selectedHabit === h}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSelectedHabit(h);
+              }}
+            />
+          ))}
+        </ScrollView>
 
         <View className="mt-4 flex-row gap-3">
           <Card label="Logs today" value={`${stats.todayLogs}`} />
@@ -169,16 +237,8 @@ export default function HomeScreen() {
         </View>
 
         <View className="mt-3 flex-row gap-3">
-          <Card
-            label="Current streak"
-            value={`${stats.currentStreak}`}
-            sub="Days with ≥1 resist"
-          />
-          <Card
-            label="Best streak"
-            value={`${stats.bestStreak}`}
-            sub="Days with ≥1 resist"
-          />
+          <Card label="Current streak" value={`${stats.currentStreak}`} />
+          <Card label="Best streak" value={`${stats.bestStreak}`} />
         </View>
 
         <Text className="mt-4 text-sm text-gray-600">
