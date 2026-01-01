@@ -112,7 +112,10 @@ function RootStack() {
       <Stack.Screen
         name="ManageList"
         component={ManageListScreen}
-        options={{ title: "Manage" }}
+        options={{
+          title: "Manage",
+          headerBackTitle: "Back",
+        }}
       />
     </Stack.Navigator>
   );
