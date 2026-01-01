@@ -104,9 +104,7 @@ export default function AnalyticsScreen() {
 
     const sortedHabits = Array.from(counts.entries())
       .sort((a, b) => {
-        // primary: log count desc
         if (b[1] !== a[1]) return b[1] - a[1];
-        // tie-breaker: alphabetical
         return a[0].localeCompare(b[0]);
       })
       .map(([name]) => name);
@@ -236,6 +234,7 @@ export default function AnalyticsScreen() {
     setDayModalOpen(true);
   };
 
+  // ---------- Weekly analytics + most common times ----------
   const data = useMemo(() => {
     const weekStart = startOfWeekMs(new Date());
     const weekLogs = filteredLogs.filter((l) => l.createdAt >= weekStart);
@@ -248,22 +247,31 @@ export default function AnalyticsScreen() {
 
     const cueCounts = new Map<string, number>();
     const locCounts = new Map<string, number>();
-    const habitCounts = new Map<string, number>();
+    const timeCounts = new Map<string, number>();
+
+    const timeBucket = (ms: number) => {
+      const d = new Date(ms);
+      const h = d.getHours();
+      if (h >= 5 && h <= 10) return "Morning";
+      if (h >= 11 && h <= 15) return "Midday";
+      if (h >= 16 && h <= 20) return "Evening";
+      return "Night";
+    };
 
     for (const l of weekLogs) {
       const cue = (l.cueName ?? "").trim();
       const loc = (l.locationName ?? "").trim();
-      const habit = (l.habitName ?? "").trim();
-
       if (cue) cueCounts.set(cue, (cueCounts.get(cue) ?? 0) + 1);
       if (loc) locCounts.set(loc, (locCounts.get(loc) ?? 0) + 1);
-      if (habit) habitCounts.set(habit, (habitCounts.get(habit) ?? 0) + 1);
+
+      const bucket = timeBucket(l.createdAt);
+      timeCounts.set(bucket, (timeCounts.get(bucket) ?? 0) + 1);
     }
 
     return {
       topCues: topN(cueCounts),
       topLocations: topN(locCounts),
-      topHabits: topN(habitCounts),
+      topTimes: topN(timeCounts),
     };
   }, [filteredLogs]);
 
@@ -551,20 +559,20 @@ export default function AnalyticsScreen() {
           </Text>
 
           <ListBlock
-            title="Top triggers to plan for"
+            title="Most Common Cues"
             items={data.topCues}
             empty="Add cues in your logs to see patterns."
           />
 
           <ListBlock
-            title="Top locations"
+            title="Most Common Locations"
             items={data.topLocations}
             empty="Add locations in your logs to see patterns."
           />
 
           <ListBlock
-            title="Habit momentum"
-            items={data.topHabits}
+            title="Most Common Times"
+            items={data.topTimes}
             empty="Log a few check-ins and this will populate."
           />
         </View>
