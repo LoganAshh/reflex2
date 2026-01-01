@@ -128,12 +128,21 @@ export default function AnalyticsScreen() {
     const monthStart = startOfMonthMs(shown);
     const monthEnd = endOfMonthMs(shown);
 
+    // ✅ Calendar should account for per-log "count" (0..10)
+    // We sum counts per day for "gave in" logs (didResist !== 1).
     const giveInCounts = new Map<string, number>();
     for (const l of filteredLogs) {
       if (l.createdAt < monthStart || l.createdAt >= monthEnd) continue;
       if (l.didResist === 1) continue;
+
       const k = dayKey(l.createdAt);
-      giveInCounts.set(k, (giveInCounts.get(k) ?? 0) + 1);
+
+      const add =
+        typeof (l as any).count === "number"
+          ? Math.max(0, (l as any).count)
+          : 1;
+
+      giveInCounts.set(k, (giveInCounts.get(k) ?? 0) + add);
     }
 
     const firstDay = new Date(shown.getFullYear(), shown.getMonth(), 1);
@@ -360,17 +369,13 @@ export default function AnalyticsScreen() {
             {item.intensity == null ? "None" : `${item.intensity}/10`}
           </Text>
 
-          {"count" in item && (item as any).count != null ? (
-            <Text className="mt-1 text-sm text-gray-700">
-              <Text className="font-semibold">Count:</Text>{" "}
-              {(item as any).count}
-            </Text>
-          ) : null}
+          <Text className="mt-1 text-sm text-gray-700">
+            <Text className="font-semibold">Count:</Text> {item.count}
+          </Text>
 
-          {"durationSec" in item && (item as any).durationSec != null ? (
+          {item.notes ? (
             <Text className="mt-1 text-sm text-gray-700">
-              <Text className="font-semibold">Duration:</Text>{" "}
-              {(item as any).durationSec}s
+              <Text className="font-semibold">Notes:</Text> {item.notes}
             </Text>
           ) : null}
         </View>
