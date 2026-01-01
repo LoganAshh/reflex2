@@ -6,6 +6,7 @@ import {
   Pressable,
   FlatList,
   Alert,
+  Keyboard,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
@@ -89,6 +90,7 @@ export default function ManageListScreen() {
     const name = text.trim();
     if (!name) return;
 
+    Keyboard.dismiss();
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     if (type === "habits") await addCustomHabit(name, true);
