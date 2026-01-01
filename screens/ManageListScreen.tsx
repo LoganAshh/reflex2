@@ -18,6 +18,8 @@ import { useData } from "../data/DataContext";
 type ManageRoute = RouteProp<RootStackParamList, "ManageList">;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+type Filter = "selected" | "preset" | "custom";
+
 export default function ManageListScreen() {
   const route = useRoute<ManageRoute>();
   const navigation = useNavigation<Nav>();
@@ -39,6 +41,7 @@ export default function ManageListScreen() {
   } = useData();
 
   const [text, setText] = useState("");
+  const [filter, setFilter] = useState<Filter>("selected");
 
   const { items, selectedIds, title } = useMemo(() => {
     if (type === "habits") {
@@ -70,6 +73,17 @@ export default function ManageListScreen() {
     selectedLocations,
   ]);
 
+  const filteredItems = useMemo(() => {
+    if (filter === "selected") {
+      return items.filter((it) => selectedIds.has(it.id));
+    }
+    if (filter === "preset") {
+      return items.filter((it) => !it.isCustom);
+    }
+    // custom
+    return items.filter((it) => !!it.isCustom);
+  }, [items, selectedIds, filter]);
+
   const toggleSelected = async (id: number) => {
     if (type === "habits" && selectedIds.has(id) && selectedIds.size === 1) {
       Alert.alert("Keep one habit", "You need at least one habit selected.");
@@ -98,11 +112,32 @@ export default function ManageListScreen() {
     else await addCustomLocation(name, true);
 
     setText("");
+    setFilter("custom"); // keep user in the custom tab after adding
   };
 
   const onDone = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.goBack();
+  };
+
+  const Chip = ({ label, value }: { label: string; value: Filter }) => {
+    const active = filter === value;
+    return (
+      <Pressable
+        onPress={() => setFilter(value)}
+        className={`rounded-full border px-4 py-2 ${
+          active ? "border-gray-900 bg-gray-900" : "border-gray-200 bg-white"
+        }`}
+      >
+        <Text
+          className={`text-sm font-semibold ${
+            active ? "text-white" : "text-gray-900"
+          }`}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    );
   };
 
   return (
@@ -124,41 +159,52 @@ export default function ManageListScreen() {
         </View>
       ) : null}
 
-      {/* Add row */}
-      <View className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-        <Text className="text-sm font-semibold text-gray-900">Add new</Text>
-
-        <View className="mt-3 flex-row items-center gap-3">
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder={`New ${type.slice(0, -1)}...`}
-            placeholderTextColor="#9CA3AF"
-            className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-            multiline={false}
-            returnKeyType="done"
-            blurOnSubmit
-            onSubmitEditing={onAdd}
-          />
-          <Pressable
-            onPress={onAdd}
-            className="rounded-xl bg-gray-900 px-4 py-3 active:bg-gray-800"
-          >
-            <Text className="font-semibold text-white">Add</Text>
-          </Pressable>
-        </View>
-
-        <Text className="mt-2 text-xs text-gray-500">
-          New items are stored locally on your device.
-        </Text>
+      {/* Chips */}
+      <View className="mt-5 flex-row gap-2">
+        <Chip label="Selected" value="selected" />
+        <Chip label="Preset" value="preset" />
+        <Chip label="Custom" value="custom" />
       </View>
 
+      {/* Custom: Add row lives here */}
+      {filter === "custom" ? (
+        <View className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <Text className="text-sm font-semibold text-gray-900">Add new</Text>
+
+          <View className="mt-3 flex-row items-center gap-3">
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder={`New ${type.slice(0, -1)}...`}
+              placeholderTextColor="#9CA3AF"
+              className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+              multiline={false}
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={onAdd}
+            />
+            <Pressable
+              onPress={onAdd}
+              className="rounded-xl bg-gray-900 px-4 py-3 active:bg-gray-800"
+            >
+              <Text className="font-semibold text-white">Add</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
       {/* List */}
-      <Text className="mt-6 text-base font-bold text-gray-900">Your list</Text>
+      <Text className="mt-6 text-base font-bold text-gray-900">
+        {filter === "selected"
+          ? "Selected"
+          : filter === "preset"
+            ? "Preset"
+            : "Custom"}
+      </Text>
 
       <FlatList
         className="mt-3"
-        data={items}
+        data={filteredItems}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => {
           const isSelected = selectedIds.has(item.id);
@@ -198,6 +244,20 @@ export default function ManageListScreen() {
         }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 110 }}
+        ListEmptyComponent={
+          <View className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <Text className="text-sm font-semibold text-gray-900">
+              Nothing here yet
+            </Text>
+            <Text className="mt-1 text-xs text-gray-600">
+              {filter === "selected"
+                ? "Select items from Preset or Custom to see them here."
+                : filter === "preset"
+                  ? "No preset items found."
+                  : "Add your first custom item above."}
+            </Text>
+          </View>
+        }
       />
 
       {/* Bottom overlay Done button */}
