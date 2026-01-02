@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -48,7 +48,6 @@ function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
     else buckets.Other.push(a);
   }
 
-  // Buckets already come in DB order (isCustom ASC, id ASC). Keep it.
   const maxLen = Math.max(
     ...PRESET_CATEGORIES.map((c) => buckets[c].length),
     0
@@ -62,7 +61,6 @@ function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
     }
   }
 
-  // Keep customs after presets (preserves their DB order too)
   return [...out, ...customs];
 }
 
@@ -70,18 +68,20 @@ export default function ShopScreen() {
   const { actions, addAction, selectedActionIds, toggleSelectedAction } =
     useData();
 
-  // start on All; we'll switch to Selected after we know selectedActionIds
+  // Start on All. On first mount only, we may default to Selected if there are saved selections.
   const [filter, setFilter] = useState<Filter>(ALL);
 
   const [text, setText] = useState("");
   const [newCategory, setNewCategory] = useState<PresetCategory>("Physical");
 
-  // When opening the page:
-  // - if none selected -> All
-  // - if at least one selected -> Selected
+  // Only set the default chip once (on screen mount).
+  // This avoids jumping to "Selected" while the user is browsing other chips.
+  const didSetInitialFilter = useRef(false);
   useEffect(() => {
+    if (didSetInitialFilter.current) return;
+    didSetInitialFilter.current = true;
+
     setFilter(selectedActionIds.length > 0 ? SELECTED : ALL);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedActionIds.length]);
 
   const selectedActions = useMemo(() => {
@@ -108,7 +108,7 @@ export default function ShopScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     await toggleSelectedAction(actionId);
 
-    // Optional UX: if user removes the last selected while viewing Selected,
+    // If user removes the last selected while viewing Selected,
     // bounce them back to All so they don't stare at an empty list.
     if (filter === SELECTED && selectedActionIds.length === 1) {
       setFilter(ALL);
