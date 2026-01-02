@@ -9,7 +9,6 @@ import {
   ScrollView,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import * as SecureStore from "expo-secure-store";
 import { useData, type ReplacementAction } from "../data/DataContext";
 
 const SELECTED = "selected" as const;
@@ -26,28 +25,6 @@ const PRESET_CATEGORIES = [
 
 type PresetCategory = (typeof PRESET_CATEGORIES)[number];
 type Filter = typeof SELECTED | typeof ALL | typeof CUSTOM | PresetCategory;
-
-const SELECTED_IDS_KEY = "shop_selected_action_ids_v1";
-
-async function loadSelectedIds(): Promise<number[]> {
-  try {
-    const raw = await SecureStore.getItemAsync(SELECTED_IDS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((n) => Number(n)).filter((n) => Number.isFinite(n));
-  } catch {
-    return [];
-  }
-}
-
-async function saveSelectedIds(ids: number[]) {
-  try {
-    await SecureStore.setItemAsync(SELECTED_IDS_KEY, JSON.stringify(ids));
-  } catch {
-    // ignore
-  }
-}
 
 function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
   // Goal: Physical[0], Mental[0], Social[0], Creative[0], Other[0],
@@ -90,43 +67,30 @@ function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
 }
 
 export default function ShopScreen() {
-  const { actions, addAction } = useData();
+  const { actions, addAction, selectedActionIds, toggleSelectedAction } =
+    useData();
 
-  // start on All; we'll switch to Selected after we load persisted selections
+  // start on All; we'll switch to Selected after we know selectedActionIds
   const [filter, setFilter] = useState<Filter>(ALL);
 
   const [text, setText] = useState("");
   const [newCategory, setNewCategory] = useState<PresetCategory>("Physical");
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  // Load saved selections on first mount, then set initial chip:
-  // - none selected -> All
-  // - at least one selected -> Selected
+  // When opening the page:
+  // - if none selected -> All
+  // - if at least one selected -> Selected
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      const ids = await loadSelectedIds();
-      if (!alive) return;
-      setSelectedIds(ids);
-      setFilter(ids.length > 0 ? SELECTED : ALL);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  // Persist selections whenever they change
-  useEffect(() => {
-    saveSelectedIds(selectedIds);
-  }, [selectedIds]);
+    setFilter(selectedActionIds.length > 0 ? SELECTED : ALL);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedActionIds.length]);
 
   const selectedActions = useMemo(() => {
-    if (selectedIds.length === 0) return [];
+    if (selectedActionIds.length === 0) return [];
     const map = new Map(actions.map((a) => [a.id, a]));
-    return selectedIds
+    return selectedActionIds
       .map((id) => map.get(id))
       .filter(Boolean) as ReplacementAction[];
-  }, [actions, selectedIds]);
+  }, [actions, selectedActionIds]);
 
   const allInterleaved = useMemo(() => interleaveAll(actions), [actions]);
 
@@ -140,13 +104,15 @@ export default function ShopScreen() {
     );
   }, [actions, filter, selectedActions, allInterleaved]);
 
-  const toggleSelected = (actionId: number) => {
+  const onToggleSelected = async (actionId: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setSelectedIds((prev) =>
-      prev.includes(actionId)
-        ? prev.filter((id) => id !== actionId)
-        : [actionId, ...prev]
-    );
+    await toggleSelectedAction(actionId);
+
+    // Optional UX: if user removes the last selected while viewing Selected,
+    // bounce them back to All so they don't stare at an empty list.
+    if (filter === SELECTED && selectedActionIds.length === 1) {
+      setFilter(ALL);
+    }
   };
 
   const onAdd = async () => {
@@ -202,7 +168,7 @@ export default function ShopScreen() {
 
   const renderItem = ({ item }: { item: ReplacementAction }) => {
     const isCustom = item.isCustom === 1;
-    const isSelected = selectedIds.includes(item.id);
+    const isSelected = selectedActionIds.includes(item.id);
 
     return (
       <View className="mb-3 rounded-2xl border border-gray-200 bg-white p-4">
@@ -218,7 +184,7 @@ export default function ShopScreen() {
           </View>
 
           <Pressable
-            onPress={() => toggleSelected(item.id)}
+            onPress={() => onToggleSelected(item.id)}
             className={`rounded-xl border px-4 py-2 ${
               isSelected
                 ? "bg-white border-gray-300"
