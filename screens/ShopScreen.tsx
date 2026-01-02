@@ -192,10 +192,6 @@ export default function ShopScreen() {
             </Text>
           </Pressable>
         </View>
-
-        <Text className="mt-3 text-sm text-gray-600">
-          If you can delay the habit by 2 minutes, you’re training control.
-        </Text>
       </View>
     );
   };
