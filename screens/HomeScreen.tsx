@@ -167,11 +167,6 @@ export default function HomeScreen() {
         {isFirstVisit ? "Welcome!" : "Welcome back!"}
       </Text>
 
-      <Text className="mt-2 text-gray-600">
-        Every time you log or resist an urge, you're physically rewiring your
-        brain to make the old habit weaker.
-      </Text>
-
       <Pressable
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -198,9 +193,6 @@ export default function HomeScreen() {
 
       <View className="mt-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-5">
         <Text className="text-base font-semibold text-gray-900">Dashboard</Text>
-        <Text className="mt-1 text-sm text-gray-600">
-          Focus on consistency, you’re building the skill.
-        </Text>
 
         {/* Chips */}
         <ScrollView
