@@ -88,6 +88,11 @@ type DataContextType = {
   actions: ReplacementAction[];
   addAction: (input: AddActionInput) => Promise<void>;
 
+  // ✅ Selected actions are now stored in SQLite
+  selectedActionIds: number[];
+  toggleSelectedAction: (actionId: number) => Promise<void>;
+  clearSelectedActions: () => Promise<void>;
+
   refresh: () => Promise<void>;
   resetDbForDev?: () => Promise<void>;
 };
@@ -168,6 +173,13 @@ async function initDb() {
       title TEXT NOT NULL UNIQUE,
       category TEXT,
       isCustom INTEGER NOT NULL DEFAULT 0
+    );
+
+    -- ✅ Selected actions (for Shop "Selected" chip)
+    CREATE TABLE IF NOT EXISTS selected_actions (
+      actionId INTEGER NOT NULL UNIQUE,
+      createdAt INTEGER NOT NULL,
+      FOREIGN KEY (actionId) REFERENCES actions(id) ON DELETE CASCADE
     );
   `);
 }
@@ -272,6 +284,7 @@ async function seedDefaultActionsIfEmpty() {
 
 async function resetDbForDev() {
   await db.execAsync(`
+    DROP TABLE IF EXISTS selected_actions;
     DROP TABLE IF EXISTS logs;
     DROP TABLE IF EXISTS user_locations;
     DROP TABLE IF EXISTS locations;
@@ -364,6 +377,17 @@ async function loadActions(): Promise<ReplacementAction[]> {
   );
 }
 
+// ✅ Selected action ids (valid only; auto-cleans missing actions via JOIN)
+async function loadSelectedActionIds(): Promise<number[]> {
+  const rows = await db.getAllAsync<{ actionId: number }>(`
+    SELECT s.actionId
+    FROM selected_actions s
+    JOIN actions a ON a.id = s.actionId
+    ORDER BY s.createdAt DESC;
+  `);
+  return rows.map((r) => r.actionId).filter((n) => Number.isFinite(n));
+}
+
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [cues, setCues] = useState<Cue[]>([]);
@@ -380,6 +404,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [actions, setActions] = useState<ReplacementAction[]>([]);
 
+  // ✅ Shop selected actions (SQLite)
+  const [selectedActionIds, setSelectedActionIds] = useState<number[]>([]);
+
   const [hasOnboarded, setHasOnboarded] = useState(false);
 
   useEffect(() => {
@@ -391,7 +418,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refresh = async () => {
-    const [h, c, loc, sh, sc, sl, l, a] = await Promise.all([
+    const [h, c, loc, sh, sc, sl, l, a, selIds] = await Promise.all([
       loadHabits(),
       loadCues(),
       loadLocations(),
@@ -400,6 +427,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loadSelectedLocations(),
       loadLogs(),
       loadActions(),
+      loadSelectedActionIds(),
     ]);
 
     setHabits(h);
@@ -410,6 +438,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setSelectedLocationsState(sl);
     setLogs(l);
     setActions(a);
+    setSelectedActionIds(selIds);
   };
 
   const completeOnboarding = async () => {
@@ -561,7 +590,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         : Math.min(10, Math.max(1, Math.round(intensityIn)));
 
     const countIn = input.count ?? 1;
-    const count = Math.min(10, Math.max(0, Math.round(countIn))); // 0 allowed
+    const count = Math.min(10, Math.max(0, Math.round(countIn)));
 
     const didResist: 0 | 1 = input.didResist ? 1 : 0;
 
@@ -597,8 +626,41 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       [title, category, isCustom]
     );
 
+    // refresh actions + selected ids (in case the new action gets selected later)
     setActions(await loadActions());
+    setSelectedActionIds(await loadSelectedActionIds());
   };
+
+  // ✅ Toggle selected action (SQLite)
+  const toggleSelectedAction: DataContextType["toggleSelectedAction"] = async (
+    actionId
+  ) => {
+    if (!Number.isFinite(actionId)) return;
+
+    const exists = await db.getAllAsync<{ c: number }>(
+      `SELECT COUNT(*) as c FROM selected_actions WHERE actionId = ?;`,
+      [actionId]
+    );
+
+    if ((exists?.[0]?.c ?? 0) > 0) {
+      await db.runAsync(`DELETE FROM selected_actions WHERE actionId = ?;`, [
+        actionId,
+      ]);
+    } else {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO selected_actions (actionId, createdAt) VALUES (?, ?);`,
+        [actionId, Date.now()]
+      );
+    }
+
+    setSelectedActionIds(await loadSelectedActionIds());
+  };
+
+  const clearSelectedActions: DataContextType["clearSelectedActions"] =
+    async () => {
+      await db.execAsync(`DELETE FROM selected_actions;`);
+      setSelectedActionIds([]);
+    };
 
   const value = useMemo(
     () => ({
@@ -621,6 +683,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       addLog,
       actions,
       addAction,
+      selectedActionIds,
+      toggleSelectedAction,
+      clearSelectedActions,
       refresh,
       resetDbForDev,
     }),
@@ -633,6 +698,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       selectedLocations,
       logs,
       actions,
+      selectedActionIds,
       hasOnboarded,
     ]
   );
