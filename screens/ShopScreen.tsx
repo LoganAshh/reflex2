@@ -49,6 +49,46 @@ async function saveSelectedIds(ids: number[]) {
   }
 }
 
+function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
+  // Goal: Physical[0], Mental[0], Social[0], Creative[0], Other[0],
+  // then Physical[1], Mental[1], ...
+  const customs: ReplacementAction[] = [];
+  const buckets: Record<PresetCategory, ReplacementAction[]> = {
+    Physical: [],
+    Mental: [],
+    Social: [],
+    Creative: [],
+    Other: [],
+  };
+
+  for (const a of actions) {
+    if (a.isCustom === 1) {
+      customs.push(a);
+      continue;
+    }
+    const cat = (a.category ?? "") as PresetCategory;
+    if (PRESET_CATEGORIES.includes(cat)) buckets[cat].push(a);
+    else buckets.Other.push(a);
+  }
+
+  // Buckets already come in DB order (isCustom ASC, id ASC). Keep it.
+  const maxLen = Math.max(
+    ...PRESET_CATEGORIES.map((c) => buckets[c].length),
+    0
+  );
+
+  const out: ReplacementAction[] = [];
+  for (let i = 0; i < maxLen; i++) {
+    for (const cat of PRESET_CATEGORIES) {
+      const item = buckets[cat][i];
+      if (item) out.push(item);
+    }
+  }
+
+  // Keep customs after presets (preserves their DB order too)
+  return [...out, ...customs];
+}
+
 export default function ShopScreen() {
   const { actions, addAction } = useData();
 
@@ -88,15 +128,17 @@ export default function ShopScreen() {
       .filter(Boolean) as ReplacementAction[];
   }, [actions, selectedIds]);
 
+  const allInterleaved = useMemo(() => interleaveAll(actions), [actions]);
+
   const filtered = useMemo(() => {
     if (filter === SELECTED) return selectedActions;
-    if (filter === ALL) return actions;
+    if (filter === ALL) return allInterleaved;
     if (filter === CUSTOM) return actions.filter((a) => a.isCustom === 1);
 
     return actions.filter(
       (a) => a.isCustom === 0 && (a.category ?? "") === filter
     );
-  }, [actions, filter, selectedActions]);
+  }, [actions, filter, selectedActions, allInterleaved]);
 
   const toggleSelected = (actionId: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
