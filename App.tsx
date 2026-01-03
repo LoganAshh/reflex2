@@ -1,3 +1,4 @@
+// App.tsx
 import "./global.css";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -12,9 +13,11 @@ import AnalyticsScreen from "./screens/AnalyticsScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ManageListScreen from "./screens/ManageListScreen";
+import LoginScreen from "./screens/LoginScreen";
+import RegisterScreen from "./screens/RegisterScreen";
 
 import { DataProvider, useData } from "./data/DataContext";
-import { AuthProvider } from "./data/AuthContext";
+import { AuthProvider, useAuth } from "./data/AuthContext";
 
 export type RootTabParamList = {
   Home: undefined;
@@ -27,10 +30,17 @@ export type RootTabParamList = {
 export type RootStackParamList = {
   Main: undefined;
   ManageList: { type: "habits" | "cues" | "locations" };
+  Auth: undefined;
+};
+
+export type AuthStackParamList = {
+  Login: undefined;
+  Register: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
 function Tabs() {
   return (
@@ -38,7 +48,7 @@ function Tabs() {
       screenOptions={({ route }) => ({
         headerShown: true,
         tabBarShowLabel: false,
-        tabBarInactiveTintColor: "#9CA3AF", // gray-400
+        tabBarInactiveTintColor: "#9CA3AF",
         tabBarStyle: {
           height: 76,
           paddingBottom: 6,
@@ -46,9 +56,7 @@ function Tabs() {
           borderTopWidth: 0.5,
           borderTopColor: "#E5E7EB",
         },
-        tabBarIconStyle: {
-          marginTop: 2,
-        },
+        tabBarIconStyle: { marginTop: 2 },
         tabBarIcon: ({ focused, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap;
 
@@ -75,11 +83,11 @@ function Tabs() {
           const color =
             route.name === "Log"
               ? focused
-                ? "#16A34A" // green-600
-                : "#9CA3AF" // gray-400
+                ? "#16A34A"
+                : "#9CA3AF"
               : focused
-                ? "#1F2937" // gray-800
-                : "#9CA3AF"; // gray-400
+                ? "#1F2937"
+                : "#9CA3AF";
 
           const iconSize = route.name === "Log" ? size + 4 : size;
 
@@ -96,12 +104,27 @@ function Tabs() {
   );
 }
 
+function AuthFlow() {
+  return (
+    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Register" component={RegisterScreen} />
+    </AuthStack.Navigator>
+  );
+}
+
 function RootStack() {
   const { hasOnboarded } = useData();
+  const { user, initializing } = useAuth();
 
-  // Gate: ONLY this SecureStore-backed flag controls onboarding now.
+  // 1) Onboarding first
   if (!hasOnboarded) return <OnboardingScreen />;
 
+  // 2) Then auth
+  if (initializing) return null; // keep simple; add splash later
+  if (!user) return <AuthFlow />;
+
+  // 3) Then the actual app
   return (
     <Stack.Navigator>
       <Stack.Screen
@@ -112,10 +135,7 @@ function RootStack() {
       <Stack.Screen
         name="ManageList"
         component={ManageListScreen}
-        options={{
-          title: "Manage",
-          headerBackTitle: "Back",
-        }}
+        options={{ title: "Manage", headerBackTitle: "Back" }}
       />
     </Stack.Navigator>
   );
