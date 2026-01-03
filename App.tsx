@@ -14,6 +14,7 @@ import OnboardingScreen from "./screens/OnboardingScreen";
 import ManageListScreen from "./screens/ManageListScreen";
 
 import { DataProvider, useData } from "./data/DataContext";
+import { AuthProvider } from "./data/AuthContext";
 
 export type RootTabParamList = {
   Home: undefined;
@@ -99,7 +100,6 @@ function RootStack() {
   const { hasOnboarded } = useData();
 
   // Gate: ONLY this SecureStore-backed flag controls onboarding now.
-  // (Selections like selectedHabits can change during onboarding without booting the user out.)
   if (!hasOnboarded) return <OnboardingScreen />;
 
   return (
@@ -124,11 +124,13 @@ function RootStack() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <DataProvider>
-        <NavigationContainer>
-          <RootStack />
-        </NavigationContainer>
-      </DataProvider>
+      <AuthProvider>
+        <DataProvider>
+          <NavigationContainer>
+            <RootStack />
+          </NavigationContainer>
+        </DataProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }
