@@ -11,6 +11,7 @@ import {
 import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
 import { useData } from "../data/DataContext";
+import { useAuth } from "../data/AuthContext";
 
 type RowProps = {
   title: string;
@@ -83,8 +84,12 @@ export default function ProfileScreen() {
     resetAll?: () => Promise<void>;
   };
 
+  const { user, signOut } = useAuth() as {
+    user: any;
+    signOut: () => Promise<void>;
+  };
+
   const version = useMemo(() => {
-    // Works for Expo (EAS) + dev. Fallbacks included.
     const v =
       (Constants.expoConfig as any)?.version ??
       (Constants.manifest as any)?.version ??
@@ -99,9 +104,8 @@ export default function ProfileScreen() {
     return build ? `${v} (${build})` : `${v}`;
   }, []);
 
-  const [busy, setBusy] = useState<null | "export" | "reset">(null);
+  const [busy, setBusy] = useState<null | "export" | "reset" | "logout">(null);
 
-  // Placeholder for later MVP+
   const [appLockEnabled, setAppLockEnabled] = useState(false);
 
   const canExport = typeof exportData === "function";
@@ -166,6 +170,44 @@ export default function ProfileScreen() {
     );
   }
 
+  function onLogout() {
+    // Be explicit: in this MVP, data is local. Logging out might lead to loss if they uninstall or switch devices.
+    Alert.alert(
+      "Log out?",
+      "Before logging out, export your data. Your logs are stored on this device, and you can lose them if you uninstall the app or switch phones.\n\nDo you want to export now?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Export first",
+          onPress: () => {
+            Haptics.selectionAsync();
+            onExport();
+          },
+        },
+        {
+          text: "Log out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setBusy("logout");
+              await Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Warning
+              );
+              await signOut();
+            } catch (e: any) {
+              Alert.alert(
+                "Logout failed",
+                e?.message ?? "Something went wrong."
+              );
+            } finally {
+              setBusy(null);
+            }
+          },
+        },
+      ]
+    );
+  }
+
   return (
     <ScrollView
       className="flex-1 bg-zinc-50"
@@ -208,6 +250,29 @@ export default function ProfileScreen() {
               <ActivityIndicator />
             ) : (
               <Text className="text-red-700">Reset</Text>
+            )
+          }
+        />
+
+        <Text className="mt-6 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          Account
+        </Text>
+
+        <Row
+          title="Log out"
+          subtitle={
+            user?.email
+              ? `Signed in as ${user.email}. Export your data before logging out.`
+              : "Export your data before logging out."
+          }
+          tone="danger"
+          onPress={busy ? undefined : onLogout}
+          disabled={!!busy}
+          right={
+            busy === "logout" ? (
+              <ActivityIndicator />
+            ) : (
+              <Text className="text-red-700">Log out</Text>
             )
           }
         />

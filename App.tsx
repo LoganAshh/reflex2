@@ -106,9 +106,13 @@ function Tabs() {
 
 function AuthFlow() {
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-      <AuthStack.Screen name="Login" component={LoginScreen} />
+    // 👇 Start on Register instead of Login
+    <AuthStack.Navigator
+      initialRouteName="Register"
+      screenOptions={{ headerShown: false }}
+    >
       <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="Login" component={LoginScreen} />
     </AuthStack.Navigator>
   );
 }
