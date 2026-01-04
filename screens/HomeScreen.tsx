@@ -11,7 +11,7 @@ function startOfDayMs(d: Date) {
 }
 
 function startOfWeekMs(d: Date) {
-  const day = d.getDay(); // 0=Sun, 1=Mon
+  const day = d.getDay();
   const diffToMonday = (day + 6) % 7;
   const monday = new Date(
     d.getFullYear(),
@@ -29,7 +29,6 @@ export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { logs } = useData();
 
-  // null = Overall, otherwise habitName
   const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
 
   const isFirstVisit = logs.length === 0;
@@ -71,7 +70,6 @@ export default function HomeScreen() {
       0
     );
 
-    // Streaks = days with ≥1 resist (scoped to Overall or selected habit)
     const resistDays = new Set<string>();
     for (const l of logsForStats) {
       if (l.didResist === 1) {
@@ -194,7 +192,6 @@ export default function HomeScreen() {
       <View className="mt-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-5">
         <Text className="text-base font-semibold text-gray-900">Dashboard</Text>
 
-        {/* Chips */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
