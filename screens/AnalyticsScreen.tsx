@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, Modal } from "react-native";
 import { useData, type LogEntry } from "../data/DataContext";
 
 function startOfWeekMs(d: Date) {
-  const day = d.getDay(); // 0=Sun
+  const day = d.getDay();
   const diffToMonday = (day + 6) % 7;
   const monday = new Date(
     d.getFullYear(),
@@ -48,17 +48,17 @@ type CalendarCell = {
   count: number | null;
   isToday: boolean;
   dayStartMs: number | null;
-  isInactive: boolean; // before install OR in the future (except: allow today on first open)
+  isInactive: boolean;
 };
 
 const GREEN_SCALE = [
-  "bg-green-600", // 0
-  "bg-green-500", // 1
-  "bg-green-400", // 2
-  "bg-green-300", // 3
-  "bg-green-200", // 4
-  "bg-green-100", // 5
-  "bg-green-50", // 6+
+  "bg-green-600",
+  "bg-green-500",
+  "bg-green-400",
+  "bg-green-300",
+  "bg-green-200",
+  "bg-green-100",
+  "bg-green-50",
 ] as const;
 
 function greenBgForCount(count: number) {
@@ -67,7 +67,6 @@ function greenBgForCount(count: number) {
 }
 
 function textColorForCount(count: number) {
-  // ✅ stay white through 0–3; switch to light gray starting at 4+
   return count <= 3 ? "text-white" : "text-gray-400";
 }
 
@@ -82,7 +81,6 @@ export default function AnalyticsScreen() {
   const todayStartMs = useMemo(() => startOfDayMs(Date.now()), []);
   const hasAnyLogs = logs.length > 0;
 
-  // If there are no logs yet, treat "install day" as today so today isn't rendered as inactive.
   const installDayStartMs = useMemo(() => {
     if (!logs || logs.length === 0) return todayStartMs;
     let min = logs[0].createdAt;
@@ -92,7 +90,6 @@ export default function AnalyticsScreen() {
     return startOfDayMs(min);
   }, [logs, todayStartMs]);
 
-  // ---------- Tabs (sorted by most logs desc) ----------
   const habitTabs = useMemo(() => {
     const counts = new Map<string, number>();
 
@@ -128,20 +125,13 @@ export default function AnalyticsScreen() {
     const monthStart = startOfMonthMs(shown);
     const monthEnd = endOfMonthMs(shown);
 
-    // ✅ Calendar should account for per-log "count" (0..10)
-    // We sum counts per day for "gave in" logs (didResist !== 1).
     const giveInCounts = new Map<string, number>();
     for (const l of filteredLogs) {
       if (l.createdAt < monthStart || l.createdAt >= monthEnd) continue;
       if (l.didResist === 1) continue;
 
       const k = dayKey(l.createdAt);
-
-      const add =
-        typeof (l as any).count === "number"
-          ? Math.max(0, (l as any).count)
-          : 1;
-
+      const add = typeof l.count === "number" ? Math.max(0, l.count) : 1;
       giveInCounts.set(k, (giveInCounts.get(k) ?? 0) + add);
     }
 
@@ -152,7 +142,7 @@ export default function AnalyticsScreen() {
       0
     ).getDate();
 
-    const jsDay = firstDay.getDay(); // 0=Sun
+    const jsDay = firstDay.getDay();
     const mondayIndex = (jsDay + 6) % 7;
 
     const cells: CalendarCell[] = [];
@@ -243,7 +233,6 @@ export default function AnalyticsScreen() {
     setDayModalOpen(true);
   };
 
-  // ---------- Weekly analytics + most common times ----------
   const data = useMemo(() => {
     const weekStart = startOfWeekMs(new Date());
     const weekLogs = filteredLogs.filter((l) => l.createdAt >= weekStart);
@@ -400,7 +389,6 @@ export default function AnalyticsScreen() {
           Look for patterns, not perfection.
         </Text>
 
-        {/* Tabs */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -430,9 +418,7 @@ export default function AnalyticsScreen() {
           </View>
         </ScrollView>
 
-        {/* Calendar */}
         <View className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
-          {/* Header */}
           <View className="flex-row items-center">
             <Pressable
               onPress={() => setMonthOffset((v) => v - 1)}
@@ -457,7 +443,6 @@ export default function AnalyticsScreen() {
             </Pressable>
           </View>
 
-          {/* Weekday headers */}
           <View className="mt-4 flex-row">
             {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
               <View key={`${d}-${i}`} className="flex-1 items-center">
@@ -466,7 +451,6 @@ export default function AnalyticsScreen() {
             ))}
           </View>
 
-          {/* Grid */}
           <View className="mt-2">
             {calendar.weeks.map((week, wi) => (
               <View key={`week-${wi}`} className="flex-row">
@@ -561,7 +545,6 @@ export default function AnalyticsScreen() {
           </Text>
         </View>
 
-        {/* Weekly patterns */}
         <View className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-5">
           <Text className="text-base font-semibold text-gray-900">
             {patternTitle}
@@ -587,7 +570,6 @@ export default function AnalyticsScreen() {
         </View>
       </ScrollView>
 
-      {/* Day details modal */}
       <Modal
         visible={dayModalOpen}
         transparent
