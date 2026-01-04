@@ -27,8 +27,6 @@ type PresetCategory = (typeof PRESET_CATEGORIES)[number];
 type Filter = typeof SELECTED | typeof ALL | typeof CUSTOM | PresetCategory;
 
 function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
-  // Goal: Physical[0], Mental[0], Social[0], Creative[0], Other[0],
-  // then Physical[1], Mental[1], ...
   const customs: ReplacementAction[] = [];
   const buckets: Record<PresetCategory, ReplacementAction[]> = {
     Physical: [],
@@ -68,19 +66,14 @@ export default function ShopScreen() {
   const { actions, addAction, selectedActionIds, toggleSelectedAction } =
     useData();
 
-  // Start on All. On first mount only, we may default to Selected if there are saved selections.
   const [filter, setFilter] = useState<Filter>(ALL);
-
   const [text, setText] = useState("");
   const [newCategory, setNewCategory] = useState<PresetCategory>("Physical");
 
-  // Only set the default chip once (on screen mount).
-  // This avoids jumping to "Selected" while the user is browsing other chips.
   const didSetInitialFilter = useRef(false);
   useEffect(() => {
     if (didSetInitialFilter.current) return;
     didSetInitialFilter.current = true;
-
     setFilter(selectedActionIds.length > 0 ? SELECTED : ALL);
   }, [selectedActionIds.length]);
 
@@ -108,8 +101,6 @@ export default function ShopScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     await toggleSelectedAction(actionId);
 
-    // If user removes the last selected while viewing Selected,
-    // bounce them back to All so they don't stare at an empty list.
     if (filter === SELECTED && selectedActionIds.length === 1) {
       setFilter(ALL);
     }
@@ -228,7 +219,6 @@ export default function ShopScreen() {
         possible version of it.
       </Text>
 
-      {/* Filters */}
       <View className="mt-5 flex-row flex-wrap gap-2">
         <FilterPill label="Selected" value={SELECTED} />
         <FilterPill label="All" value={ALL} />
@@ -238,14 +228,12 @@ export default function ShopScreen() {
         <FilterPill label="Custom" value={CUSTOM} />
       </View>
 
-      {/* Custom view: everything below chips scrolls */}
       {filter === CUSTOM ? (
         <ScrollView
           className="mt-5 flex-1"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Add new action */}
           <View className="rounded-2xl border border-gray-200 bg-white p-4">
             <Text className="text-sm font-semibold text-gray-900">
               Add an action
@@ -286,7 +274,6 @@ export default function ShopScreen() {
             </View>
           </View>
 
-          {/* List */}
           <View className="mt-6">
             <Text className="text-xl font-bold text-gray-900">Actions</Text>
             <Text className="mt-1 text-sm text-gray-500">
