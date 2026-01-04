@@ -249,7 +249,7 @@ function CountPickerModal({
   onClose,
 }: {
   visible: boolean;
-  value: number; // 0..10 (0 = None)
+  value: number;
   allowNone: boolean;
   onPick: (n: number) => void;
   onClose: () => void;
@@ -356,7 +356,7 @@ export default function LogScreen() {
   const [intensity, setIntensity] = useState<number | null>(null);
   const [showIntensityPicker, setShowIntensityPicker] = useState(false);
 
-  const [count, setCount] = useState<number>(1); // 0 = None (only when resisted)
+  const [count, setCount] = useState<number>(1);
   const [showCountPicker, setShowCountPicker] = useState(false);
 
   const [saving, setSaving] = useState(false);
