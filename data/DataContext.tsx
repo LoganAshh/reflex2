@@ -88,7 +88,6 @@ type DataContextType = {
   actions: ReplacementAction[];
   addAction: (input: AddActionInput) => Promise<void>;
 
-  // ✅ Selected actions are now stored in SQLite
   selectedActionIds: number[];
   toggleSelectedAction: (actionId: number) => Promise<void>;
   clearSelectedActions: () => Promise<void>;
@@ -175,7 +174,6 @@ async function initDb() {
       isCustom INTEGER NOT NULL DEFAULT 0
     );
 
-    -- ✅ Selected actions (for Shop "Selected" chip)
     CREATE TABLE IF NOT EXISTS selected_actions (
       actionId INTEGER NOT NULL UNIQUE,
       createdAt INTEGER NOT NULL,
@@ -377,7 +375,6 @@ async function loadActions(): Promise<ReplacementAction[]> {
   );
 }
 
-// ✅ Selected action ids (valid only; auto-cleans missing actions via JOIN)
 async function loadSelectedActionIds(): Promise<number[]> {
   const rows = await db.getAllAsync<{ actionId: number }>(`
     SELECT s.actionId
@@ -403,10 +400,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [actions, setActions] = useState<ReplacementAction[]>([]);
-
-  // ✅ Shop selected actions (SQLite)
   const [selectedActionIds, setSelectedActionIds] = useState<number[]>([]);
-
   const [hasOnboarded, setHasOnboarded] = useState(false);
 
   useEffect(() => {
@@ -626,12 +620,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       [title, category, isCustom]
     );
 
-    // refresh actions + selected ids (in case the new action gets selected later)
     setActions(await loadActions());
     setSelectedActionIds(await loadSelectedActionIds());
   };
 
-  // ✅ Toggle selected action (SQLite)
   const toggleSelectedAction: DataContextType["toggleSelectedAction"] = async (
     actionId
   ) => {
