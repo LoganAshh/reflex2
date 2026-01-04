@@ -105,7 +105,6 @@ export default function ProfileScreen() {
   }, []);
 
   const [busy, setBusy] = useState<null | "export" | "reset" | "logout">(null);
-
   const [appLockEnabled, setAppLockEnabled] = useState(false);
 
   const canExport = typeof exportData === "function";
@@ -171,7 +170,6 @@ export default function ProfileScreen() {
   }
 
   function onLogout() {
-    // Be explicit: in this MVP, data is local. Logging out might lead to loss if they uninstall or switch devices.
     Alert.alert(
       "Log out?",
       "Before logging out, export your data. Your logs are stored on this device, and you can lose them if you uninstall the app or switch phones.\n\nDo you want to export now?",
