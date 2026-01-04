@@ -53,9 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const cred = await createUserWithEmailAndPassword(auth, e, password);
 
     if (displayName?.trim()) {
-      // Optional: set display name
       await updateProfile(cred.user, { displayName: displayName.trim() });
-      // auth.currentUser may not update synchronously in state; but it will on next auth state tick.
     }
 
     return cred.user;
