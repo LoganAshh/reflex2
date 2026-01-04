@@ -104,7 +104,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
             }}
             disabled={!canAdd}
             className={`rounded-xl px-4 py-3 ${
-              canAdd ? "bg-gray-900" : "bg-white border border-gray-200"
+              canAdd ? "bg-gray-900" : "border border-gray-200 bg-white"
             }`}
             style={({ pressed }) => ({
               shadowColor: canAdd ? "#000" : "transparent",
@@ -146,12 +146,10 @@ export default function OnboardingScreen() {
     completeOnboarding,
   } = useData();
 
-  // Local selections (user can toggle freely then persist at the end)
   const [habitIds, setHabitIds] = useState<number[]>([]);
   const [cueIds, setCueIds] = useState<number[]>([]);
   const [locationIds, setLocationIds] = useState<number[]>([]);
 
-  // Custom inputs
   const [customHabit, setCustomHabit] = useState("");
   const [customCue, setCustomCue] = useState("");
   const [customLocation, setCustomLocation] = useState("");
@@ -162,12 +160,10 @@ export default function OnboardingScreen() {
     null
   );
 
-  // Haptics
   const buzz = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Multi-step flow
   const infoSteps = useMemo(
     () => [
       {
@@ -202,7 +198,6 @@ export default function OnboardingScreen() {
   const totalSteps = infoSteps.length + 3;
   const [step, setStep] = useState(0);
 
-  // Initialize local selections from stored selections
   useEffect(() => {
     setHabitIds(selectedHabits.map((h) => h.id));
     setCueIds(selectedCues.map((c) => c.id));
@@ -261,7 +256,6 @@ export default function OnboardingScreen() {
     if (type === "habits") {
       const name = customHabit.trim();
       if (!name) return;
-
       setPendingHabitName(name);
       setCustomHabit("");
       await addCustomHabit(name, true);
@@ -271,7 +265,6 @@ export default function OnboardingScreen() {
     if (type === "cues") {
       const name = customCue.trim();
       if (!name) return;
-
       setPendingCueName(name);
       setCustomCue("");
       await addCustomCue(name, true);
@@ -280,15 +273,13 @@ export default function OnboardingScreen() {
 
     const name = customLocation.trim();
     if (!name) return;
-
     setPendingLocationName(name);
     setCustomLocation("");
     await addCustomLocation(name, true);
   };
 
   const validateBeforeNext = () => {
-    const habitsStepIndex = setupStartIndex;
-    if (step === habitsStepIndex && habitIds.length === 0) {
+    if (step === setupStartIndex && habitIds.length === 0) {
       Alert.alert(
         "Pick at least one habit",
         "Select one or more habits to continue."
@@ -378,7 +369,7 @@ export default function OnboardingScreen() {
         : goNext;
 
     return (
-      <View className="pb-8 pt-4 mb-10">
+      <View className="mb-10 pb-8 pt-4">
         <View className="flex-row items-center gap-3">
           {!isFirst ? (
             <Pressable
