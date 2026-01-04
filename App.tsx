@@ -1,4 +1,3 @@
-// App.tsx
 import "./global.css";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -106,7 +105,6 @@ function Tabs() {
 
 function AuthFlow() {
   return (
-    // 👇 Start on Register instead of Login
     <AuthStack.Navigator
       initialRouteName="Register"
       screenOptions={{ headerShown: false }}
@@ -121,14 +119,10 @@ function RootStack() {
   const { hasOnboarded } = useData();
   const { user, initializing } = useAuth();
 
-  // 1) Onboarding first
   if (!hasOnboarded) return <OnboardingScreen />;
-
-  // 2) Then auth
-  if (initializing) return null; // keep simple; add splash later
+  if (initializing) return null;
   if (!user) return <AuthFlow />;
 
-  // 3) Then the actual app
   return (
     <Stack.Navigator>
       <Stack.Screen
