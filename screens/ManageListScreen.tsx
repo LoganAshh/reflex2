@@ -17,7 +17,6 @@ import { useData } from "../data/DataContext";
 
 type ManageRoute = RouteProp<RootStackParamList, "ManageList">;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
 type Filter = "selected" | "preset" | "custom";
 
 export default function ManageListScreen() {
@@ -80,7 +79,6 @@ export default function ManageListScreen() {
     if (filter === "preset") {
       return items.filter((it) => !it.isCustom);
     }
-    // custom
     return items.filter((it) => !!it.isCustom);
   }, [items, selectedIds, filter]);
 
@@ -112,7 +110,7 @@ export default function ManageListScreen() {
     else await addCustomLocation(name, true);
 
     setText("");
-    setFilter("custom"); // keep user in the custom tab after adding
+    setFilter("custom");
   };
 
   const onDone = async () => {
@@ -159,14 +157,12 @@ export default function ManageListScreen() {
         </View>
       ) : null}
 
-      {/* Chips */}
       <View className="mt-5 flex-row gap-2">
         <Chip label="Selected" value="selected" />
         <Chip label="Preset" value="preset" />
         <Chip label="Custom" value="custom" />
       </View>
 
-      {/* Custom: Add row lives here */}
       {filter === "custom" ? (
         <View className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
           <Text className="text-sm font-semibold text-gray-900">Add new</Text>
@@ -193,7 +189,6 @@ export default function ManageListScreen() {
         </View>
       ) : null}
 
-      {/* List */}
       <Text className="mt-6 text-base font-bold text-gray-900">
         {filter === "selected"
           ? "Selected"
@@ -260,7 +255,6 @@ export default function ManageListScreen() {
         }
       />
 
-      {/* Bottom overlay Done button */}
       <View className="absolute bottom-0 left-0 right-0 border-t border-gray-200 bg-white px-6 pb-6 pt-4">
         <Pressable
           onPress={onDone}
