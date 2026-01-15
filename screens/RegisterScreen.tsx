@@ -106,7 +106,7 @@ export default function RegisterScreen() {
 
         {/* Password */}
         <TextInput
-          placeholder="Password (min 6 chars)"
+          placeholder="Password"
           secureTextEntry
           value={password}
           onChangeText={setPassword}
