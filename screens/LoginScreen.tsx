@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Keyboard,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -28,15 +29,16 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   async function onLogin() {
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       Alert.alert("Missing fields", "Enter email and password.");
       return;
     }
 
     try {
       setLoading(true);
+      Keyboard.dismiss();
       await Haptics.selectionAsync();
-      await login(email, password);
+      await login(email.trim(), password);
     } catch (e: any) {
       Alert.alert("Login failed", e.message ?? "Invalid credentials.");
     } finally {
@@ -55,21 +57,35 @@ export default function LoginScreen() {
         </Text>
         <Text className="mb-8 text-zinc-600">Log in to continue.</Text>
 
+        {/* Email */}
         <TextInput
           placeholder="Email"
           autoCapitalize="none"
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
+          multiline={false}
+          numberOfLines={1}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
+          textAlignVertical="center"
           className="mb-3 rounded-xl border border-zinc-300 bg-white px-4 py-3"
+          style={{ height: 48 }}
         />
 
+        {/* Password */}
         <TextInput
           placeholder="Password"
           secureTextEntry
           value={password}
           onChangeText={setPassword}
+          multiline={false}
+          numberOfLines={1}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
+          textAlignVertical="center"
           className="mb-6 rounded-xl border border-zinc-300 bg-white px-4 py-3"
+          style={{ height: 48 }}
         />
 
         <Pressable
