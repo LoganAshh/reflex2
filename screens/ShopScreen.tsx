@@ -275,7 +275,7 @@ export default function ShopScreen() {
           </View>
 
           <View className="mt-6">
-            <Text className="text-xl font-bold text-gray-900">Actions</Text>
+            <Text className="text-xl font-bold text-gray-900">Replacement Actions</Text>
             <Text className="mt-1 text-sm text-gray-500">
               Tap “Select” to add or remove an action.
             </Text>

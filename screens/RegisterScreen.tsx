@@ -23,13 +23,23 @@ export default function RegisterScreen() {
     useNavigation<NativeStackNavigationProp<AuthStackParamList>>();
   const { signUp } = useAuth();
 
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const isValid =
+    displayName.trim().length > 0 &&
+    email.trim().length > 0 &&
+    password.length >= 6;
+
   async function onRegister() {
-    if (!email || !password) {
+    if (!displayName.trim()) {
+      Alert.alert("Missing name", "Name is required.");
+      return;
+    }
+
+    if (!email.trim() || !password) {
       Alert.alert("Missing fields", "Email and password are required.");
       return;
     }
@@ -42,7 +52,11 @@ export default function RegisterScreen() {
     try {
       setLoading(true);
       await Haptics.selectionAsync();
-      await signUp({ email, password, displayName });
+      await signUp({
+        email: email.trim(),
+        password,
+        displayName: displayName.trim(),
+      });
     } catch (e: any) {
       Alert.alert("Registration failed", e.message ?? "Try again.");
     } finally {
@@ -64,9 +78,10 @@ export default function RegisterScreen() {
         </Text>
 
         <TextInput
-          placeholder="Name (optional)"
+          placeholder="Name"
           value={displayName}
           onChangeText={setDisplayName}
+          autoCapitalize="words"
           className="mb-3 rounded-xl border border-zinc-300 bg-white px-4 py-3"
         />
 
@@ -89,8 +104,10 @@ export default function RegisterScreen() {
 
         <Pressable
           onPress={onRegister}
-          disabled={loading}
-          className="mb-4 rounded-xl bg-zinc-900 py-3"
+          disabled={!isValid || loading}
+          className={`mb-4 rounded-xl py-3 ${
+            !isValid || loading ? "bg-zinc-400" : "bg-zinc-900"
+          }`}
         >
           <Text className="text-center text-base font-semibold text-white">
             {loading ? "Creating…" : "Create Account"}
