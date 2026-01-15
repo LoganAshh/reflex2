@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Keyboard,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -51,6 +52,7 @@ export default function RegisterScreen() {
 
     try {
       setLoading(true);
+      Keyboard.dismiss();
       await Haptics.selectionAsync();
       await signUp({
         email: email.trim(),
@@ -77,7 +79,7 @@ export default function RegisterScreen() {
           This takes less than a minute.
         </Text>
 
-        {/* Name (REQUIRED, single-line, height-locked) */}
+        {/* Name */}
         <TextInput
           placeholder="Name"
           value={displayName}
@@ -85,6 +87,8 @@ export default function RegisterScreen() {
           autoCapitalize="words"
           multiline={false}
           numberOfLines={1}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           textAlignVertical="center"
           className="mb-3 rounded-xl border border-zinc-300 bg-white px-4 py-3"
           style={{ height: 48 }}
@@ -99,6 +103,8 @@ export default function RegisterScreen() {
           onChangeText={setEmail}
           multiline={false}
           numberOfLines={1}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           textAlignVertical="center"
           className="mb-3 rounded-xl border border-zinc-300 bg-white px-4 py-3"
           style={{ height: 48 }}
@@ -112,6 +118,8 @@ export default function RegisterScreen() {
           onChangeText={setPassword}
           multiline={false}
           numberOfLines={1}
+          returnKeyType="done"
+          onSubmitEditing={() => Keyboard.dismiss()}
           textAlignVertical="center"
           className="mb-6 rounded-xl border border-zinc-300 bg-white px-4 py-3"
           style={{ height: 48 }}
