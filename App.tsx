@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 import HomeScreen from "./screens/HomeScreen";
 import ShopScreen from "./screens/ShopScreen";
@@ -42,6 +43,10 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
 function Tabs() {
+  const tabHaptic = () => {
+    Haptics.selectionAsync();
+  };
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -94,11 +99,41 @@ function Tabs() {
         },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Shop" component={ShopScreen} />
-      <Tab.Screen name="Log" component={LogScreen} />
-      <Tab.Screen name="Analytics" component={AnalyticsScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        listeners={{
+          tabPress: () => tabHaptic(),
+        }}
+      />
+      <Tab.Screen
+        name="Shop"
+        component={ShopScreen}
+        listeners={{
+          tabPress: () => tabHaptic(),
+        }}
+      />
+      <Tab.Screen
+        name="Log"
+        component={LogScreen}
+        listeners={{
+          tabPress: () => tabHaptic(),
+        }}
+      />
+      <Tab.Screen
+        name="Analytics"
+        component={AnalyticsScreen}
+        listeners={{
+          tabPress: () => tabHaptic(),
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        listeners={{
+          tabPress: () => tabHaptic(),
+        }}
+      />
     </Tab.Navigator>
   );
 }
