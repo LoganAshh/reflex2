@@ -77,29 +77,44 @@ export default function RegisterScreen() {
           This takes less than a minute.
         </Text>
 
+        {/* Name (REQUIRED, single-line, height-locked) */}
         <TextInput
           placeholder="Name"
           value={displayName}
           onChangeText={setDisplayName}
           autoCapitalize="words"
+          multiline={false}
+          numberOfLines={1}
+          textAlignVertical="center"
           className="mb-3 rounded-xl border border-zinc-300 bg-white px-4 py-3"
+          style={{ height: 48 }}
         />
 
+        {/* Email */}
         <TextInput
           placeholder="Email"
           autoCapitalize="none"
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
+          multiline={false}
+          numberOfLines={1}
+          textAlignVertical="center"
           className="mb-3 rounded-xl border border-zinc-300 bg-white px-4 py-3"
+          style={{ height: 48 }}
         />
 
+        {/* Password */}
         <TextInput
           placeholder="Password (min 6 chars)"
           secureTextEntry
           value={password}
           onChangeText={setPassword}
+          multiline={false}
+          numberOfLines={1}
+          textAlignVertical="center"
           className="mb-6 rounded-xl border border-zinc-300 bg-white px-4 py-3"
+          style={{ height: 48 }}
         />
 
         <Pressable
