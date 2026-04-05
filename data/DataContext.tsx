@@ -7,6 +7,8 @@ import React, {
 } from "react";
 import * as SQLite from "expo-sqlite";
 import * as SecureStore from "expo-secure-store";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 
 export type Habit = { id: number; name: string; isCustom: 0 | 1 };
 export type Cue = { id: number; name: string; isCustom: 0 | 1 };
@@ -93,6 +95,9 @@ type DataContextType = {
   selectedActionIds: number[];
   toggleSelectedAction: (actionId: number) => Promise<void>;
   clearSelectedActions: () => Promise<void>;
+
+  exportData: () => Promise<void>;
+  resetAll: () => Promise<void>;
 
   refresh: () => Promise<void>;
   resetDbForDev?: () => Promise<void>;
@@ -684,6 +689,66 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setSelectedActionIds([]);
     };
 
+  const exportData: DataContextType["exportData"] = async () => {
+    const canShare = await Sharing.isAvailableAsync();
+    if (!canShare) {
+      throw new Error("Sharing is not available on this device.");
+    }
+
+    const payload = {
+      app: "Reflex",
+      exportedAt: new Date().toISOString(),
+      hasOnboarded,
+      habits,
+      cues,
+      locations,
+      selectedHabits,
+      selectedCues,
+      selectedLocations,
+      logs,
+      actions,
+      selectedActionIds,
+    };
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const file = new FileSystem.File(
+      FileSystem.Paths.cache,
+      `reflex-backup-${timestamp}.json`,
+    );
+
+    file.write(JSON.stringify(payload, null, 2));
+
+    await Sharing.shareAsync(file.uri, {
+      mimeType: "application/json",
+      dialogTitle: "Export Reflex data",
+      UTI: "public.json",
+    });
+  };
+
+  const resetAll: DataContextType["resetAll"] = async () => {
+    await db.execAsync(`
+      DROP TABLE IF EXISTS selected_actions;
+      DROP TABLE IF EXISTS logs;
+      DROP TABLE IF EXISTS user_locations;
+      DROP TABLE IF EXISTS locations;
+      DROP TABLE IF EXISTS user_cues;
+      DROP TABLE IF EXISTS cues;
+      DROP TABLE IF EXISTS user_habits;
+      DROP TABLE IF EXISTS habits;
+      DROP TABLE IF EXISTS actions;
+    `);
+
+    await initDb();
+    await seedDefaultHabitsIfEmpty();
+    await seedDefaultCuesIfEmpty();
+    await seedDefaultLocationsIfEmpty();
+    await seedDefaultActionsIfEmpty();
+    await saveOnboardedFlag(false);
+
+    setHasOnboarded(false);
+    await refresh();
+  };
+
   const value = useMemo(
     () => ({
       initializing,
@@ -709,6 +774,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       selectedActionIds,
       toggleSelectedAction,
       clearSelectedActions,
+      exportData,
+      resetAll,
       refresh,
       resetDbForDev,
     }),

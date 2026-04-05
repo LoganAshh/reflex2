@@ -79,11 +79,7 @@ function Row({
 }
 
 export default function ProfileScreen() {
-  const { exportData, resetAll } = useData() as {
-    exportData?: () => Promise<void>;
-    resetAll?: () => Promise<void>;
-  };
-
+  const { exportData, resetAll } = useData();
   const { user, signOut } = useAuth() as {
     user: any;
     signOut: () => Promise<void>;
@@ -107,22 +103,11 @@ export default function ProfileScreen() {
   const [busy, setBusy] = useState<null | "export" | "reset" | "logout">(null);
   const [appLockEnabled, setAppLockEnabled] = useState(false);
 
-  const canExport = typeof exportData === "function";
-  const canReset = typeof resetAll === "function";
-
   async function onExport() {
-    if (!canExport) {
-      Alert.alert(
-        "Export not available",
-        "exportData() is not implemented in DataContext yet."
-      );
-      return;
-    }
-
     try {
       setBusy("export");
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await exportData!();
+      await exportData();
     } catch (e: any) {
       Alert.alert("Export failed", e?.message ?? "Something went wrong.");
     } finally {
@@ -131,17 +116,9 @@ export default function ProfileScreen() {
   }
 
   function onReset() {
-    if (!canReset) {
-      Alert.alert(
-        "Reset not available",
-        "resetAll() is not implemented in DataContext yet."
-      );
-      return;
-    }
-
     Alert.alert(
       "Reset all data?",
-      "This will permanently delete your logs, selections, and saved actions on this device.",
+      "This will permanently delete your logs, selections, custom items, and saved actions on this device. You will go back to onboarding.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -151,21 +128,21 @@ export default function ProfileScreen() {
             try {
               setBusy("reset");
               await Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Warning
+                Haptics.NotificationFeedbackType.Warning,
               );
-              await resetAll!();
-              Alert.alert("Done", "All data has been reset.");
+              await resetAll();
+              Alert.alert("Done", "All local app data has been reset.");
             } catch (e: any) {
               Alert.alert(
                 "Reset failed",
-                e?.message ?? "Something went wrong."
+                e?.message ?? "Something went wrong.",
               );
             } finally {
               setBusy(null);
             }
           },
         },
-      ]
+      ],
     );
   }
 
@@ -189,20 +166,20 @@ export default function ProfileScreen() {
             try {
               setBusy("logout");
               await Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Warning
+                Haptics.NotificationFeedbackType.Warning,
               );
               await signOut();
             } catch (e: any) {
               Alert.alert(
                 "Logout failed",
-                e?.message ?? "Something went wrong."
+                e?.message ?? "Something went wrong.",
               );
             } finally {
               setBusy(null);
             }
           },
         },
-      ]
+      ],
     );
   }
 
@@ -306,7 +283,7 @@ export default function ProfileScreen() {
         <View className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
           <Text className="text-sm font-semibold text-zinc-900">Privacy</Text>
           <Text className="mt-1 text-sm text-zinc-600">
-            Your data stays on your device unless you export it.
+            Your tracking data stays on your device unless you export it.
           </Text>
         </View>
       </View>
