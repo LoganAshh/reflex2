@@ -105,12 +105,16 @@ export default function ManageListScreen() {
     Keyboard.dismiss();
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    if (type === "habits") await addCustomHabit(name, true);
-    else if (type === "cues") await addCustomCue(name, true);
-    else await addCustomLocation(name, true);
+    try {
+      if (type === "habits") await addCustomHabit(name, true);
+      else if (type === "cues") await addCustomCue(name, true);
+      else await addCustomLocation(name, true);
 
-    setText("");
-    setFilter("custom");
+      setText("");
+      setFilter("custom");
+    } catch (e: any) {
+      Alert.alert("Already exists", e?.message ?? "That item already exists.");
+    }
   };
 
   const onDone = async () => {

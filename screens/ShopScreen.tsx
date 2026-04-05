@@ -48,7 +48,7 @@ function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
 
   const maxLen = Math.max(
     ...PRESET_CATEGORIES.map((c) => buckets[c].length),
-    0
+    0,
   );
 
   const out: ReplacementAction[] = [];
@@ -93,7 +93,7 @@ export default function ShopScreen() {
     if (filter === CUSTOM) return actions.filter((a) => a.isCustom === 1);
 
     return actions.filter(
-      (a) => a.isCustom === 0 && (a.category ?? "") === filter
+      (a) => a.isCustom === 0 && (a.category ?? "") === filter,
     );
   }, [actions, filter, selectedActions, allInterleaved]);
 
@@ -110,15 +110,22 @@ export default function ShopScreen() {
     const title = text.trim();
     if (!title) return;
 
-    await addAction({
-      title,
-      category: newCategory,
-      isCustom: true,
-    });
+    try {
+      await addAction({
+        title,
+        category: newCategory,
+        isCustom: true,
+      });
 
-    setText("");
-    setNewCategory("Physical");
-    Alert.alert("Added ✅", `"${title}" is now in your actions list.`);
+      setText("");
+      setNewCategory("Physical");
+      Alert.alert("Added ✅", `"${title}" is now in your actions list.`);
+    } catch (e: any) {
+      Alert.alert(
+        "Already exists",
+        e?.message ?? "That action already exists.",
+      );
+    }
   };
 
   const FilterPill = ({ label, value }: { label: string; value: Filter }) => {
@@ -275,7 +282,9 @@ export default function ShopScreen() {
           </View>
 
           <View className="mt-6">
-            <Text className="text-xl font-bold text-gray-900">Replacement Actions</Text>
+            <Text className="text-xl font-bold text-gray-900">
+              Replacement Actions
+            </Text>
             <Text className="mt-1 text-sm text-gray-500">
               Tap “Select” to add or remove an action.
             </Text>

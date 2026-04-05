@@ -119,6 +119,10 @@ const PROFILE_NAME_KEY = "profileName";
 const PROFILE_PHOTO_KEY = "profilePhotoUri";
 const PROFILE_DONE_KEY = "hasCompletedLocalProfile";
 
+function normalizeName(value: string) {
+  return value.trim().toLowerCase();
+}
+
 async function loadBoolean(key: string): Promise<boolean> {
   try {
     const v = await SecureStore.getItemAsync(key);
@@ -651,6 +655,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const clean = name.trim();
     if (!clean) return;
 
+    const existingHabits = await loadHabits();
+    const duplicate = existingHabits.find(
+      (h) => normalizeName(h.name) === normalizeName(clean),
+    );
+    if (duplicate) {
+      throw new Error(`"${clean}" already exists.`);
+    }
+
     await db.runAsync(
       `INSERT OR IGNORE INTO habits (name, isCustom) VALUES (?, 1);`,
       [clean],
@@ -677,6 +689,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const clean = name.trim();
     if (!clean) return;
 
+    const existingCues = await loadCues();
+    const duplicate = existingCues.find(
+      (c) => normalizeName(c.name) === normalizeName(clean),
+    );
+    if (duplicate) {
+      throw new Error(`"${clean}" already exists.`);
+    }
+
     await db.runAsync(
       `INSERT OR IGNORE INTO cues (name, isCustom) VALUES (?, 1);`,
       [clean],
@@ -702,6 +722,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   ) => {
     const clean = name.trim();
     if (!clean) return;
+
+    const existingLocations = await loadLocations();
+    const duplicate = existingLocations.find(
+      (l) => normalizeName(l.name) === normalizeName(clean),
+    );
+    if (duplicate) {
+      throw new Error(`"${clean}" already exists.`);
+    }
 
     await db.runAsync(
       `INSERT OR IGNORE INTO locations (name, isCustom) VALUES (?, 1);`,
@@ -760,6 +788,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addAction: DataContextType["addAction"] = async (input) => {
     const title = input.title.trim();
     if (!title) return;
+
+    const existingActions = await loadActions();
+    const duplicate = existingActions.find(
+      (a) => normalizeName(a.title) === normalizeName(title),
+    );
+    if (duplicate) {
+      throw new Error(`"${title}" already exists.`);
+    }
 
     const category = input.category?.trim() ?? null;
     const isCustom: 0 | 1 = (input.isCustom ?? true) ? 1 : 0;

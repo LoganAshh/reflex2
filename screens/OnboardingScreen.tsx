@@ -157,7 +157,7 @@ export default function OnboardingScreen() {
   const [pendingHabitName, setPendingHabitName] = useState<string | null>(null);
   const [pendingCueName, setPendingCueName] = useState<string | null>(null);
   const [pendingLocationName, setPendingLocationName] = useState<string | null>(
-    null
+    null,
   );
 
   const buzz = () => {
@@ -191,7 +191,7 @@ export default function OnboardingScreen() {
         body: "Reflex's essential tracking and insights will always remain 100% free. Subscriptions will be offered for optional advanced features.",
       },
     ],
-    []
+    [],
   );
 
   const setupStartIndex = infoSteps.length;
@@ -202,13 +202,12 @@ export default function OnboardingScreen() {
     setHabitIds(selectedHabits.map((h) => h.id));
     setCueIds(selectedCues.map((c) => c.id));
     setLocationIds(selectedLocations.map((l) => l.id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedHabits, selectedCues, selectedLocations]);
 
   useEffect(() => {
     if (!pendingHabitName) return;
     const match = habits.find(
-      (h) => h.name.toLowerCase() === pendingHabitName.toLowerCase()
+      (h) => h.name.toLowerCase() === pendingHabitName.toLowerCase(),
     );
     if (!match) return;
     setHabitIds((prev) => Array.from(new Set([...prev, match.id])));
@@ -218,7 +217,7 @@ export default function OnboardingScreen() {
   useEffect(() => {
     if (!pendingCueName) return;
     const match = cues.find(
-      (c) => c.name.toLowerCase() === pendingCueName.toLowerCase()
+      (c) => c.name.toLowerCase() === pendingCueName.toLowerCase(),
     );
     if (!match) return;
     setCueIds((prev) => Array.from(new Set([...prev, match.id])));
@@ -228,7 +227,7 @@ export default function OnboardingScreen() {
   useEffect(() => {
     if (!pendingLocationName) return;
     const match = locations.find(
-      (l) => l.name.toLowerCase() === pendingLocationName.toLowerCase()
+      (l) => l.name.toLowerCase() === pendingLocationName.toLowerCase(),
     );
     if (!match) return;
     setLocationIds((prev) => Array.from(new Set([...prev, match.id])));
@@ -248,41 +247,45 @@ export default function OnboardingScreen() {
           : setLocationIds;
 
     updater((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   };
 
   const onAddCustom = async (type: "habits" | "cues" | "locations") => {
-    if (type === "habits") {
-      const name = customHabit.trim();
-      if (!name) return;
-      setPendingHabitName(name);
-      setCustomHabit("");
-      await addCustomHabit(name, true);
-      return;
-    }
+    try {
+      if (type === "habits") {
+        const name = customHabit.trim();
+        if (!name) return;
+        setPendingHabitName(name);
+        setCustomHabit("");
+        await addCustomHabit(name, true);
+        return;
+      }
 
-    if (type === "cues") {
-      const name = customCue.trim();
-      if (!name) return;
-      setPendingCueName(name);
-      setCustomCue("");
-      await addCustomCue(name, true);
-      return;
-    }
+      if (type === "cues") {
+        const name = customCue.trim();
+        if (!name) return;
+        setPendingCueName(name);
+        setCustomCue("");
+        await addCustomCue(name, true);
+        return;
+      }
 
-    const name = customLocation.trim();
-    if (!name) return;
-    setPendingLocationName(name);
-    setCustomLocation("");
-    await addCustomLocation(name, true);
+      const name = customLocation.trim();
+      if (!name) return;
+      setPendingLocationName(name);
+      setCustomLocation("");
+      await addCustomLocation(name, true);
+    } catch (e: any) {
+      Alert.alert("Already exists", e?.message ?? "That item already exists.");
+    }
   };
 
   const validateBeforeNext = () => {
     if (step === setupStartIndex && habitIds.length === 0) {
       Alert.alert(
         "Pick at least one habit",
-        "Select one or more habits to continue."
+        "Select one or more habits to continue.",
       );
       return false;
     }
@@ -301,7 +304,7 @@ export default function OnboardingScreen() {
     if (habitIds.length === 0) {
       Alert.alert(
         "Pick at least one habit",
-        "Select one or more habits to continue."
+        "Select one or more habits to continue.",
       );
       setStep(setupStartIndex);
       return;
