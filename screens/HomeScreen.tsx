@@ -25,6 +25,12 @@ function dayKey(d: Date) {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
+function getPercentIncrease(current: number, previous: number) {
+  if (current <= previous) return null;
+  if (previous <= 0) return current > 0 ? 100 : null;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
 export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { logs, profileName, profilePhotoUri } = useData();
@@ -51,21 +57,44 @@ export default function HomeScreen() {
     const now = new Date();
     const todayStart = startOfDayMs(now);
     const tomorrowStart = todayStart + 24 * 60 * 60 * 1000;
+    const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+
     const weekStart = startOfWeekMs(now);
+    const previousWeekStart = weekStart - 7 * 24 * 60 * 60 * 1000;
 
     const todaysLogs = logsForStats.filter(
       (l) => l.createdAt >= todayStart && l.createdAt < tomorrowStart,
     );
 
+    const yesterdaysLogs = logsForStats.filter(
+      (l) => l.createdAt >= yesterdayStart && l.createdAt < todayStart,
+    );
+
+    const weekLogsArr = logsForStats.filter((l) => l.createdAt >= weekStart);
+    const previousWeekLogsArr = logsForStats.filter(
+      (l) => l.createdAt >= previousWeekStart && l.createdAt < weekStart,
+    );
+
     const todayLogs = todaysLogs.length;
+    const previousTodayLogs = yesterdaysLogs.length;
+
     const todayResists = todaysLogs.reduce(
       (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
       0,
     );
+    const previousTodayResists = yesterdaysLogs.reduce(
+      (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
+      0,
+    );
 
-    const weekLogsArr = logsForStats.filter((l) => l.createdAt >= weekStart);
     const weekLogs = weekLogsArr.length;
+    const previousWeekLogs = previousWeekLogsArr.length;
+
     const weekResists = weekLogsArr.reduce(
+      (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
+      0,
+    );
+    const previousWeekResists = previousWeekLogsArr.reduce(
       (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
       0,
     );
@@ -88,6 +117,25 @@ export default function HomeScreen() {
       }
     }
 
+    const yesterday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - 1,
+    );
+
+    let previousCurrentStreak = 0;
+    {
+      const cursor = new Date(
+        yesterday.getFullYear(),
+        yesterday.getMonth(),
+        yesterday.getDate(),
+      );
+      while (hasResistOnDay(cursor)) {
+        previousCurrentStreak++;
+        cursor.setDate(cursor.getDate() - 1);
+      }
+    }
+
     const resistDates = Array.from(resistDays)
       .map((k) => {
         const [y, m, d] = k.split("-").map(Number);
@@ -105,6 +153,20 @@ export default function HomeScreen() {
       bestStreak = Math.max(bestStreak, run);
     }
 
+    let previousBestStreak = 0;
+    let previousRun = 0;
+    const resistDatesBeforeToday = resistDates.filter((t) => t < todayStart);
+
+    for (let i = 0; i < resistDatesBeforeToday.length; i++) {
+      if (i === 0) previousRun = 1;
+      else
+        previousRun =
+          resistDatesBeforeToday[i] - resistDatesBeforeToday[i - 1] === oneDay
+            ? previousRun + 1
+            : 1;
+      previousBestStreak = Math.max(previousBestStreak, previousRun);
+    }
+
     return {
       todayLogs,
       weekLogs,
@@ -112,6 +174,12 @@ export default function HomeScreen() {
       weekResists,
       currentStreak,
       bestStreak,
+      previousTodayLogs,
+      previousWeekLogs,
+      previousTodayResists,
+      previousWeekResists,
+      previousCurrentStreak,
+      previousBestStreak,
     };
   }, [logs, selectedHabit]);
 
@@ -119,14 +187,29 @@ export default function HomeScreen() {
     label,
     value,
     sub,
+    percentIncrease,
   }: {
     label: string;
     value: string;
     sub?: string;
+    percentIncrease?: number | null;
   }) => (
     <View className="flex-1 rounded-2xl border border-gray-200 bg-white p-4">
       <Text className="text-xs font-semibold text-gray-500">{label}</Text>
-      <Text className="mt-2 text-2xl font-bold text-gray-900">{value}</Text>
+
+      <View className="mt-2 flex-row items-center">
+        <Text className="text-2xl font-bold text-gray-900">{value}</Text>
+
+        {percentIncrease != null ? (
+          <View className="ml-2 flex-row items-center">
+            <Text className="text-sm font-semibold text-green-600">↑</Text>
+            <Text className="ml-1 text-sm font-semibold text-green-600">
+              {percentIncrease}%
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
       {sub ? <Text className="mt-1 text-xs text-gray-500">{sub}</Text> : null}
     </View>
   );
@@ -242,13 +325,41 @@ export default function HomeScreen() {
         </ScrollView>
 
         <View className="mt-4 flex-row gap-3">
-          <Card label="Logs today" value={`${stats.todayLogs}`} />
-          <Card label="Logs this week" value={`${stats.weekLogs}`} />
+          <Card
+            label="Logs today"
+            value={`${stats.todayLogs}`}
+            percentIncrease={getPercentIncrease(
+              stats.todayLogs,
+              stats.previousTodayLogs,
+            )}
+          />
+          <Card
+            label="Logs this week"
+            value={`${stats.weekLogs}`}
+            percentIncrease={getPercentIncrease(
+              stats.weekLogs,
+              stats.previousWeekLogs,
+            )}
+          />
         </View>
 
         <View className="mt-3 flex-row gap-3">
-          <Card label="Resists today" value={`${stats.todayResists}`} />
-          <Card label="Resists this week" value={`${stats.weekResists}`} />
+          <Card
+            label="Resists today"
+            value={`${stats.todayResists}`}
+            percentIncrease={getPercentIncrease(
+              stats.todayResists,
+              stats.previousTodayResists,
+            )}
+          />
+          <Card
+            label="Resists this week"
+            value={`${stats.weekResists}`}
+            percentIncrease={getPercentIncrease(
+              stats.weekResists,
+              stats.previousWeekResists,
+            )}
+          />
         </View>
 
         <View className="mt-3 flex-row gap-3">
@@ -256,11 +367,19 @@ export default function HomeScreen() {
             label="Current streak"
             value={`${stats.currentStreak}`}
             sub="Days with ≥1 resist"
+            percentIncrease={getPercentIncrease(
+              stats.currentStreak,
+              stats.previousCurrentStreak,
+            )}
           />
           <Card
             label="Best streak"
             value={`${stats.bestStreak}`}
             sub="Days with ≥1 resist"
+            percentIncrease={getPercentIncrease(
+              stats.bestStreak,
+              stats.previousBestStreak,
+            )}
           />
         </View>
 
