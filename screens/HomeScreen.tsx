@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView, Image } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { RootTabParamList } from "../App";
@@ -16,7 +16,7 @@ function startOfWeekMs(d: Date) {
   const monday = new Date(
     d.getFullYear(),
     d.getMonth(),
-    d.getDate() - diffToMonday
+    d.getDate() - diffToMonday,
   );
   return startOfDayMs(monday);
 }
@@ -27,7 +27,7 @@ function dayKey(d: Date) {
 
 export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
-  const { logs } = useData();
+  const { logs, profileName, profilePhotoUri } = useData();
 
   const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
 
@@ -54,20 +54,20 @@ export default function HomeScreen() {
     const weekStart = startOfWeekMs(now);
 
     const todaysLogs = logsForStats.filter(
-      (l) => l.createdAt >= todayStart && l.createdAt < tomorrowStart
+      (l) => l.createdAt >= todayStart && l.createdAt < tomorrowStart,
     );
 
     const todayLogs = todaysLogs.length;
     const todayResists = todaysLogs.reduce(
       (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
-      0
+      0,
     );
 
     const weekLogsArr = logsForStats.filter((l) => l.createdAt >= weekStart);
     const weekLogs = weekLogsArr.length;
     const weekResists = weekLogsArr.reduce(
       (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
-      0
+      0,
     );
 
     const resistDays = new Set<string>();
@@ -161,9 +161,32 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-white px-6 pt-10">
-      <Text className="text-3xl font-bold text-gray-900">
-        {isFirstVisit ? "Welcome!" : "Welcome back!"}
-      </Text>
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 pr-4">
+          <Text className="text-sm font-semibold text-gray-500">Welcome</Text>
+          <Text className="mt-1 text-3xl font-bold text-gray-900">
+            {profileName?.trim()
+              ? isFirstVisit
+                ? `Hi, ${profileName}`
+                : `Welcome back, ${profileName}`
+              : isFirstVisit
+                ? "Welcome!"
+                : "Welcome back!"}
+          </Text>
+        </View>
+
+        {profilePhotoUri ? (
+          <Image
+            source={{ uri: profilePhotoUri }}
+            className="h-14 w-14 rounded-full"
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+            <Text className="text-xs font-semibold text-gray-500">Profile</Text>
+          </View>
+        )}
+      </View>
 
       <Pressable
         onPress={() => {
