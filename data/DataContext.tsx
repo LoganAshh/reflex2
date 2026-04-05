@@ -36,6 +36,9 @@ export type LogEntry = {
   didResist: 0 | 1;
   notes: string | null;
   createdAt: number;
+
+  selectedActionId: number | null;
+  selectedActionTitle: string | null;
 };
 
 export type ReplacementAction = {
@@ -55,6 +58,7 @@ type AddLogInput = {
   count?: number;
   didResist?: boolean;
   notes?: string;
+  selectedActionId?: number | null;
 };
 
 type AddActionInput = {
@@ -184,6 +188,22 @@ async function saveProfileDoneFlag(value: boolean): Promise<void> {
   await saveBoolean(PROFILE_DONE_KEY, value);
 }
 
+async function ensureLogsSelectedActionColumn() {
+  const columns = await db.getAllAsync<{ name: string }>(
+    `PRAGMA table_info(logs);`,
+  );
+
+  const hasSelectedActionId = columns.some(
+    (col) => col.name === "selectedActionId",
+  );
+
+  if (!hasSelectedActionId) {
+    await db.execAsync(`
+      ALTER TABLE logs ADD COLUMN selectedActionId INTEGER REFERENCES actions(id) ON DELETE SET NULL;
+    `);
+  }
+}
+
 async function initDb() {
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
@@ -231,9 +251,11 @@ async function initDb() {
       didResist INTEGER NOT NULL DEFAULT 0,
       notes TEXT,
       createdAt INTEGER NOT NULL,
+      selectedActionId INTEGER,
       FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE,
       FOREIGN KEY (cueId) REFERENCES cues(id) ON DELETE SET NULL,
-      FOREIGN KEY (locationId) REFERENCES locations(id) ON DELETE SET NULL
+      FOREIGN KEY (locationId) REFERENCES locations(id) ON DELETE SET NULL,
+      FOREIGN KEY (selectedActionId) REFERENCES actions(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS actions (
@@ -249,6 +271,8 @@ async function initDb() {
       FOREIGN KEY (actionId) REFERENCES actions(id) ON DELETE CASCADE
     );
   `);
+
+  await ensureLogsSelectedActionColumn();
 }
 
 async function seedDefaultHabitsIfEmpty() {
@@ -432,11 +456,14 @@ async function loadLogs(): Promise<LogEntry[]> {
       l.count,
       l.didResist,
       l.notes,
-      l.createdAt
+      l.createdAt,
+      l.selectedActionId,
+      a.title AS selectedActionTitle
     FROM logs l
     JOIN habits h ON h.id = l.habitId
     LEFT JOIN cues c ON c.id = l.cueId
     LEFT JOIN locations loc ON loc.id = l.locationId
+    LEFT JOIN actions a ON a.id = l.selectedActionId
     ORDER BY l.createdAt DESC;
   `);
 }
@@ -765,10 +792,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const didResist: 0 | 1 = input.didResist ? 1 : 0;
 
+    const selectedActionId =
+      input.selectedActionId == null || !Number.isFinite(input.selectedActionId)
+        ? null
+        : input.selectedActionId;
+
     await db.runAsync(
       `
-      INSERT INTO logs (habitId, cueId, locationId, intensity, count, didResist, notes, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+      INSERT INTO logs (
+        habitId,
+        cueId,
+        locationId,
+        intensity,
+        count,
+        didResist,
+        notes,
+        createdAt,
+        selectedActionId
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
       `,
       [
         habitId,
@@ -779,6 +821,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         didResist,
         input.notes?.trim() ?? null,
         Date.now(),
+        selectedActionId,
       ],
     );
 

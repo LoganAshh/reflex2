@@ -22,6 +22,7 @@ import {
   type SelectedHabit,
   type SelectedCue,
   type SelectedPlace,
+  type ReplacementAction,
 } from "../data/DataContext";
 
 type StackNav = NativeStackNavigationProp<RootStackParamList>;
@@ -39,7 +40,7 @@ type BaseItem = { id: number; name: string };
 
 function applyRecentOrdering<T extends { id: number }>(
   items: T[],
-  recentIds: number[]
+  recentIds: number[],
 ) {
   if (items.length === 0) return items;
 
@@ -153,6 +154,101 @@ function ChipRow<T extends BaseItem>({
   );
 }
 
+function RecommendedActionsRow({
+  actions,
+  selectedActionId,
+  onSelect,
+  onBrowse,
+}: {
+  actions: ReplacementAction[];
+  selectedActionId: number | null;
+  onSelect: (id: number | null) => void;
+  onBrowse: () => void;
+}) {
+  return (
+    <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+      <Text className="text-sm font-semibold text-gray-900">
+        Replacement Action
+      </Text>
+
+      {actions.length === 0 ? (
+        <View className="mt-2">
+          <Text className="text-sm text-gray-600">
+            You have no selected replacement actions yet.
+          </Text>
+
+          <Pressable
+            onPress={onBrowse}
+            className="mt-3 self-start rounded-full border border-gray-200 bg-white px-4 py-2"
+          >
+            <Text className="text-sm font-semibold text-gray-900">
+              Go to Shop
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mt-2"
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="flex-row">
+            <Pressable
+              onPress={() => onSelect(null)}
+              className={`mr-2 rounded-full border px-4 py-2 ${
+                selectedActionId == null
+                  ? "border-green-600 bg-green-600"
+                  : "border-gray-200 bg-white"
+              }`}
+            >
+              <Text
+                className={`text-sm font-semibold ${
+                  selectedActionId == null ? "text-white" : "text-gray-900"
+                }`}
+              >
+                None
+              </Text>
+            </Pressable>
+
+            {actions.map((action) => {
+              const isSelected = selectedActionId === action.id;
+              return (
+                <Pressable
+                  key={action.id}
+                  onPress={() => onSelect(action.id)}
+                  className={`mr-2 rounded-full border px-4 py-2 ${
+                    isSelected
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-semibold ${
+                      isSelected ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    {action.title}
+                  </Text>
+                </Pressable>
+              );
+            })}
+
+            <Pressable
+              onPress={onBrowse}
+              className="mr-2 rounded-full border border-gray-200 bg-white px-4 py-2"
+            >
+              <Text className="text-sm font-semibold text-gray-900">
+                Manage
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
 function IntensityPickerModal({
   visible,
   value,
@@ -168,7 +264,7 @@ function IntensityPickerModal({
 }) {
   const options = useMemo(
     () => Array.from({ length: 10 }, (_, i) => i + 1),
-    []
+    [],
   );
 
   return (
@@ -256,7 +352,7 @@ function CountPickerModal({
 }) {
   const options = useMemo(
     () => Array.from({ length: 10 }, (_, i) => i + 1),
-    []
+    [],
   );
 
   const labelFor = (n: number) =>
@@ -342,11 +438,19 @@ function CountPickerModal({
 
 export default function LogScreen() {
   const navigation = useNavigation<Nav>();
-  const { selectedHabits, selectedCues, selectedLocations, addLog } = useData();
+  const {
+    selectedHabits,
+    selectedCues,
+    selectedLocations,
+    addLog,
+    actions,
+    selectedActionIds,
+  } = useData();
 
   const [habitId, setHabitId] = useState<number | null>(null);
   const [cueId, setCueId] = useState<number | null>(null);
   const [locationId, setLocationId] = useState<number | null>(null);
+  const [selectedActionId, setSelectedActionId] = useState<number | null>(null);
 
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
@@ -369,16 +473,25 @@ export default function LogScreen() {
 
   const orderedHabits = useMemo(
     () => applyRecentOrdering(selectedHabits, recentHabitIds),
-    [selectedHabits, recentHabitIds]
+    [selectedHabits, recentHabitIds],
   );
   const orderedCues = useMemo(
     () => applyRecentOrdering(selectedCues, recentCueIds),
-    [selectedCues, recentCueIds]
+    [selectedCues, recentCueIds],
   );
   const orderedLocations = useMemo(
     () => applyRecentOrdering(selectedLocations, recentLocationIds),
-    [selectedLocations, recentLocationIds]
+    [selectedLocations, recentLocationIds],
   );
+
+  const recommendedActions = useMemo(() => {
+    if (selectedActionIds.length === 0) return [];
+
+    const actionMap = new Map(actions.map((a) => [a.id, a] as const));
+    return selectedActionIds
+      .map((id) => actionMap.get(id))
+      .filter(Boolean) as ReplacementAction[];
+  }, [actions, selectedActionIds]);
 
   const habitListRef = useRef<FlatList<ChipItem> | null>(null);
   const cueListRef = useRef<FlatList<ChipItem> | null>(null);
@@ -392,6 +505,15 @@ export default function LogScreen() {
       setHabitId(orderedHabits[0].id);
     }
   }, [orderedHabits, habitId]);
+
+  useEffect(() => {
+    if (
+      selectedActionId != null &&
+      !recommendedActions.some((action) => action.id === selectedActionId)
+    ) {
+      setSelectedActionId(null);
+    }
+  }, [recommendedActions, selectedActionId]);
 
   const bumpRecent = (prev: number[], id: number, max = 25) => {
     const next = [id, ...prev.filter((x) => x !== id)];
@@ -414,6 +536,7 @@ export default function LogScreen() {
     setHabitId(habitOverrideId ?? getDefaultHabitId());
     setCueId(null);
     setLocationId(null);
+    setSelectedActionId(null);
 
     setNotes("");
     setShowNotes(false);
@@ -452,6 +575,7 @@ export default function LogScreen() {
     const submittedHabitId = habitId;
     const submittedCueId = cueId;
     const submittedLocationId = locationId;
+    const submittedActionId = selectedActionId;
 
     try {
       setSaving(true);
@@ -464,6 +588,7 @@ export default function LogScreen() {
         count,
         didResist,
         notes: notes.trim() || undefined,
+        selectedActionId: submittedActionId,
       });
 
       setRecentHabitIds((prev) => bumpRecent(prev, submittedHabitId));
@@ -475,6 +600,7 @@ export default function LogScreen() {
       setHabitId(submittedHabitId);
       setCueId(null);
       setLocationId(null);
+      setSelectedActionId(null);
       setNotes("");
       setShowNotes(false);
       setDidResist(false);
@@ -569,12 +695,8 @@ export default function LogScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 160 }}
       >
-        <View className="flex-1 px-5 pt-8">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-2xl font-bold text-gray-900">Log</Text>
-          </View>
-
-          <View className="mt-4 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
+        <View className="flex-1 px-5 pt-4">
+          <View className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
             <ChipRow<SelectedHabit>
               title="Habit"
               items={orderedHabits}
@@ -606,6 +728,13 @@ export default function LogScreen() {
                 navigation.navigate("ManageList", { type: "locations" })
               }
               listRef={locationListRef}
+            />
+
+            <RecommendedActionsRow
+              actions={recommendedActions}
+              selectedActionId={selectedActionId}
+              onSelect={setSelectedActionId}
+              onBrowse={() => navigation.navigate("Shop")}
             />
 
             <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
@@ -681,7 +810,7 @@ export default function LogScreen() {
               className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
             >
               <Text className="text-sm font-semibold text-gray-900">
-                {showNotes ? "Hide notes" : "Add notes (optional)"}
+                {showNotes ? "Hide notes" : "Add Notes (optional)"}
               </Text>
             </Pressable>
 

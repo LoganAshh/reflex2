@@ -8,12 +8,12 @@ function startOfWeekMs(d: Date) {
   const monday = new Date(
     d.getFullYear(),
     d.getMonth(),
-    d.getDate() - diffToMonday
+    d.getDate() - diffToMonday,
   );
   return new Date(
     monday.getFullYear(),
     monday.getMonth(),
-    monday.getDate()
+    monday.getDate(),
   ).getTime();
 }
 
@@ -119,7 +119,7 @@ export default function AnalyticsScreen() {
     const shown = new Date(
       base.getFullYear(),
       base.getMonth() + monthOffset,
-      1
+      1,
     );
 
     const monthStart = startOfMonthMs(shown);
@@ -139,7 +139,7 @@ export default function AnalyticsScreen() {
     const daysInMonth = new Date(
       shown.getFullYear(),
       shown.getMonth() + 1,
-      0
+      0,
     ).getDate();
 
     const jsDay = firstDay.getDay();
@@ -350,6 +350,13 @@ export default function AnalyticsScreen() {
             <Text className="mt-1 text-sm text-gray-700">
               <Text className="font-semibold">Location:</Text>{" "}
               {item.locationName}
+            </Text>
+          ) : null}
+
+          {item.selectedActionTitle ? (
+            <Text className="mt-1 text-sm text-gray-700">
+              <Text className="font-semibold">Replacement Action:</Text>{" "}
+              {item.selectedActionTitle}
             </Text>
           ) : null}
 
