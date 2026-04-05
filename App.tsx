@@ -15,11 +15,9 @@ import AnalyticsScreen from "./screens/AnalyticsScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ManageListScreen from "./screens/ManageListScreen";
-import LoginScreen from "./screens/LoginScreen";
-import RegisterScreen from "./screens/RegisterScreen";
+import ProfileSetupScreen from "./screens/ProfileSetupScreen";
 
 import { DataProvider, useData } from "./data/DataContext";
-import { AuthProvider, useAuth } from "./data/AuthContext";
 
 export type RootTabParamList = {
   Home: undefined;
@@ -32,17 +30,11 @@ export type RootTabParamList = {
 export type RootStackParamList = {
   Main: undefined;
   ManageList: { type: "habits" | "cues" | "locations" };
-  Auth: undefined;
-};
-
-export type AuthStackParamList = {
-  Login: undefined;
-  Register: undefined;
+  ProfileSetup: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
 function AppLoadingScreen() {
   return (
@@ -118,64 +110,41 @@ function Tabs() {
       <Tab.Screen
         name="Home"
         component={HomeScreen}
-        listeners={{
-          tabPress: () => tabHaptic(),
-        }}
+        listeners={{ tabPress: () => tabHaptic() }}
       />
       <Tab.Screen
         name="Shop"
         component={ShopScreen}
-        listeners={{
-          tabPress: () => tabHaptic(),
-        }}
+        listeners={{ tabPress: () => tabHaptic() }}
       />
       <Tab.Screen
         name="Log"
         component={LogScreen}
-        listeners={{
-          tabPress: () => tabHaptic(),
-        }}
+        listeners={{ tabPress: () => tabHaptic() }}
       />
       <Tab.Screen
         name="Analytics"
         component={AnalyticsScreen}
-        listeners={{
-          tabPress: () => tabHaptic(),
-        }}
+        listeners={{ tabPress: () => tabHaptic() }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        listeners={{
-          tabPress: () => tabHaptic(),
-        }}
+        listeners={{ tabPress: () => tabHaptic() }}
       />
     </Tab.Navigator>
   );
 }
 
-function AuthFlow() {
-  return (
-    <AuthStack.Navigator
-      initialRouteName="Register"
-      screenOptions={{ headerShown: false }}
-    >
-      <AuthStack.Screen name="Register" component={RegisterScreen} />
-      <AuthStack.Screen name="Login" component={LoginScreen} />
-    </AuthStack.Navigator>
-  );
-}
-
 function RootStack() {
-  const { hasOnboarded, initializing: dataInitializing } = useData();
-  const { user, initializing: authInitializing } = useAuth();
+  const { hasOnboarded, hasCompletedLocalProfile, initializing } = useData();
 
-  if (dataInitializing || authInitializing) {
+  if (initializing) {
     return <AppLoadingScreen />;
   }
 
   if (!hasOnboarded) return <OnboardingScreen />;
-  if (!user) return <AuthFlow />;
+  if (!hasCompletedLocalProfile) return <ProfileSetupScreen />;
 
   return (
     <Stack.Navigator>
@@ -189,6 +158,11 @@ function RootStack() {
         component={ManageListScreen}
         options={{ title: "Manage", headerBackTitle: "Back" }}
       />
+      <Stack.Screen
+        name="ProfileSetup"
+        component={ProfileSetupScreen}
+        options={{ title: "Edit Profile", headerBackTitle: "Back" }}
+      />
     </Stack.Navigator>
   );
 }
@@ -196,13 +170,11 @@ function RootStack() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <DataProvider>
-          <NavigationContainer>
-            <RootStack />
-          </NavigationContainer>
-        </DataProvider>
-      </AuthProvider>
+      <DataProvider>
+        <NavigationContainer>
+          <RootStack />
+        </NavigationContainer>
+      </DataProvider>
     </SafeAreaProvider>
   );
 }

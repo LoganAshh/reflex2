@@ -7,11 +7,16 @@ import {
   Switch,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../App";
 import { useData } from "../data/DataContext";
-import { useAuth } from "../data/AuthContext";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 type RowProps = {
   title: string;
@@ -79,11 +84,14 @@ function Row({
 }
 
 export default function ProfileScreen() {
-  const { exportData, resetAll } = useData();
-  const { user, signOut } = useAuth() as {
-    user: any;
-    signOut: () => Promise<void>;
-  };
+  const navigation = useNavigation<Nav>();
+  const {
+    exportData,
+    resetAll,
+    profileName,
+    profilePhotoUri,
+    clearLocalProfile,
+  } = useData();
 
   const version = useMemo(() => {
     const v =
@@ -100,7 +108,7 @@ export default function ProfileScreen() {
     return build ? `${v} (${build})` : `${v}`;
   }, []);
 
-  const [busy, setBusy] = useState<null | "export" | "reset" | "logout">(null);
+  const [busy, setBusy] = useState<null | "export" | "reset" | "profile">(null);
   const [appLockEnabled, setAppLockEnabled] = useState(false);
 
   async function onExport() {
@@ -118,7 +126,7 @@ export default function ProfileScreen() {
   function onReset() {
     Alert.alert(
       "Reset all data?",
-      "This will permanently delete your logs, selections, custom items, and saved actions on this device. You will go back to onboarding.",
+      "This will permanently delete your logs, profile, selections, custom items, and saved actions on this device. You will go back to onboarding.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -146,32 +154,22 @@ export default function ProfileScreen() {
     );
   }
 
-  function onLogout() {
+  function onClearProfile() {
     Alert.alert(
-      "Log out?",
-      "Before logging out, export your data. Your logs are stored on this device, and you can lose them if you uninstall the app or switch phones.\n\nDo you want to export now?",
+      "Clear local profile?",
+      "This will remove your saved username and profile photo on this device. You will be asked to set them again.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Export first",
-          onPress: () => {
-            Haptics.selectionAsync();
-            onExport();
-          },
-        },
-        {
-          text: "Log out",
+          text: "Clear",
           style: "destructive",
           onPress: async () => {
             try {
-              setBusy("logout");
-              await Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Warning,
-              );
-              await signOut();
+              setBusy("profile");
+              await clearLocalProfile();
             } catch (e: any) {
               Alert.alert(
-                "Logout failed",
+                "Could not clear profile",
                 e?.message ?? "Something went wrong.",
               );
             } finally {
@@ -191,12 +189,65 @@ export default function ProfileScreen() {
       <View className="mb-4">
         <Text className="text-2xl font-bold text-zinc-900">Profile</Text>
         <Text className="mt-1 text-sm text-zinc-600">
-          Manage your data and app settings.
+          Manage your local profile and app data.
         </Text>
+      </View>
+
+      <View className="mb-6 rounded-2xl border border-zinc-200 bg-white p-4">
+        <View className="flex-row items-center">
+          {profilePhotoUri ? (
+            <Image
+              source={{ uri: profilePhotoUri }}
+              className="h-16 w-16 rounded-full"
+              resizeMode="cover"
+            />
+          ) : (
+            <View className="h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
+              <Text className="text-xs font-semibold text-zinc-500">
+                No photo
+              </Text>
+            </View>
+          )}
+
+          <View className="ml-4 flex-1">
+            <Text className="text-lg font-bold text-zinc-900">
+              {profileName || "No username"}
+            </Text>
+            <Text className="mt-1 text-sm text-zinc-600">
+              Stored locally on this device
+            </Text>
+          </View>
+        </View>
       </View>
 
       <View className="gap-3">
         <Text className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          Profile
+        </Text>
+
+        <Row
+          title="Edit profile"
+          subtitle="Change your local username and profile picture."
+          onPress={busy ? undefined : () => navigation.navigate("ProfileSetup")}
+          disabled={!!busy}
+        />
+
+        <Row
+          title="Clear local profile"
+          subtitle="Remove your saved username and photo from this device."
+          tone="danger"
+          onPress={busy ? undefined : onClearProfile}
+          disabled={!!busy}
+          right={
+            busy === "profile" ? (
+              <ActivityIndicator />
+            ) : (
+              <Text className="text-red-700">Clear</Text>
+            )
+          }
+        />
+
+        <Text className="mt-6 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
           Data
         </Text>
 
@@ -225,29 +276,6 @@ export default function ProfileScreen() {
               <ActivityIndicator />
             ) : (
               <Text className="text-red-700">Reset</Text>
-            )
-          }
-        />
-
-        <Text className="mt-6 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Account
-        </Text>
-
-        <Row
-          title="Log out"
-          subtitle={
-            user?.email
-              ? `Signed in as ${user.email}. Export your data before logging out.`
-              : "Export your data before logging out."
-          }
-          tone="danger"
-          onPress={busy ? undefined : onLogout}
-          disabled={!!busy}
-          right={
-            busy === "logout" ? (
-              <ActivityIndicator />
-            ) : (
-              <Text className="text-red-700">Log out</Text>
             )
           }
         />
@@ -283,7 +311,8 @@ export default function ProfileScreen() {
         <View className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
           <Text className="text-sm font-semibold text-zinc-900">Privacy</Text>
           <Text className="mt-1 text-sm text-zinc-600">
-            Your tracking data stays on your device unless you export it.
+            Reflex is local-first. Your tracking data and profile stay on this
+            device unless you export them.
           </Text>
         </View>
       </View>

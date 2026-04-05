@@ -31,7 +31,7 @@ export type LogEntry = {
   locationName: string | null;
 
   intensity: number | null;
-  count: number; // 0 = None, 1..10 = times
+  count: number;
 
   didResist: 0 | 1;
   notes: string | null;
@@ -52,7 +52,7 @@ type AddLogInput = {
   cueId?: number | null;
   locationId?: number | null;
   intensity?: number | null;
-  count?: number; // 0..10 (0 = None)
+  count?: number;
   didResist?: boolean;
   notes?: string;
 };
@@ -65,6 +65,15 @@ type AddActionInput = {
 
 type DataContextType = {
   initializing: boolean;
+
+  profileName: string;
+  profilePhotoUri: string | null;
+  hasCompletedLocalProfile: boolean;
+  completeLocalProfile: (
+    name: string,
+    photoUri: string | null,
+  ) => Promise<void>;
+  clearLocalProfile: () => Promise<void>;
 
   habits: Habit[];
   cues: Cue[];
@@ -106,20 +115,69 @@ type DataContextType = {
 const DataContext = createContext<DataContextType | null>(null);
 
 const ONBOARD_KEY = "hasOnboarded";
+const PROFILE_NAME_KEY = "profileName";
+const PROFILE_PHOTO_KEY = "profilePhotoUri";
+const PROFILE_DONE_KEY = "hasCompletedLocalProfile";
 
-async function loadOnboardedFlag(): Promise<boolean> {
+async function loadBoolean(key: string): Promise<boolean> {
   try {
-    const v = await SecureStore.getItemAsync(ONBOARD_KEY);
+    const v = await SecureStore.getItemAsync(key);
     return v === "true";
   } catch {
     return false;
   }
 }
 
-async function saveOnboardedFlag(value: boolean): Promise<void> {
+async function saveBoolean(key: string, value: boolean): Promise<void> {
   try {
-    await SecureStore.setItemAsync(ONBOARD_KEY, value ? "true" : "false");
+    await SecureStore.setItemAsync(key, value ? "true" : "false");
   } catch {}
+}
+
+async function loadString(key: string): Promise<string> {
+  try {
+    return (await SecureStore.getItemAsync(key)) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+async function saveString(key: string, value: string): Promise<void> {
+  try {
+    await SecureStore.setItemAsync(key, value);
+  } catch {}
+}
+
+async function loadOnboardedFlag(): Promise<boolean> {
+  return loadBoolean(ONBOARD_KEY);
+}
+
+async function saveOnboardedFlag(value: boolean): Promise<void> {
+  await saveBoolean(ONBOARD_KEY, value);
+}
+
+async function loadProfileName(): Promise<string> {
+  return loadString(PROFILE_NAME_KEY);
+}
+
+async function saveProfileName(value: string): Promise<void> {
+  await saveString(PROFILE_NAME_KEY, value);
+}
+
+async function loadProfilePhotoUri(): Promise<string> {
+  return loadString(PROFILE_PHOTO_KEY);
+}
+
+async function saveProfilePhotoUri(value: string): Promise<void> {
+  await saveString(PROFILE_PHOTO_KEY, value);
+}
+
+async function loadProfileDoneFlag(): Promise<boolean> {
+  return loadBoolean(PROFILE_DONE_KEY);
+}
+
+async function saveProfileDoneFlag(value: boolean): Promise<void> {
+  await saveBoolean(PROFILE_DONE_KEY, value);
 }
 
 async function initDb() {
@@ -306,6 +364,9 @@ async function resetDbForDev() {
   await seedDefaultLocationsIfEmpty();
   await seedDefaultActionsIfEmpty();
   await saveOnboardedFlag(false);
+  await saveProfileName("");
+  await saveProfilePhotoUri("");
+  await saveProfileDoneFlag(false);
 }
 
 async function loadHabits(): Promise<Habit[]> {
@@ -395,6 +456,11 @@ async function loadSelectedActionIds(): Promise<number[]> {
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [initializing, setInitializing] = useState(true);
 
+  const [profileName, setProfileName] = useState("");
+  const [profilePhotoUri, setProfilePhotoUri] = useState<string | null>(null);
+  const [hasCompletedLocalProfile, setHasCompletedLocalProfile] =
+    useState(false);
+
   const [habits, setHabits] = useState<Habit[]>([]);
   const [cues, setCues] = useState<Cue[]>([]);
   const [locations, setLocations] = useState<Place[]>([]);
@@ -447,10 +513,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await seedDefaultLocationsIfEmpty();
         await seedDefaultActionsIfEmpty();
 
-        const onboarded = await loadOnboardedFlag();
+        const [onboarded, savedProfileName, savedProfilePhoto, profileDone] =
+          await Promise.all([
+            loadOnboardedFlag(),
+            loadProfileName(),
+            loadProfilePhotoUri(),
+            loadProfileDoneFlag(),
+          ]);
+
+        const cleanName = savedProfileName.trim();
+        const cleanPhoto = savedProfilePhoto.trim();
+        const normalizedProfileDone =
+          profileDone && cleanName.length > 0 && cleanPhoto.length > 0;
 
         if (mounted) {
           setHasOnboarded(onboarded);
+          setProfileName(cleanName);
+          setProfilePhotoUri(cleanPhoto || null);
+          setHasCompletedLocalProfile(normalizedProfileDone);
         }
 
         await refresh();
@@ -478,6 +558,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const resetOnboarding = async () => {
     await saveOnboardedFlag(false);
     setHasOnboarded(false);
+  };
+
+  const completeLocalProfile: DataContextType["completeLocalProfile"] = async (
+    name,
+    photoUri,
+  ) => {
+    const cleanName = name.trim();
+    const cleanPhoto = (photoUri ?? "").trim();
+
+    if (!cleanName || !cleanPhoto) {
+      throw new Error("Name and profile photo are required.");
+    }
+
+    await Promise.all([
+      saveProfileName(cleanName),
+      saveProfilePhotoUri(cleanPhoto),
+      saveProfileDoneFlag(true),
+    ]);
+
+    setProfileName(cleanName);
+    setProfilePhotoUri(cleanPhoto);
+    setHasCompletedLocalProfile(true);
+  };
+
+  const clearLocalProfile: DataContextType["clearLocalProfile"] = async () => {
+    await Promise.all([
+      saveProfileName(""),
+      saveProfilePhotoUri(""),
+      saveProfileDoneFlag(false),
+    ]);
+
+    setProfileName("");
+    setProfilePhotoUri(null);
+    setHasCompletedLocalProfile(false);
   };
 
   const setSelectedHabits: DataContextType["setSelectedHabits"] = async (
@@ -698,6 +812,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const payload = {
       app: "Reflex",
       exportedAt: new Date().toISOString(),
+      localProfile: {
+        name: profileName,
+        photoUri: profilePhotoUri,
+        isComplete: hasCompletedLocalProfile,
+      },
       hasOnboarded,
       habits,
       cues,
@@ -716,7 +835,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       `reflex-backup-${timestamp}.json`,
     );
 
-    file.write(JSON.stringify(payload, null, 2));
+    await file.write(JSON.stringify(payload, null, 2));
 
     await Sharing.shareAsync(file.uri, {
       mimeType: "application/json",
@@ -743,15 +862,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await seedDefaultCuesIfEmpty();
     await seedDefaultLocationsIfEmpty();
     await seedDefaultActionsIfEmpty();
-    await saveOnboardedFlag(false);
+
+    await Promise.all([
+      saveOnboardedFlag(false),
+      saveProfileName(""),
+      saveProfilePhotoUri(""),
+      saveProfileDoneFlag(false),
+    ]);
 
     setHasOnboarded(false);
+    setProfileName("");
+    setProfilePhotoUri(null);
+    setHasCompletedLocalProfile(false);
+
     await refresh();
   };
 
   const value = useMemo(
     () => ({
       initializing,
+      profileName,
+      profilePhotoUri,
+      hasCompletedLocalProfile,
+      completeLocalProfile,
+      clearLocalProfile,
       habits,
       cues,
       locations,
@@ -781,6 +915,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       initializing,
+      profileName,
+      profilePhotoUri,
+      hasCompletedLocalProfile,
       habits,
       cues,
       locations,
