@@ -62,6 +62,8 @@ type AddActionInput = {
 };
 
 type DataContextType = {
+  initializing: boolean;
+
   habits: Habit[];
   cues: Cue[];
   locations: Place[];
@@ -184,7 +186,7 @@ async function initDb() {
 
 async function seedDefaultHabitsIfEmpty() {
   const rows = await db.getAllAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM habits;"
+    "SELECT COUNT(*) as count FROM habits;",
   );
   if ((rows?.[0]?.count ?? 0) > 0) return;
 
@@ -203,7 +205,7 @@ async function seedDefaultHabitsIfEmpty() {
 
 async function seedDefaultCuesIfEmpty() {
   const rows = await db.getAllAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM cues;"
+    "SELECT COUNT(*) as count FROM cues;",
   );
   if ((rows?.[0]?.count ?? 0) > 0) return;
 
@@ -223,7 +225,7 @@ async function seedDefaultCuesIfEmpty() {
 
 async function seedDefaultLocationsIfEmpty() {
   const rows = await db.getAllAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM locations;"
+    "SELECT COUNT(*) as count FROM locations;",
   );
   if ((rows?.[0]?.count ?? 0) > 0) return;
 
@@ -243,7 +245,7 @@ async function seedDefaultLocationsIfEmpty() {
 
 async function seedDefaultActionsIfEmpty() {
   const rows = await db.getAllAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM actions;"
+    "SELECT COUNT(*) as count FROM actions;",
   );
   if ((rows?.[0]?.count ?? 0) > 0) return;
 
@@ -303,19 +305,19 @@ async function resetDbForDev() {
 
 async function loadHabits(): Promise<Habit[]> {
   return db.getAllAsync<Habit>(
-    "SELECT * FROM habits ORDER BY isCustom ASC, id ASC;"
+    "SELECT * FROM habits ORDER BY isCustom ASC, id ASC;",
   );
 }
 
 async function loadCues(): Promise<Cue[]> {
   return db.getAllAsync<Cue>(
-    "SELECT * FROM cues ORDER BY isCustom ASC, id ASC;"
+    "SELECT * FROM cues ORDER BY isCustom ASC, id ASC;",
   );
 }
 
 async function loadLocations(): Promise<Place[]> {
   return db.getAllAsync<Place>(
-    "SELECT * FROM locations ORDER BY isCustom ASC, id ASC;"
+    "SELECT * FROM locations ORDER BY isCustom ASC, id ASC;",
   );
 }
 
@@ -371,7 +373,7 @@ async function loadLogs(): Promise<LogEntry[]> {
 
 async function loadActions(): Promise<ReplacementAction[]> {
   return db.getAllAsync<ReplacementAction>(
-    "SELECT * FROM actions ORDER BY isCustom ASC, id ASC;"
+    "SELECT * FROM actions ORDER BY isCustom ASC, id ASC;",
   );
 }
 
@@ -386,12 +388,14 @@ async function loadSelectedActionIds(): Promise<number[]> {
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  const [initializing, setInitializing] = useState(true);
+
   const [habits, setHabits] = useState<Habit[]>([]);
   const [cues, setCues] = useState<Cue[]>([]);
   const [locations, setLocations] = useState<Place[]>([]);
 
   const [selectedHabits, setSelectedHabitsState] = useState<SelectedHabit[]>(
-    []
+    [],
   );
   const [selectedCues, setSelectedCuesState] = useState<SelectedCue[]>([]);
   const [selectedLocations, setSelectedLocationsState] = useState<
@@ -402,14 +406,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [actions, setActions] = useState<ReplacementAction[]>([]);
   const [selectedActionIds, setSelectedActionIds] = useState<number[]>([]);
   const [hasOnboarded, setHasOnboarded] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      await resetDbForDev();
-      setHasOnboarded(await loadOnboardedFlag());
-      await refresh();
-    })();
-  }, []);
 
   const refresh = async () => {
     const [h, c, loc, sh, sc, sl, l, a, selIds] = await Promise.all([
@@ -435,6 +431,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setSelectedActionIds(selIds);
   };
 
+  useEffect(() => {
+    let mounted = true;
+
+    const bootstrap = async () => {
+      try {
+        await initDb();
+        await seedDefaultHabitsIfEmpty();
+        await seedDefaultCuesIfEmpty();
+        await seedDefaultLocationsIfEmpty();
+        await seedDefaultActionsIfEmpty();
+
+        const onboarded = await loadOnboardedFlag();
+
+        if (mounted) {
+          setHasOnboarded(onboarded);
+        }
+
+        await refresh();
+      } catch (error) {
+        console.error("Failed to initialize local database:", error);
+      } finally {
+        if (mounted) {
+          setInitializing(false);
+        }
+      }
+    };
+
+    bootstrap();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const completeOnboarding = async () => {
     await saveOnboardedFlag(true);
     setHasOnboarded(true);
@@ -446,27 +476,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setSelectedHabits: DataContextType["setSelectedHabits"] = async (
-    habitIds
+    habitIds,
   ) => {
     const uniqueIds = Array.from(new Set(habitIds)).filter((n) =>
-      Number.isFinite(n)
+      Number.isFinite(n),
     );
 
     await db.execAsync(`DELETE FROM user_habits;`);
     for (const id of uniqueIds) {
       await db.runAsync(
         `INSERT OR IGNORE INTO user_habits (habitId) VALUES (?);`,
-        [id]
+        [id],
       );
     }
     setSelectedHabitsState(await loadSelectedHabits());
   };
 
   const setSelectedCues: DataContextType["setSelectedCues"] = async (
-    cueIds
+    cueIds,
   ) => {
     const uniqueIds = Array.from(new Set(cueIds)).filter((n) =>
-      Number.isFinite(n)
+      Number.isFinite(n),
     );
 
     await db.execAsync(`DELETE FROM user_cues;`);
@@ -479,17 +509,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setSelectedLocations: DataContextType["setSelectedLocations"] = async (
-    locationIds
+    locationIds,
   ) => {
     const uniqueIds = Array.from(new Set(locationIds)).filter((n) =>
-      Number.isFinite(n)
+      Number.isFinite(n),
     );
 
     await db.execAsync(`DELETE FROM user_locations;`);
     for (const id of uniqueIds) {
       await db.runAsync(
         `INSERT OR IGNORE INTO user_locations (locationId) VALUES (?);`,
-        [id]
+        [id],
       );
     }
     setSelectedLocationsState(await loadSelectedLocations());
@@ -497,14 +527,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addCustomHabit: DataContextType["addCustomHabit"] = async (
     name,
-    autoSelect = true
+    autoSelect = true,
   ) => {
     const clean = name.trim();
     if (!clean) return;
 
     await db.runAsync(
       `INSERT OR IGNORE INTO habits (name, isCustom) VALUES (?, 1);`,
-      [clean]
+      [clean],
     );
     const updatedHabits = await loadHabits();
     setHabits(updatedHabits);
@@ -512,7 +542,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!autoSelect) return;
 
     const match = updatedHabits.find(
-      (h) => h.name.toLowerCase() === clean.toLowerCase()
+      (h) => h.name.toLowerCase() === clean.toLowerCase(),
     );
     if (!match) return;
 
@@ -523,14 +553,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addCustomCue: DataContextType["addCustomCue"] = async (
     name,
-    autoSelect = true
+    autoSelect = true,
   ) => {
     const clean = name.trim();
     if (!clean) return;
 
     await db.runAsync(
       `INSERT OR IGNORE INTO cues (name, isCustom) VALUES (?, 1);`,
-      [clean]
+      [clean],
     );
     const updatedCues = await loadCues();
     setCues(updatedCues);
@@ -538,7 +568,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!autoSelect) return;
 
     const match = updatedCues.find(
-      (c) => c.name.toLowerCase() === clean.toLowerCase()
+      (c) => c.name.toLowerCase() === clean.toLowerCase(),
     );
     if (!match) return;
 
@@ -549,14 +579,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addCustomLocation: DataContextType["addCustomLocation"] = async (
     name,
-    autoSelect = true
+    autoSelect = true,
   ) => {
     const clean = name.trim();
     if (!clean) return;
 
     await db.runAsync(
       `INSERT OR IGNORE INTO locations (name, isCustom) VALUES (?, 1);`,
-      [clean]
+      [clean],
     );
     const updatedLocations = await loadLocations();
     setLocations(updatedLocations);
@@ -564,7 +594,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!autoSelect) return;
 
     const match = updatedLocations.find(
-      (l) => l.name.toLowerCase() === clean.toLowerCase()
+      (l) => l.name.toLowerCase() === clean.toLowerCase(),
     );
     if (!match) return;
 
@@ -602,7 +632,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         didResist,
         input.notes?.trim() ?? null,
         Date.now(),
-      ]
+      ],
     );
 
     setLogs(await loadLogs());
@@ -617,7 +647,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     await db.runAsync(
       `INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES (?, ?, ?);`,
-      [title, category, isCustom]
+      [title, category, isCustom],
     );
 
     setActions(await loadActions());
@@ -625,13 +655,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleSelectedAction: DataContextType["toggleSelectedAction"] = async (
-    actionId
+    actionId,
   ) => {
     if (!Number.isFinite(actionId)) return;
 
     const exists = await db.getAllAsync<{ c: number }>(
       `SELECT COUNT(*) as c FROM selected_actions WHERE actionId = ?;`,
-      [actionId]
+      [actionId],
     );
 
     if ((exists?.[0]?.c ?? 0) > 0) {
@@ -641,7 +671,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } else {
       await db.runAsync(
         `INSERT OR IGNORE INTO selected_actions (actionId, createdAt) VALUES (?, ?);`,
-        [actionId, Date.now()]
+        [actionId, Date.now()],
       );
     }
 
@@ -656,6 +686,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ({
+      initializing,
       habits,
       cues,
       locations,
@@ -682,6 +713,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       resetDbForDev,
     }),
     [
+      initializing,
       habits,
       cues,
       locations,
@@ -692,7 +724,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       actions,
       selectedActionIds,
       hasOnboarded,
-    ]
+    ],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

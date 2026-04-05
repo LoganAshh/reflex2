@@ -1,4 +1,6 @@
 import "./global.css";
+import React from "react";
+import { View, Text, ActivityIndicator } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -41,6 +43,20 @@ export type AuthStackParamList = {
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+
+function AppLoadingScreen() {
+  return (
+    <View className="flex-1 items-center justify-center bg-white px-6">
+      <ActivityIndicator size="large" color="#16A34A" />
+      <Text className="mt-4 text-base font-semibold text-gray-900">
+        Loading Reflex...
+      </Text>
+      <Text className="mt-1 text-sm text-gray-500">
+        Getting everything ready
+      </Text>
+    </View>
+  );
+}
 
 function Tabs() {
   const tabHaptic = () => {
@@ -151,11 +167,14 @@ function AuthFlow() {
 }
 
 function RootStack() {
-  const { hasOnboarded } = useData();
-  const { user, initializing } = useAuth();
+  const { hasOnboarded, initializing: dataInitializing } = useData();
+  const { user, initializing: authInitializing } = useAuth();
+
+  if (dataInitializing || authInitializing) {
+    return <AppLoadingScreen />;
+  }
 
   if (!hasOnboarded) return <OnboardingScreen />;
-  if (initializing) return null;
   if (!user) return <AuthFlow />;
 
   return (
