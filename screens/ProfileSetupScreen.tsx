@@ -66,7 +66,7 @@ export default function ProfileSetupScreen() {
 
   async function onSave() {
     if (!name.trim()) {
-      Alert.alert("Missing name", "Please enter a username.");
+      Alert.alert("Missing name", "Please enter a name.");
       return;
     }
 
@@ -114,7 +114,7 @@ export default function ProfileSetupScreen() {
           <Text className="mt-2 text-center text-gray-600">
             {isEditing
               ? "Update your name and photo."
-              : "Choose a username and profile picture for this device."}
+              : "Choose a name and profile picture for this device."}
           </Text>
 
           {/* Avatar */}
@@ -143,15 +143,14 @@ export default function ProfileSetupScreen() {
             </Pressable>
           </View>
 
-          {/* Username */}
           <View className="mt-10 w-full">
             <Text className="mb-2 text-sm font-semibold text-gray-900">
-              Username
+              Name
             </Text>
             <TextInput
               value={name}
               onChangeText={setName}
-              placeholder="Enter a username"
+              placeholder="Enter a name"
               autoCapitalize="words"
               returnKeyType="done"
               submitBehavior="blurAndSubmit"

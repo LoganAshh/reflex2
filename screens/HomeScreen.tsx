@@ -246,7 +246,6 @@ export default function HomeScreen() {
     <View className="flex-1 bg-white px-6 pt-10">
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-4">
-          <Text className="text-sm font-semibold text-gray-500">Welcome</Text>
           <Text className="mt-1 text-3xl font-bold text-gray-900">
             {profileName?.trim()
               ? isFirstVisit
