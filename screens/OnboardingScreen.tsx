@@ -408,7 +408,13 @@ export default function OnboardingScreen() {
 
           <Pressable
             onPress={() => {
-              buzz();
+              if (isLast) {
+                Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success,
+                );
+              } else {
+                buzz();
+              }
               onPrimary();
             }}
             className={`rounded-2xl bg-green-600 px-5 py-4 ${

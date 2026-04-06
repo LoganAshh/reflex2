@@ -563,7 +563,9 @@ export default function LogScreen() {
   }, [navigation, orderedHabits, selectedHabits, recentHabitIds]);
 
   const onSave = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+      () => {},
+    );
     setErrorMsg(null);
     setSavedMsg(null);
 
