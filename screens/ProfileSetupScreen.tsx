@@ -52,7 +52,7 @@ export default function ProfileSetupScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       quality: 0.9,
       aspect: [1, 1],
@@ -106,7 +106,6 @@ export default function ProfileSetupScreen() {
         }}
       >
         <View className="items-center">
-          {/* Title */}
           <Text className="text-center text-3xl font-bold text-gray-900">
             {isEditing ? "Edit profile" : "Set up your profile"}
           </Text>
@@ -117,7 +116,6 @@ export default function ProfileSetupScreen() {
               : "Choose a name and profile picture for this device."}
           </Text>
 
-          {/* Avatar */}
           <View className="mt-10 items-center">
             {photoUri ? (
               <Image
@@ -159,7 +157,6 @@ export default function ProfileSetupScreen() {
             />
           </View>
 
-          {/* Button */}
           <Pressable
             onPress={onSave}
             disabled={!canSave}
