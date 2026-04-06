@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "reflex2",
+    "name": "Reflex",
     "slug": "reflex2",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,7 +13,9 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.loganash.reflex",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -27,9 +29,6 @@
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-sqlite",
-      "expo-secure-store"
-    ]
+    "plugins": ["expo-sqlite", "expo-secure-store"]
   }
 }
