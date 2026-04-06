@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Reflex",
+    "name": "Reflex - Stop the Urge",
     "slug": "reflex2",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,7 +15,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.loganash.reflex",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "CFBundleDisplayName": "Reflex"
+      }
     },
     "android": {
       "adaptiveIcon": {
