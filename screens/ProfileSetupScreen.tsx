@@ -150,7 +150,7 @@ export default function ProfileSetupScreen() {
             <TextInput
               value={name}
               onChangeText={setName}
-              placeholder="Enter a name"
+              placeholder="Enter your first name"
               autoCapitalize="words"
               returnKeyType="done"
               submitBehavior="blurAndSubmit"

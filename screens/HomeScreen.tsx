@@ -247,13 +247,9 @@ export default function HomeScreen() {
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-4">
           <Text className="mt-1 text-3xl font-bold text-gray-900">
-            {profileName?.trim()
-              ? isFirstVisit
-                ? `Hi, ${profileName}`
-                : `Welcome back, ${profileName}`
-              : isFirstVisit
-                ? "Welcome!"
-                : "Welcome back!"}
+            {logs.length === 0
+              ? `Welcome, ${profileName}`
+              : `Welcome back, ${profileName}`}
           </Text>
         </View>
 
