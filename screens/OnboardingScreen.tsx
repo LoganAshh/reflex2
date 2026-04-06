@@ -37,22 +37,22 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
     type === "habits"
       ? customHabit
       : type === "cues"
-      ? customCue
-      : customLocation;
+        ? customCue
+        : customLocation;
 
   const onChangeText =
     type === "habits"
       ? setCustomHabit
       : type === "cues"
-      ? setCustomCue
-      : setCustomLocation;
+        ? setCustomCue
+        : setCustomLocation;
 
   const placeholder =
     type === "habits"
       ? "e.g., Nail Biting"
       : type === "cues"
-      ? "e.g., After coffee"
-      : "e.g., Office parking lot";
+        ? "e.g., After coffee"
+        : "e.g., Office parking lot";
 
   const canAdd = value.trim().length > 0;
 
@@ -253,8 +253,8 @@ export default function OnboardingScreen() {
       type === "habits"
         ? setHabitIds
         : type === "cues"
-        ? setCueIds
-        : setLocationIds;
+          ? setCueIds
+          : setLocationIds;
 
     updater((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
@@ -370,16 +370,16 @@ export default function OnboardingScreen() {
       step === 0
         ? "Get Started!"
         : isLast
-        ? "Finish"
-        : step === infoSteps.length - 1
-        ? "Start setup"
-        : "Next";
+          ? "Finish"
+          : step === infoSteps.length - 1
+            ? "Start setup"
+            : "Next";
 
     const onPrimary = isLast
       ? onFinish
       : step === infoSteps.length - 1
-      ? skipToSetup
-      : goNext;
+        ? skipToSetup
+        : goNext;
 
     return (
       <View className="mb-10 pb-8 pt-4">
@@ -458,7 +458,7 @@ export default function OnboardingScreen() {
 
     if (setupIndex === 0) {
       return (
-        <View className="flex-1">
+        <View className="flex-1 justify-center">
           <View className="items-center">
             <Ionicons
               name="list"
@@ -468,9 +468,7 @@ export default function OnboardingScreen() {
             />
           </View>
 
-          <Text className="text-3xl font-bold text-gray-900">
-            Pick habits
-          </Text>
+          <Text className="text-3xl font-bold text-gray-900">Pick habits</Text>
 
           <Text className="mt-3 text-sm font-semibold text-gray-700">
             Tip: Start small
@@ -480,7 +478,7 @@ export default function OnboardingScreen() {
             always add more later.
           </Text>
 
-          <View className="mt-4 flex-1">
+          <View className="mt-4">
             <ChipList<Habit>
               data={habits}
               selected={habitSet}
@@ -501,7 +499,7 @@ export default function OnboardingScreen() {
 
     if (setupIndex === 1) {
       return (
-        <View className="flex-1">
+        <View className="flex-1 justify-center">
           <View className="items-center">
             <Ionicons
               name="pulse"
@@ -516,7 +514,7 @@ export default function OnboardingScreen() {
             Optional — common triggers that lead to the habit.
           </Text>
 
-          <View className="mt-4 flex-1">
+          <View className="mt-4">
             <ChipList<Cue>
               data={cues}
               selected={cueSet}
@@ -536,7 +534,7 @@ export default function OnboardingScreen() {
     }
 
     return (
-      <View className="flex-1">
+      <View className="flex-1 justify-center">
         <View className="items-center">
           <Ionicons
             name="location"
@@ -546,14 +544,12 @@ export default function OnboardingScreen() {
           />
         </View>
 
-        <Text className="text-3xl font-bold text-gray-900">
-          Pick locations
-        </Text>
+        <Text className="text-3xl font-bold text-gray-900">Pick locations</Text>
         <Text className="mt-2 text-gray-600">
           Optional — where it usually happens.
         </Text>
 
-        <View className="mt-4 flex-1">
+        <View className="mt-4">
           <ChipList<Place>
             data={locations}
             selected={locationSet}
