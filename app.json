@@ -17,7 +17,8 @@
       "bundleIdentifier": "com.loganash.reflex",
       "buildNumber": "1",
       "infoPlist": {
-        "CFBundleDisplayName": "Reflex"
+        "CFBundleDisplayName": "Reflex",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -26,12 +27,18 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.loganash.reflex"
     },
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-sqlite", "expo-secure-store"]
+    "plugins": ["expo-sqlite", "expo-secure-store"],
+    "extra": {
+      "eas": {
+        "projectId": "c7936182-19e4-4b93-9c18-f9862b0c1efc"
+      }
+    }
   }
 }
