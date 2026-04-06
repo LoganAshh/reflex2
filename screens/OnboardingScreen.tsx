@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { View, Text, Pressable, TextInput, Alert } from "react-native";
 import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
 import { useData, type Habit, type Cue, type Place } from "../data/DataContext";
 
 type ChipListProps<T extends { id: number; name: string; isCustom: 0 | 1 }> = {
@@ -36,22 +37,22 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
     type === "habits"
       ? customHabit
       : type === "cues"
-        ? customCue
-        : customLocation;
+      ? customCue
+      : customLocation;
 
   const onChangeText =
     type === "habits"
       ? setCustomHabit
       : type === "cues"
-        ? setCustomCue
-        : setCustomLocation;
+      ? setCustomCue
+      : setCustomLocation;
 
   const placeholder =
     type === "habits"
       ? "e.g., Nail Biting"
       : type === "cues"
-        ? "e.g., After coffee"
-        : "e.g., Office parking lot";
+      ? "e.g., After coffee"
+      : "e.g., Office parking lot";
 
   const canAdd = value.trim().length > 0;
 
@@ -194,6 +195,15 @@ export default function OnboardingScreen() {
     [],
   );
 
+  const stepIcons = [
+    "flash",
+    "bulb",
+    "close-circle",
+    "analytics",
+    "lock-closed",
+    "gift",
+  ];
+
   const setupStartIndex = infoSteps.length;
   const totalSteps = infoSteps.length + 3;
   const [step, setStep] = useState(0);
@@ -243,8 +253,8 @@ export default function OnboardingScreen() {
       type === "habits"
         ? setHabitIds
         : type === "cues"
-          ? setCueIds
-          : setLocationIds;
+        ? setCueIds
+        : setLocationIds;
 
     updater((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
@@ -360,16 +370,16 @@ export default function OnboardingScreen() {
       step === 0
         ? "Get Started!"
         : isLast
-          ? "Finish"
-          : step === infoSteps.length - 1
-            ? "Start setup"
-            : "Next";
+        ? "Finish"
+        : step === infoSteps.length - 1
+        ? "Start setup"
+        : "Next";
 
     const onPrimary = isLast
       ? onFinish
       : step === infoSteps.length - 1
-        ? skipToSetup
-        : goNext;
+      ? skipToSetup
+      : goNext;
 
     return (
       <View className="mb-10 pb-8 pt-4">
@@ -427,6 +437,13 @@ export default function OnboardingScreen() {
       const s = infoSteps[step];
       return (
         <View className="flex-1 items-center justify-center px-4">
+          <Ionicons
+            name={stepIcons[step] as any}
+            size={64}
+            color="#16A34A"
+            style={{ marginBottom: 20 }}
+          />
+
           <Text className="text-center text-4xl font-bold text-gray-900">
             {s.title}
           </Text>
@@ -442,7 +459,18 @@ export default function OnboardingScreen() {
     if (setupIndex === 0) {
       return (
         <View className="flex-1">
-          <Text className="text-3xl font-bold text-gray-900">Pick habits</Text>
+          <View className="items-center">
+            <Ionicons
+              name="list"
+              size={56}
+              color="#16A34A"
+              style={{ marginBottom: 12 }}
+            />
+          </View>
+
+          <Text className="text-3xl font-bold text-gray-900">
+            Pick habits
+          </Text>
 
           <Text className="mt-3 text-sm font-semibold text-gray-700">
             Tip: Start small
@@ -474,6 +502,15 @@ export default function OnboardingScreen() {
     if (setupIndex === 1) {
       return (
         <View className="flex-1">
+          <View className="items-center">
+            <Ionicons
+              name="pulse"
+              size={56}
+              color="#16A34A"
+              style={{ marginBottom: 12 }}
+            />
+          </View>
+
           <Text className="text-3xl font-bold text-gray-900">Pick cues</Text>
           <Text className="mt-2 text-gray-600">
             Optional — common triggers that lead to the habit.
@@ -500,7 +537,18 @@ export default function OnboardingScreen() {
 
     return (
       <View className="flex-1">
-        <Text className="text-3xl font-bold text-gray-900">Pick locations</Text>
+        <View className="items-center">
+          <Ionicons
+            name="location"
+            size={56}
+            color="#16A34A"
+            style={{ marginBottom: 12 }}
+          />
+        </View>
+
+        <Text className="text-3xl font-bold text-gray-900">
+          Pick locations
+        </Text>
         <Text className="mt-2 text-gray-600">
           Optional — where it usually happens.
         </Text>
