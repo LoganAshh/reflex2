@@ -52,7 +52,7 @@ function AppLoadingScreen() {
 
 function Tabs() {
   const tabHaptic = () => {
-    Haptics.selectionAsync();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   return (

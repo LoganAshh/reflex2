@@ -268,7 +268,7 @@ export default function HomeScreen() {
 
       <Pressable
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           navigation.navigate("Log");
         }}
         className="mt-6 w-full rounded-2xl bg-green-600 px-5 py-4"
@@ -280,7 +280,7 @@ export default function HomeScreen() {
 
       <Pressable
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
           navigation.navigate("Shop");
         }}
         className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4"
