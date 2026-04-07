@@ -120,7 +120,12 @@ function Tabs() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 navigation.getParent()?.navigate("Settings");
               }}
-              style={{ marginRight: 16 }}
+              hitSlop={10}
+              style={{
+                marginRight: 12,
+                padding: 8,
+                borderRadius: 999,
+              }}
             >
               <Ionicons name="settings-outline" size={24} color="#1F2937" />
             </Pressable>
