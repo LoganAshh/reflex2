@@ -276,61 +276,53 @@ async function initDb() {
 }
 
 async function seedDefaultHabitsIfEmpty() {
-  const rows = await db.getAllAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM habits;",
-  );
-  if ((rows?.[0]?.count ?? 0) > 0) return;
-
   await db.execAsync(`
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Alcohol', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Doomscrolling', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Nicotine', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Binge eating', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Social Media', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Junk Food', 0);
     INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Caffeine', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Shopping', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Video Games', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Alcohol', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Nicotine', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Streaming', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Porn', 0);
     INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Weed', 0);
     INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Gambling', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Video Games', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Porn', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Prescriptions', 0);
   `);
 }
 
 async function seedDefaultCuesIfEmpty() {
-  const rows = await db.getAllAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM cues;",
-  );
-  if ((rows?.[0]?.count ?? 0) > 0) return;
-
   await db.execAsync(`
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Stress', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Boredom', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Anxiety', 0);
-    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Loneliness', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Social pressure', 0);
+    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Loneliness', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Tired', 0);
-    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Anger', 0);
+    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Sadness', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Celebration', 0);
-    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('After eating', 0);
-    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('After work', 0);
+    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Notification', 0);
+    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Being alone', 0);
+    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Seeing it nearby', 0);
+    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('After work/school', 0);
   `);
 }
 
 async function seedDefaultLocationsIfEmpty() {
-  const rows = await db.getAllAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM locations;",
-  );
-  if ((rows?.[0]?.count ?? 0) > 0) return;
-
   await db.execAsync(`
     INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Bedroom', 0);
+    INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Living room', 0);
     INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Bathroom', 0);
-    INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Car', 0);
+    INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Kitchen', 0);
     INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Work', 0);
     INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('School', 0);
+    INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Car', 0);
+    INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('On phone', 0);
     INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Gym', 0);
     INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Friend’s house', 0);
     INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Bar/Restaurant', 0);
-    INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Living room', 0);
-    INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Kitchen', 0);
+    INSERT OR IGNORE INTO locations (name, isCustom) VALUES ('Outside', 0);
   `);
 }
 
