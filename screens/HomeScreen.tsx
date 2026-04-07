@@ -31,6 +31,12 @@ function getPercentIncrease(current: number, previous: number) {
   return Math.round(((current - previous) / previous) * 100);
 }
 
+function getFirstName(name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) return "";
+  return trimmed.split(/\s+/)[0];
+}
+
 export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { logs, profileName, profilePhotoUri } = useData();
@@ -38,6 +44,7 @@ export default function HomeScreen() {
   const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
 
   const isFirstVisit = logs.length === 0;
+  const displayName = useMemo(() => getFirstName(profileName), [profileName]);
 
   const habitOptions = useMemo(() => {
     const set = new Set<string>();
@@ -248,8 +255,8 @@ export default function HomeScreen() {
         <View className="flex-1 pr-4">
           <Text className="mt-1 text-3xl font-bold text-gray-900">
             {logs.length === 0
-              ? `Welcome, ${profileName}`
-              : `Welcome back, ${profileName}`}
+              ? `Welcome, ${displayName}`
+              : `Welcome back, ${displayName}`}
           </Text>
         </View>
 
