@@ -12,6 +12,7 @@ import HomeScreen from "./screens/HomeScreen";
 import ShopScreen from "./screens/ShopScreen";
 import LogScreen from "./screens/LogScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
+import SubscriptionScreen from "./screens/SubscriptionScreen";
 import SettingsScreen from "./screens/SettingsScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ManageListScreen from "./screens/ManageListScreen";
@@ -24,13 +25,14 @@ export type RootTabParamList = {
   Shop: undefined;
   Log: undefined;
   Analytics: undefined;
-  Settings: undefined;
+  Subscription: undefined;
 };
 
 export type RootStackParamList = {
   Main: undefined;
   ManageList: { type: "habits" | "cues" | "locations" };
   ProfileSetup: undefined;
+  Settings: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -85,8 +87,8 @@ function Tabs() {
             case "Analytics":
               iconName = focused ? "bar-chart" : "bar-chart-outline";
               break;
-            case "Settings":
-              iconName = focused ? "person" : "person-outline";
+            case "Subscription":
+              iconName = focused ? "diamond" : "diamond-outline";
               break;
             default:
               iconName = "ellipse";
@@ -116,7 +118,7 @@ function Tabs() {
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Settings");
+                navigation.getParent()?.navigate("Settings");
               }}
               style={{ marginRight: 16 }}
             >
@@ -125,28 +127,24 @@ function Tabs() {
           ),
         })}
       />
-
       <Tab.Screen
         name="Shop"
         component={ShopScreen}
         listeners={{ tabPress: () => tabHaptic() }}
       />
-
       <Tab.Screen
         name="Log"
         component={LogScreen}
         listeners={{ tabPress: () => tabHaptic() }}
       />
-
       <Tab.Screen
         name="Analytics"
         component={AnalyticsScreen}
         listeners={{ tabPress: () => tabHaptic() }}
       />
-
       <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
+        name="Subscription"
+        component={SubscriptionScreen}
         listeners={{ tabPress: () => tabHaptic() }}
       />
     </Tab.Navigator>
@@ -169,6 +167,11 @@ function RootStack() {
         name="Main"
         component={Tabs}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ title: "Settings", headerBackTitle: "Back" }}
       />
       <Stack.Screen
         name="ManageList"
