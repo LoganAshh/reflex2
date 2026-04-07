@@ -1,6 +1,6 @@
 import "./global.css";
 import React from "react";
-import { View, Text, ActivityIndicator } from "react-native";
+import { View, Text, ActivityIndicator, Pressable } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -12,7 +12,7 @@ import HomeScreen from "./screens/HomeScreen";
 import ShopScreen from "./screens/ShopScreen";
 import LogScreen from "./screens/LogScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
-import ProfileScreen from "./screens/ProfileScreen";
+import SettingsScreen from "./screens/SettingsScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ManageListScreen from "./screens/ManageListScreen";
 import ProfileSetupScreen from "./screens/ProfileSetupScreen";
@@ -24,7 +24,7 @@ export type RootTabParamList = {
   Shop: undefined;
   Log: undefined;
   Analytics: undefined;
-  Profile: undefined;
+  Settings: undefined;
 };
 
 export type RootStackParamList = {
@@ -85,7 +85,7 @@ function Tabs() {
             case "Analytics":
               iconName = focused ? "bar-chart" : "bar-chart-outline";
               break;
-            case "Profile":
+            case "Settings":
               iconName = focused ? "person" : "person-outline";
               break;
             default:
@@ -111,25 +111,42 @@ function Tabs() {
         name="Home"
         component={HomeScreen}
         listeners={{ tabPress: () => tabHaptic() }}
+        options={({ navigation }) => ({
+          headerRight: () => (
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("Settings");
+              }}
+              style={{ marginRight: 16 }}
+            >
+              <Ionicons name="settings-outline" size={24} color="#1F2937" />
+            </Pressable>
+          ),
+        })}
       />
+
       <Tab.Screen
         name="Shop"
         component={ShopScreen}
         listeners={{ tabPress: () => tabHaptic() }}
       />
+
       <Tab.Screen
         name="Log"
         component={LogScreen}
         listeners={{ tabPress: () => tabHaptic() }}
       />
+
       <Tab.Screen
         name="Analytics"
         component={AnalyticsScreen}
         listeners={{ tabPress: () => tabHaptic() }}
       />
+
       <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
+        name="Settings"
+        component={SettingsScreen}
         listeners={{ tabPress: () => tabHaptic() }}
       />
     </Tab.Navigator>

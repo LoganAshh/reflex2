@@ -83,7 +83,7 @@ function Row({
   );
 }
 
-export default function ProfileScreen() {
+export default function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   const {
     exportData,
@@ -187,7 +187,7 @@ export default function ProfileScreen() {
       contentContainerClassName="p-4 pb-10"
     >
       <View className="mb-4">
-        <Text className="text-2xl font-bold text-zinc-900">Profile</Text>
+        <Text className="text-2xl font-bold text-zinc-900">Settings</Text>
         <Text className="mt-1 text-sm text-zinc-600">
           Manage your local profile and app data.
         </Text>
