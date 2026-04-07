@@ -203,7 +203,7 @@ export default function ShopScreen() {
   };
 
   const EmptyState = () => (
-    <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-5">
+    <View className="mt-4 mx-6 rounded-2xl border border-gray-200 bg-white p-5">
       <Text className="text-gray-700">
         {filter === SELECTED
           ? "No selected actions yet."
@@ -215,31 +215,34 @@ export default function ShopScreen() {
   );
 
   return (
-    <View className="flex-1 bg-white px-6 pt-10">
-      <Text className="text-3xl font-bold text-gray-900">Shop</Text>
+    <View className="flex-1 bg-white pt-10">
+      <View className="px-6">
+        <Text className="text-3xl font-bold text-gray-900">Shop</Text>
 
-      <Text className="mt-2 text-base font-semibold text-gray-900">
-        Tip: Make it easy
-      </Text>
-      <Text className="mt-1 text-sm text-gray-600">
-        Pick something you genuinely enjoy doing, then choose the easiest
-        possible version of it.
-      </Text>
+        <Text className="mt-2 text-base font-semibold text-gray-900">
+          Tip: Make it easy
+        </Text>
+        <Text className="mt-1 text-sm text-gray-600">
+          Pick something you genuinely enjoy doing, then choose the easiest
+          possible version of it.
+        </Text>
 
-      <View className="mt-5 flex-row flex-wrap gap-2">
-        <FilterPill label="Selected" value={SELECTED} />
-        <FilterPill label="All" value={ALL} />
-        {PRESET_CATEGORIES.map((cat) => (
-          <FilterPill key={cat} label={cat} value={cat} />
-        ))}
-        <FilterPill label="Custom" value={CUSTOM} />
+        <View className="mt-5 flex-row flex-wrap gap-2">
+          <FilterPill label="Selected" value={SELECTED} />
+          <FilterPill label="All" value={ALL} />
+          {PRESET_CATEGORIES.map((cat) => (
+            <FilterPill key={cat} label={cat} value={cat} />
+          ))}
+          <FilterPill label="Custom" value={CUSTOM} />
+        </View>
       </View>
 
       {filter === CUSTOM ? (
         <ScrollView
           className="mt-5 flex-1"
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator
           keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
         >
           <View className="rounded-2xl border border-gray-200 bg-white p-4">
             <Text className="text-sm font-semibold text-gray-900">
@@ -302,27 +305,31 @@ export default function ShopScreen() {
               />
             )}
           </View>
-
-          <View className="h-6" />
         </ScrollView>
       ) : (
         <View className="mt-6 flex-1">
-          <Text className="text-xl font-bold text-gray-900">
-            {filter === SELECTED ? "Selected actions" : "Actions"}
-          </Text>
-          <Text className="mt-1 text-sm text-gray-500">
-            Tap “Select” to add or remove an action.
-          </Text>
+          <View className="px-6">
+            <Text className="text-xl font-bold text-gray-900">
+              {filter === SELECTED ? "Selected actions" : "Actions"}
+            </Text>
+            <Text className="mt-1 text-sm text-gray-500">
+              Tap “Select” to add or remove an action.
+            </Text>
+          </View>
 
           {filtered.length === 0 ? (
             <EmptyState />
           ) : (
             <FlatList
-              className="mt-4"
+              className="mt-4 flex-1"
               data={filtered}
               keyExtractor={(item) => String(item.id)}
               renderItem={renderItem}
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator
+              contentContainerStyle={{
+                paddingHorizontal: 24,
+                paddingBottom: 20,
+              }}
             />
           )}
         </View>
