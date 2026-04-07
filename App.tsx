@@ -120,14 +120,21 @@ function Tabs() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 navigation.getParent()?.navigate("Settings");
               }}
-              hitSlop={10}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={{
-                marginRight: 12,
-                padding: 8,
-                borderRadius: 999,
+                marginRight: 20,
+                height: 24,
+                width: 24,
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              <Ionicons name="settings-outline" size={24} color="#1F2937" />
+              <Ionicons
+                name="settings-outline"
+                size={24}
+                color="#1F2937"
+                style={{ transform: [{ translateY: -1 }] }}
+              />
             </Pressable>
           ),
         })}
