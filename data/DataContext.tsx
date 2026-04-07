@@ -327,41 +327,71 @@ async function seedDefaultLocationsIfEmpty() {
 }
 
 async function seedDefaultActionsIfEmpty() {
-  const rows = await db.getAllAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM actions;",
-  );
-  if ((rows?.[0]?.count ?? 0) > 0) return;
-
   await db.execAsync(`
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Go for a 10-min walk', 'Physical', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Do 10 push-ups', 'Physical', 0);
-    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Go for a 5-min walk', 'Physical', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Drink a full glass of water', 'Physical', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Stretch for 2 minutes', 'Physical', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('20 jumping jacks', 'Physical', 0);
-    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Drink a full glass of water', 'Physical', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Step outside for fresh air', 'Physical', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Wash your face', 'Physical', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Take a quick shower', 'Physical', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Brush your teeth', 'Physical', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Do a 1-min wall sit', 'Physical', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Tidy your desk for 2 minutes', 'Physical', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Make a healthy snack', 'Physical', 0);
 
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Deep breathing (60s)', 'Mental', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Urge surf for 2 minutes', 'Mental', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Set a 2-min timer and do nothing', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Name 5 things you can see', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Write 3 lines of journaling', 'Mental', 0);
-    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Set a 2-min timer and do nothing', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Read 1 page of a book', 'Mental', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Repeat your reason for quitting', 'Mental', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Write down the trigger', 'Mental', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Delay it for 10 minutes', 'Mental', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Listen to a 2-min meditation', 'Mental', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Say “I do not need to act on this”', 'Mental', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Visualize tomorrow morning', 'Mental', 0);
 
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Text a friend', 'Social', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Call someone for 2 minutes', 'Social', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Send a “how are you?” message', 'Social', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Reply to one message you’ve been avoiding', 'Social', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Ask someone to hang out', 'Social', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Step outside and say hi to someone', 'Social', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Text your accountability person', 'Social', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Join a group chat conversation', 'Social', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Sit near other people', 'Social', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Voice memo a friend', 'Social', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Give someone a compliment', 'Social', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Ask for support directly', 'Social', 0);
 
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Listen to one song', 'Creative', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Make a quick playlist', 'Creative', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Write one paragraph', 'Creative', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Sketch for 2 minutes', 'Creative', 0);
-    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Make a quick playlist', 'Creative', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Take 3 photos of anything', 'Creative', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Brain-dump 10 ideas', 'Creative', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Doodle on paper', 'Creative', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Write a note to yourself', 'Creative', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Make a 3-item to-do list', 'Creative', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Organize your notes', 'Creative', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Learn one new chord', 'Creative', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Write one funny caption', 'Creative', 0);
 
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Put your phone in another room for 10 minutes', 'Other', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Clean one small surface', 'Other', 0);
-    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Take a quick shower', 'Other', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Make your bed', 'Other', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Set a 5-min tidy timer', 'Other', 0);
-    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Put your phone in another room for 2 minutes', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Change rooms', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Leave the triggering environment', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Delete the app for now', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Turn on Do Not Disturb', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Put on shoes and get out of the house', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Start a 10-min focus timer', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Do one small task you’ve been avoiding', 'Other', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Reset your space', 'Other', 0);
   `);
 }
 
