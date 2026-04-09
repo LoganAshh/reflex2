@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.loganash.reflex",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "CFBundleDisplayName": "Reflex",
         "ITSAppUsesNonExemptEncryption": false
