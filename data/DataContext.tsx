@@ -122,9 +122,47 @@ const ONBOARD_KEY = "hasOnboarded";
 const PROFILE_NAME_KEY = "profileName";
 const PROFILE_PHOTO_KEY = "profilePhotoUri";
 const PROFILE_DONE_KEY = "hasCompletedLocalProfile";
+const PROFILE_PHOTOS_DIR_NAME = "profile-photos";
 
 function normalizeName(value: string) {
   return value.trim().toLowerCase();
+}
+
+function getProfilePhotosDirectory() {
+  return new FileSystem.Directory(
+    FileSystem.Paths.document,
+    PROFILE_PHOTOS_DIR_NAME,
+  );
+}
+
+function isManagedProfilePhotoUri(uri: string) {
+  const clean = uri.trim();
+  if (!clean) return false;
+  return clean.startsWith(getProfilePhotosDirectory().uri);
+}
+
+async function deleteManagedProfilePhoto(uri: string) {
+  const clean = uri.trim();
+  if (!clean || !isManagedProfilePhotoUri(clean)) return;
+
+  try {
+    const file = new FileSystem.File(clean);
+    if (file.exists) {
+      file.delete();
+    }
+  } catch {}
+}
+
+async function normalizeStoredProfilePhotoUri(uri: string) {
+  const clean = uri.trim();
+  if (!clean) return "";
+
+  try {
+    const file = new FileSystem.File(clean);
+    return file.exists ? clean : "";
+  } catch {
+    return "";
+  }
 }
 
 async function loadBoolean(key: string): Promise<boolean> {
@@ -396,6 +434,9 @@ async function seedDefaultActionsIfEmpty() {
 }
 
 async function resetDbForDev() {
+  const savedPhoto = await loadProfilePhotoUri();
+  await deleteManagedProfilePhoto(savedPhoto);
+
   await db.execAsync(`
     DROP TABLE IF EXISTS selected_actions;
     DROP TABLE IF EXISTS logs;
@@ -566,13 +607,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await seedDefaultLocationsIfEmpty();
         await seedDefaultActionsIfEmpty();
 
-        const [onboarded, savedProfileName, savedProfilePhoto, profileDone] =
+        const [onboarded, savedProfileName, rawSavedProfilePhoto, profileDone] =
           await Promise.all([
             loadOnboardedFlag(),
             loadProfileName(),
             loadProfilePhotoUri(),
             loadProfileDoneFlag(),
           ]);
+
+        const savedProfilePhoto =
+          await normalizeStoredProfilePhotoUri(rawSavedProfilePhoto);
+
+        if (savedProfilePhoto !== rawSavedProfilePhoto.trim()) {
+          await saveProfilePhotoUri(savedProfilePhoto);
+          if (!savedProfilePhoto) {
+            await saveProfileDoneFlag(false);
+          }
+        }
 
         const cleanName = savedProfileName.trim();
         const cleanPhoto = savedProfilePhoto.trim();
@@ -624,6 +675,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Name and profile photo are required.");
     }
 
+    const previousPhoto = (profilePhotoUri ?? "").trim();
+
+    if (previousPhoto && previousPhoto !== cleanPhoto) {
+      await deleteManagedProfilePhoto(previousPhoto);
+    }
+
     await Promise.all([
       saveProfileName(cleanName),
       saveProfilePhotoUri(cleanPhoto),
@@ -636,6 +693,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const clearLocalProfile: DataContextType["clearLocalProfile"] = async () => {
+    const previousPhoto = (profilePhotoUri ?? "").trim();
+
+    await deleteManagedProfilePhoto(previousPhoto);
+
     await Promise.all([
       saveProfileName(""),
       saveProfilePhotoUri(""),
@@ -946,6 +1007,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetAll: DataContextType["resetAll"] = async () => {
+    const savedPhoto =
+      (profilePhotoUri ?? "").trim() || (await loadProfilePhotoUri());
+    await deleteManagedProfilePhoto(savedPhoto);
+
     await db.execAsync(`
       DROP TABLE IF EXISTS selected_actions;
       DROP TABLE IF EXISTS logs;
