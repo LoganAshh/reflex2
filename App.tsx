@@ -17,6 +17,7 @@ import SettingsScreen from "./screens/SettingsScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ManageListScreen from "./screens/ManageListScreen";
 import ProfileSetupScreen from "./screens/ProfileSetupScreen";
+import UrgeHelpScreen from "./screens/UrgeHelpScreen";
 
 import { DataProvider, useData } from "./data/DataContext";
 
@@ -33,6 +34,7 @@ export type RootStackParamList = {
   ManageList: { type: "habits" | "cues" | "locations" };
   ProfileSetup: undefined;
   Settings: undefined;
+  UrgeHelp: { logId: number };
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -194,6 +196,11 @@ function RootStack() {
         name="ProfileSetup"
         component={ProfileSetupScreen}
         options={{ title: "Edit Profile", headerBackTitle: "Back" }}
+      />
+      <Stack.Screen
+        name="UrgeHelp"
+        component={UrgeHelpScreen}
+        options={{ title: "Resist the urge", headerBackTitle: "Back" }}
       />
     </Stack.Navigator>
   );

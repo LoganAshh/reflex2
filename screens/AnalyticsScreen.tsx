@@ -40,6 +40,11 @@ function dayKey(ms: number) {
   return `${dt.getFullYear()}-${dt.getMonth() + 1}-${dt.getDate()}`;
 }
 
+function percent(part: number, total: number) {
+  if (total <= 0) return 0;
+  return Math.round((part / total) * 100);
+}
+
 type TabKey = "Overall" | string;
 
 type CalendarCell = {
@@ -68,6 +73,11 @@ function greenBgForCount(count: number) {
 
 function textColorForCount(count: number) {
   return count <= 3 ? "text-white" : "text-gray-400";
+}
+
+function formatAvg(n: number | null) {
+  if (n == null || Number.isNaN(n)) return "—";
+  return n.toFixed(1);
 }
 
 export default function AnalyticsScreen() {
@@ -273,6 +283,172 @@ export default function AnalyticsScreen() {
     };
   }, [filteredLogs]);
 
+  const extraAnalytics = useMemo(() => {
+    const now = Date.now();
+    const weekStart = startOfWeekMs(new Date(now));
+    const thirtyDaysAgo = startOfDayMs(now - 29 * 24 * 60 * 60 * 1000);
+
+    const weekLogs = filteredLogs.filter((l) => l.createdAt >= weekStart);
+    const monthLogs = filteredLogs.filter((l) => l.createdAt >= thirtyDaysAgo);
+
+    const weeklyTotal = weekLogs.length;
+    const weeklyResisted = weekLogs.filter((l) => l.didResist === 1).length;
+    const weeklyGaveIn = weeklyTotal - weeklyResisted;
+    const weeklyResistRate = percent(weeklyResisted, weeklyTotal);
+
+    const allResisted = filteredLogs.filter((l) => l.didResist === 1).length;
+    const allGiveIn = filteredLogs.length - allResisted;
+    const overallResistRate = percent(allResisted, filteredLogs.length);
+
+    let sumIntensity = 0;
+    let intensityCount = 0;
+    for (const l of filteredLogs) {
+      if (typeof l.intensity === "number") {
+        sumIntensity += l.intensity;
+        intensityCount += 1;
+      }
+    }
+    const avgIntensity =
+      intensityCount > 0 ? sumIntensity / intensityCount : null;
+
+    let resistedIntensitySum = 0;
+    let resistedIntensityCount = 0;
+    let gaveInIntensitySum = 0;
+    let gaveInIntensityCount = 0;
+
+    for (const l of filteredLogs) {
+      if (typeof l.intensity !== "number") continue;
+      if (l.didResist === 1) {
+        resistedIntensitySum += l.intensity;
+        resistedIntensityCount += 1;
+      } else {
+        gaveInIntensitySum += l.intensity;
+        gaveInIntensityCount += 1;
+      }
+    }
+
+    const avgResistedIntensity =
+      resistedIntensityCount > 0
+        ? resistedIntensitySum / resistedIntensityCount
+        : null;
+
+    const avgGaveInIntensity =
+      gaveInIntensityCount > 0
+        ? gaveInIntensitySum / gaveInIntensityCount
+        : null;
+
+    const weekdayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const weekdayCounts = new Map<string, number>(
+      weekdayOrder.map((d) => [d, 0] as const),
+    );
+
+    for (const l of weekLogs) {
+      const jsDay = new Date(l.createdAt).getDay();
+      const idx = (jsDay + 6) % 7;
+      const key = weekdayOrder[idx];
+      weekdayCounts.set(key, (weekdayCounts.get(key) ?? 0) + 1);
+    }
+
+    const weeklyTrend = weekdayOrder.map((label) => ({
+      label,
+      count: weekdayCounts.get(label) ?? 0,
+    }));
+    const weeklyTrendMax = Math.max(...weeklyTrend.map((x) => x.count), 1);
+
+    const habitMap = new Map<
+      string,
+      {
+        total: number;
+        resisted: number;
+        gaveIn: number;
+      }
+    >();
+
+    const sourceLogs = activeTab === "Overall" ? monthLogs : filteredLogs;
+
+    for (const l of sourceLogs) {
+      const habit = (l.habitName ?? "").trim();
+      if (!habit) continue;
+
+      const curr = habitMap.get(habit) ?? {
+        total: 0,
+        resisted: 0,
+        gaveIn: 0,
+      };
+
+      curr.total += 1;
+      if (l.didResist === 1) curr.resisted += 1;
+      else curr.gaveIn += 1;
+
+      habitMap.set(habit, curr);
+    }
+
+    const habitBreakdown = Array.from(habitMap.entries())
+      .map(([name, stats]) => ({
+        name,
+        total: stats.total,
+        resisted: stats.resisted,
+        gaveIn: stats.gaveIn,
+        resistRate: percent(stats.resisted, stats.total),
+      }))
+      .sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 5);
+
+    const recentDayCounts = new Map<string, number>();
+    for (let i = 0; i < 30; i++) {
+      const dayMs = startOfDayMs(now - i * 24 * 60 * 60 * 1000);
+      recentDayCounts.set(dayKey(dayMs), 0);
+    }
+
+    for (const l of monthLogs) {
+      const k = dayKey(l.createdAt);
+      if (recentDayCounts.has(k)) {
+        recentDayCounts.set(k, (recentDayCounts.get(k) ?? 0) + 1);
+      }
+    }
+
+    let activeDays30 = 0;
+    for (const v of recentDayCounts.values()) {
+      if (v > 0) activeDays30 += 1;
+    }
+
+    return {
+      weeklyTotal,
+      weeklyResisted,
+      weeklyGaveIn,
+      weeklyResistRate,
+      allResisted,
+      allGiveIn,
+      overallResistRate,
+      avgIntensity,
+      avgResistedIntensity,
+      avgGaveInIntensity,
+      weeklyTrend,
+      weeklyTrendMax,
+      habitBreakdown,
+      activeDays30,
+    };
+  }, [filteredLogs, activeTab]);
+
+  const StatCard = ({
+    label,
+    value,
+    sub,
+  }: {
+    label: string;
+    value: string;
+    sub?: string;
+  }) => (
+    <View className="flex-1 rounded-2xl border border-gray-200 bg-white p-4">
+      <Text className="text-xs font-semibold text-gray-500">{label}</Text>
+      <Text className="mt-2 text-2xl font-bold text-gray-900">{value}</Text>
+      {sub ? <Text className="mt-1 text-xs text-gray-500">{sub}</Text> : null}
+    </View>
+  );
+
   const ListBlock = ({
     title,
     items,
@@ -408,8 +584,8 @@ export default function AnalyticsScreen() {
                 onPress={() => setActiveTab(t)}
                 className={`rounded-full border px-4 py-2 ${
                   t === activeTab
-                    ? "bg-gray-900 border-gray-900"
-                    : "bg-white border-gray-200"
+                    ? "border-gray-900 bg-gray-900"
+                    : "border-gray-200 bg-white"
                 }`}
               >
                 <Text
@@ -494,7 +670,7 @@ export default function AnalyticsScreen() {
                   const Tile = (
                     <View
                       className={[
-                        "aspect-square items-center justify-center rounded-xl overflow-hidden",
+                        "aspect-square items-center justify-center overflow-hidden rounded-xl",
                         bg,
                         baseBorder,
                         todayBorder,
@@ -574,6 +750,183 @@ export default function AnalyticsScreen() {
             items={data.topTimes}
             empty="Log a few check-ins and this will populate."
           />
+        </View>
+
+        <View className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-5">
+          <Text className="text-base font-semibold text-gray-900">
+            More insights
+          </Text>
+
+          <View className="mt-4 flex-row gap-3">
+            <StatCard
+              label="Logs this week"
+              value={`${extraAnalytics.weeklyTotal}`}
+            />
+            <StatCard
+              label="Resist rate"
+              value={`${extraAnalytics.weeklyResistRate}%`}
+              sub="This week"
+            />
+          </View>
+
+          <View className="mt-3 flex-row gap-3">
+            <StatCard
+              label="Gave in"
+              value={`${extraAnalytics.weeklyGaveIn}`}
+              sub="This week"
+            />
+            <StatCard
+              label="Active days"
+              value={`${extraAnalytics.activeDays30}`}
+              sub="Last 30 days"
+            />
+          </View>
+
+          <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+            <Text className="text-base font-semibold text-gray-900">
+              Outcome breakdown
+            </Text>
+
+            <View className="mt-3 flex-row gap-3">
+              <View className="flex-1 rounded-xl bg-gray-50 p-3">
+                <Text className="text-xs font-semibold text-gray-500">
+                  Resisted
+                </Text>
+                <Text className="mt-1 text-xl font-bold text-gray-900">
+                  {extraAnalytics.allResisted}
+                </Text>
+              </View>
+
+              <View className="flex-1 rounded-xl bg-gray-50 p-3">
+                <Text className="text-xs font-semibold text-gray-500">
+                  Gave in
+                </Text>
+                <Text className="mt-1 text-xl font-bold text-gray-900">
+                  {extraAnalytics.allGiveIn}
+                </Text>
+              </View>
+
+              <View className="flex-1 rounded-xl bg-gray-50 p-3">
+                <Text className="text-xs font-semibold text-gray-500">
+                  Overall resist rate
+                </Text>
+                <Text className="mt-1 text-xl font-bold text-gray-900">
+                  {extraAnalytics.overallResistRate}%
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+            <Text className="text-base font-semibold text-gray-900">
+              Intensity trends
+            </Text>
+
+            <View className="mt-3 flex-row gap-3">
+              <View className="flex-1 rounded-xl bg-gray-50 p-3">
+                <Text className="text-xs font-semibold text-gray-500">
+                  Avg intensity
+                </Text>
+                <Text className="mt-1 text-xl font-bold text-gray-900">
+                  {formatAvg(extraAnalytics.avgIntensity)}
+                </Text>
+              </View>
+
+              <View className="flex-1 rounded-xl bg-gray-50 p-3">
+                <Text className="text-xs font-semibold text-gray-500">
+                  Avg when resisted
+                </Text>
+                <Text className="mt-1 text-xl font-bold text-gray-900">
+                  {formatAvg(extraAnalytics.avgResistedIntensity)}
+                </Text>
+              </View>
+
+              <View className="flex-1 rounded-xl bg-gray-50 p-3">
+                <Text className="text-xs font-semibold text-gray-500">
+                  Avg when gave in
+                </Text>
+                <Text className="mt-1 text-xl font-bold text-gray-900">
+                  {formatAvg(extraAnalytics.avgGaveInIntensity)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+            <Text className="text-base font-semibold text-gray-900">
+              Last 7 days
+            </Text>
+
+            <View className="mt-4">
+              {extraAnalytics.weeklyTrend.map((item) => {
+                const widthPct =
+                  extraAnalytics.weeklyTrendMax <= 0
+                    ? 0
+                    : (item.count / extraAnalytics.weeklyTrendMax) * 100;
+
+                return (
+                  <View
+                    key={item.label}
+                    className="mb-3 flex-row items-center gap-3"
+                  >
+                    <Text className="w-10 text-sm font-semibold text-gray-700">
+                      {item.label}
+                    </Text>
+
+                    <View className="flex-1 rounded-full bg-gray-100">
+                      <View
+                        className="h-3 rounded-full bg-green-600"
+                        style={{ width: `${Math.max(widthPct, 4)}%` }}
+                      />
+                    </View>
+
+                    <Text className="w-8 text-right text-sm font-semibold text-gray-900">
+                      {item.count}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+            <Text className="text-base font-semibold text-gray-900">
+              Habit breakdown
+            </Text>
+
+            {extraAnalytics.habitBreakdown.length === 0 ? (
+              <Text className="mt-2 text-sm text-gray-600">
+                Log a few check-ins to see a breakdown here.
+              </Text>
+            ) : (
+              <View className="mt-3">
+                {extraAnalytics.habitBreakdown.map((item) => (
+                  <View
+                    key={item.name}
+                    className="mb-2 rounded-xl bg-gray-50 px-3 py-3"
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-sm font-semibold text-gray-900">
+                        {item.name}
+                      </Text>
+                      <Text className="text-sm font-semibold text-gray-700">
+                        {item.total} logs
+                      </Text>
+                    </View>
+
+                    <View className="mt-2 flex-row items-center justify-between">
+                      <Text className="text-xs text-gray-600">
+                        {item.resisted} resisted • {item.gaveIn} gave in
+                      </Text>
+                      <Text className="text-xs font-semibold text-gray-900">
+                        {item.resistRate}% resist rate
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
       </ScrollView>
 

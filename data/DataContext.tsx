@@ -22,7 +22,6 @@ import type {
   DataProviderProps,
 } from "./types";
 import {
-  db,
   normalizeName,
   initDb,
   seedDefaultHabitsIfEmpty,
@@ -46,6 +45,7 @@ import {
   insertCustomCue,
   insertCustomLocation,
   insertLog,
+  updateLogSelectedActionInDb,
   insertAction,
   selectedActionExists,
   removeSelectedAction,
@@ -374,7 +374,7 @@ export function DataProvider({ children }: DataProviderProps) {
 
   const addLog: DataContextType["addLog"] = async (input) => {
     const habitId = input.habitId;
-    if (!Number.isFinite(habitId)) return;
+    if (!Number.isFinite(habitId)) return null;
 
     const intensityIn = input.intensity ?? null;
     const intensity: number | null =
@@ -392,7 +392,7 @@ export function DataProvider({ children }: DataProviderProps) {
         ? null
         : input.selectedActionId;
 
-    await insertLog({
+    const newLogId = await insertLog({
       habitId,
       cueId: input.cueId ?? null,
       locationId: input.locationId ?? null,
@@ -404,7 +404,21 @@ export function DataProvider({ children }: DataProviderProps) {
     });
 
     setLogs(await loadLogs());
+    return newLogId > 0 ? newLogId : null;
   };
+
+  const updateLogSelectedAction: DataContextType["updateLogSelectedAction"] =
+    async (logId, selectedActionId) => {
+      if (!Number.isFinite(logId)) return;
+
+      const cleanSelectedActionId =
+        selectedActionId == null || !Number.isFinite(selectedActionId)
+          ? null
+          : selectedActionId;
+
+      await updateLogSelectedActionInDb(logId, cleanSelectedActionId);
+      setLogs(await loadLogs());
+    };
 
   const addAction: DataContextType["addAction"] = async (input) => {
     const title = input.title.trim();
@@ -546,6 +560,7 @@ export function DataProvider({ children }: DataProviderProps) {
       addCustomLocation,
       logs,
       addLog,
+      updateLogSelectedAction,
       actions,
       addAction,
       selectedActionIds,

@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   TextInput,
-  ScrollView,
   Keyboard,
   Modal,
 } from "react-native";
@@ -22,7 +21,6 @@ import {
   type SelectedHabit,
   type SelectedCue,
   type SelectedPlace,
-  type ReplacementAction,
 } from "../data/DataContext";
 
 type StackNav = NativeStackNavigationProp<RootStackParamList>;
@@ -154,101 +152,6 @@ function ChipRow<T extends BaseItem>({
   );
 }
 
-function RecommendedActionsRow({
-  actions,
-  selectedActionId,
-  onSelect,
-  onBrowse,
-}: {
-  actions: ReplacementAction[];
-  selectedActionId: number | null;
-  onSelect: (id: number | null) => void;
-  onBrowse: () => void;
-}) {
-  return (
-    <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
-      <Text className="text-sm font-semibold text-gray-900">
-        Replacement Action
-      </Text>
-
-      {actions.length === 0 ? (
-        <View className="mt-2">
-          <Text className="text-sm text-gray-600">
-            You have no selected replacement actions yet.
-          </Text>
-
-          <Pressable
-            onPress={onBrowse}
-            className="mt-3 self-start rounded-full border border-gray-200 bg-white px-4 py-2"
-          >
-            <Text className="text-sm font-semibold text-gray-900">
-              Go to Shop
-            </Text>
-          </Pressable>
-        </View>
-      ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mt-2"
-          keyboardShouldPersistTaps="handled"
-        >
-          <View className="flex-row">
-            <Pressable
-              onPress={() => onSelect(null)}
-              className={`mr-2 rounded-full border px-4 py-2 ${
-                selectedActionId == null
-                  ? "border-green-600 bg-green-600"
-                  : "border-gray-200 bg-white"
-              }`}
-            >
-              <Text
-                className={`text-sm font-semibold ${
-                  selectedActionId == null ? "text-white" : "text-gray-900"
-                }`}
-              >
-                None
-              </Text>
-            </Pressable>
-
-            {actions.map((action) => {
-              const isSelected = selectedActionId === action.id;
-              return (
-                <Pressable
-                  key={action.id}
-                  onPress={() => onSelect(action.id)}
-                  className={`mr-2 rounded-full border px-4 py-2 ${
-                    isSelected
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <Text
-                    className={`text-sm font-semibold ${
-                      isSelected ? "text-white" : "text-gray-900"
-                    }`}
-                  >
-                    {action.title}
-                  </Text>
-                </Pressable>
-              );
-            })}
-
-            <Pressable
-              onPress={onBrowse}
-              className="mr-2 rounded-full border border-gray-200 bg-white px-4 py-2"
-            >
-              <Text className="text-sm font-semibold text-gray-900">
-                Manage
-              </Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      )}
-    </View>
-  );
-}
-
 function IntensityPickerModal({
   visible,
   value,
@@ -298,8 +201,8 @@ function IntensityPickerModal({
                   onPress={() => onPick(n)}
                   className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
                     selected
-                      ? "bg-green-600 border-green-600"
-                      : "bg-white border-gray-200"
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
                   }`}
                 >
                   <Text
@@ -384,8 +287,8 @@ function CountPickerModal({
                 onPress={() => onPick(0)}
                 className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
                   value === 0
-                    ? "bg-green-600 border-green-600"
-                    : "bg-white border-gray-200"
+                    ? "border-green-600 bg-green-600"
+                    : "border-gray-200 bg-white"
                 }`}
               >
                 <Text
@@ -406,8 +309,8 @@ function CountPickerModal({
                   onPress={() => onPick(n)}
                   className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
                     selected
-                      ? "bg-green-600 border-green-600"
-                      : "bg-white border-gray-200"
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
                   }`}
                 >
                   <Text
@@ -438,19 +341,11 @@ function CountPickerModal({
 
 export default function LogScreen() {
   const navigation = useNavigation<Nav>();
-  const {
-    selectedHabits,
-    selectedCues,
-    selectedLocations,
-    addLog,
-    actions,
-    selectedActionIds,
-  } = useData();
+  const { selectedHabits, selectedCues, selectedLocations, addLog } = useData();
 
   const [habitId, setHabitId] = useState<number | null>(null);
   const [cueId, setCueId] = useState<number | null>(null);
   const [locationId, setLocationId] = useState<number | null>(null);
-  const [selectedActionId, setSelectedActionId] = useState<number | null>(null);
 
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
@@ -464,7 +359,6 @@ export default function LogScreen() {
   const [showCountPicker, setShowCountPicker] = useState(false);
 
   const [saving, setSaving] = useState(false);
-  const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [recentHabitIds, setRecentHabitIds] = useState<number[]>([]);
@@ -484,20 +378,9 @@ export default function LogScreen() {
     [selectedLocations, recentLocationIds],
   );
 
-  const recommendedActions = useMemo(() => {
-    if (selectedActionIds.length === 0) return [];
-
-    const actionMap = new Map(actions.map((a) => [a.id, a] as const));
-    return selectedActionIds
-      .map((id) => actionMap.get(id))
-      .filter(Boolean) as ReplacementAction[];
-  }, [actions, selectedActionIds]);
-
   const habitListRef = useRef<FlatList<ChipItem> | null>(null);
   const cueListRef = useRef<FlatList<ChipItem> | null>(null);
   const locationListRef = useRef<FlatList<ChipItem> | null>(null);
-
-  const scrollRef = useRef<ScrollView | null>(null);
   const notesInputRef = useRef<TextInput | null>(null);
 
   useEffect(() => {
@@ -505,15 +388,6 @@ export default function LogScreen() {
       setHabitId(orderedHabits[0].id);
     }
   }, [orderedHabits, habitId]);
-
-  useEffect(() => {
-    if (
-      selectedActionId != null &&
-      !recommendedActions.some((action) => action.id === selectedActionId)
-    ) {
-      setSelectedActionId(null);
-    }
-  }, [recommendedActions, selectedActionId]);
 
   const bumpRecent = (prev: number[], id: number, max = 25) => {
     const next = [id, ...prev.filter((x) => x !== id)];
@@ -531,12 +405,10 @@ export default function LogScreen() {
 
   const resetToDefaults = (habitOverrideId?: number) => {
     setErrorMsg(null);
-    setSavedMsg(null);
 
     setHabitId(habitOverrideId ?? getDefaultHabitId());
     setCueId(null);
     setLocationId(null);
-    setSelectedActionId(null);
 
     setNotes("");
     setShowNotes(false);
@@ -550,7 +422,6 @@ export default function LogScreen() {
 
     requestAnimationFrame(() => {
       scrollAllToStart();
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
       Keyboard.dismiss();
     });
   };
@@ -567,7 +438,6 @@ export default function LogScreen() {
       () => {},
     );
     setErrorMsg(null);
-    setSavedMsg(null);
 
     if (habitId == null) {
       setErrorMsg("Select a habit.");
@@ -577,12 +447,11 @@ export default function LogScreen() {
     const submittedHabitId = habitId;
     const submittedCueId = cueId;
     const submittedLocationId = locationId;
-    const submittedActionId = selectedActionId;
 
     try {
       setSaving(true);
 
-      await addLog({
+      const newLogId = await addLog({
         habitId: submittedHabitId,
         cueId: submittedCueId,
         locationId: submittedLocationId,
@@ -590,7 +459,6 @@ export default function LogScreen() {
         count,
         didResist,
         notes: notes.trim() || undefined,
-        selectedActionId: submittedActionId,
       });
 
       setRecentHabitIds((prev) => bumpRecent(prev, submittedHabitId));
@@ -599,25 +467,11 @@ export default function LogScreen() {
       if (submittedLocationId != null)
         setRecentLocationIds((prev) => bumpRecent(prev, submittedLocationId));
 
-      setHabitId(submittedHabitId);
-      setCueId(null);
-      setLocationId(null);
-      setSelectedActionId(null);
-      setNotes("");
-      setShowNotes(false);
-      setDidResist(false);
-      setIntensity(null);
-      setCount(1);
-      setShowIntensityPicker(false);
-      setShowCountPicker(false);
+      resetToDefaults(submittedHabitId);
 
-      requestAnimationFrame(() => {
-        scrollAllToStart();
-        scrollRef.current?.scrollTo({ y: 0, animated: true });
-      });
-
-      setSavedMsg("Saved ✅");
-      setTimeout(() => setSavedMsg(null), 900);
+      if (newLogId != null) {
+        navigation.navigate("UrgeHelp", { logId: newLogId });
+      }
     } catch {
       setErrorMsg("Could not save.");
     } finally {
@@ -629,10 +483,7 @@ export default function LogScreen() {
     setShowNotes((v) => {
       const next = !v;
       if (!v && next) {
-        requestAnimationFrame(() => {
-          scrollRef.current?.scrollToEnd({ animated: true });
-          setTimeout(() => notesInputRef.current?.focus(), 50);
-        });
+        setTimeout(() => notesInputRef.current?.focus(), 50);
       }
       return next;
     });
@@ -690,172 +541,147 @@ export default function LogScreen() {
         onClose={() => setShowCountPicker(false)}
       />
 
-      <ScrollView
-        ref={scrollRef}
-        className="flex-1 bg-white"
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 160 }}
-      >
-        <View className="flex-1 px-5 pt-4">
-          <View className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <ChipRow<SelectedHabit>
-              title="Habit"
-              items={orderedHabits}
-              selectedId={habitId}
-              onSelect={setHabitId}
-              onAdd={() =>
-                navigation.navigate("ManageList", { type: "habits" })
-              }
-              listRef={habitListRef}
+      <View className="flex-1 items-center justify-center px-5 py-4">
+        <View className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <ChipRow<SelectedHabit>
+            title="Habit"
+            items={orderedHabits}
+            selectedId={habitId}
+            onSelect={setHabitId}
+            onAdd={() => navigation.navigate("ManageList", { type: "habits" })}
+            listRef={habitListRef}
+          />
+
+          <ChipRow<SelectedCue>
+            title="Cue"
+            items={orderedCues}
+            selectedId={cueId}
+            onSelect={setCueId}
+            allowNone
+            onAdd={() => navigation.navigate("ManageList", { type: "cues" })}
+            listRef={cueListRef}
+          />
+
+          <ChipRow<SelectedPlace>
+            title="Location"
+            items={orderedLocations}
+            selectedId={locationId}
+            onSelect={setLocationId}
+            allowNone
+            onAdd={() =>
+              navigation.navigate("ManageList", { type: "locations" })
+            }
+            listRef={locationListRef}
+          />
+
+          <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
+            <Text className="text-sm font-semibold text-gray-900">
+              Resisted?
+            </Text>
+            <Switch
+              value={didResist}
+              onValueChange={setDidResistAndMaybeCount}
             />
+          </View>
 
-            <ChipRow<SelectedCue>
-              title="Cue"
-              items={orderedCues}
-              selectedId={cueId}
-              onSelect={setCueId}
-              allowNone
-              onAdd={() => navigation.navigate("ManageList", { type: "cues" })}
-              listRef={cueListRef}
-            />
+          <View className="mt-3 w-full flex-row gap-3">
+            <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
+              <Text className="text-sm font-semibold text-gray-900">Count</Text>
 
-            <ChipRow<SelectedPlace>
-              title="Location"
-              items={orderedLocations}
-              selectedId={locationId}
-              onSelect={setLocationId}
-              allowNone
-              onAdd={() =>
-                navigation.navigate("ManageList", { type: "locations" })
-              }
-              listRef={locationListRef}
-            />
+              <View className="mt-2 flex-row items-center">
+                <Pressable
+                  onPress={() => setShowCountPicker(true)}
+                  className={`${chipBase} ${chipSelected} ${
+                    didResist ? "" : "mr-2"
+                  }`}
+                >
+                  <Text className="text-sm font-semibold text-white">
+                    {countLabel}
+                  </Text>
+                </Pressable>
 
-            <RecommendedActionsRow
-              actions={recommendedActions}
-              selectedActionId={selectedActionId}
-              onSelect={setSelectedActionId}
-              onBrowse={() => navigation.navigate("Shop")}
-            />
-
-            <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
-              <Text className="text-sm font-semibold text-gray-900">
-                Resisted?
-              </Text>
-              <Switch
-                value={didResist}
-                onValueChange={setDidResistAndMaybeCount}
-              />
-            </View>
-
-            <View className="mt-3 w-full flex-row gap-3">
-              <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
-                <Text className="text-sm font-semibold text-gray-900">
-                  Count
-                </Text>
-
-                <View className="mt-2 flex-row items-center">
+                {!didResist ? (
                   <Pressable
                     onPress={() => setShowCountPicker(true)}
-                    className={`${chipBase} ${chipSelected} ${
-                      didResist ? "" : "mr-2"
-                    }`}
-                  >
-                    <Text className="text-sm font-semibold text-white">
-                      {countLabel}
-                    </Text>
-                  </Pressable>
-
-                  {!didResist ? (
-                    <Pressable
-                      onPress={() => setShowCountPicker(true)}
-                      className={`${chipBase} ${chipUnselected}`}
-                    >
-                      <Text className="text-sm font-semibold text-gray-900">
-                        + Add
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              </View>
-
-              <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
-                <Text className="text-sm font-semibold text-gray-900">
-                  Intensity
-                </Text>
-
-                <View className="mt-2 flex-row items-center">
-                  <Pressable
-                    onPress={() => setShowIntensityPicker(true)}
-                    className={`${chipBase} ${chipSelected} mr-2`}
-                  >
-                    <Text className="text-sm font-semibold text-white">
-                      {intensityLabel}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => setShowIntensityPicker(true)}
                     className={`${chipBase} ${chipUnselected}`}
                   >
                     <Text className="text-sm font-semibold text-gray-900">
                       + Add
                     </Text>
                   </Pressable>
-                </View>
+                ) : null}
               </View>
             </View>
 
-            <Pressable
-              onPress={onShowNotes}
-              className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
-            >
+            <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
               <Text className="text-sm font-semibold text-gray-900">
-                {showNotes ? "Hide notes" : "Add Notes (optional)"}
+                Intensity
               </Text>
-            </Pressable>
 
-            {showNotes ? (
-              <TextInput
-                ref={notesInputRef}
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Anything useful to remember…"
-                placeholderTextColor="#9CA3AF"
-                className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
-                returnKeyType="done"
-                blurOnSubmit
-                onSubmitEditing={() => Keyboard.dismiss()}
-              />
-            ) : null}
+              <View className="mt-2 flex-row items-center">
+                <Pressable
+                  onPress={() => setShowIntensityPicker(true)}
+                  className={`${chipBase} ${chipSelected} mr-2`}
+                >
+                  <Text className="text-sm font-semibold text-white">
+                    {intensityLabel}
+                  </Text>
+                </Pressable>
 
-            {errorMsg ? (
-              <Text className="mt-2 text-sm font-semibold text-red-600">
-                {errorMsg}
-              </Text>
-            ) : null}
-
-            {savedMsg ? (
-              <Text className="mt-2 text-sm font-semibold text-green-700">
-                {savedMsg}
-              </Text>
-            ) : null}
-
-            <Pressable
-              onPress={onSave}
-              disabled={saving}
-              className={`mt-3 w-full rounded-2xl px-5 py-3.5 ${
-                saving ? "bg-green-300" : "bg-green-600"
-              }`}
-            >
-              <Text className="text-center text-base font-semibold text-white">
-                {saving ? "Saving..." : "Save"}
-              </Text>
-            </Pressable>
+                <Pressable
+                  onPress={() => setShowIntensityPicker(true)}
+                  className={`${chipBase} ${chipUnselected}`}
+                >
+                  <Text className="text-sm font-semibold text-gray-900">
+                    + Add
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
+
+          <Pressable
+            onPress={onShowNotes}
+            className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
+          >
+            <Text className="text-sm font-semibold text-gray-900">
+              {showNotes ? "Hide notes" : "Add Notes (optional)"}
+            </Text>
+          </Pressable>
+
+          {showNotes ? (
+            <TextInput
+              ref={notesInputRef}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Anything useful to remember…"
+              placeholderTextColor="#9CA3AF"
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={() => Keyboard.dismiss()}
+            />
+          ) : null}
+
+          {errorMsg ? (
+            <Text className="mt-2 text-sm font-semibold text-red-600">
+              {errorMsg}
+            </Text>
+          ) : null}
+
+          <Pressable
+            onPress={onSave}
+            disabled={saving}
+            className={`mt-3 w-full rounded-2xl px-5 py-3.5 ${
+              saving ? "bg-green-300" : "bg-green-600"
+            }`}
+          >
+            <Text className="text-center text-base font-semibold text-white">
+              {saving ? "Saving..." : "Save"}
+            </Text>
+          </Pressable>
         </View>
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }

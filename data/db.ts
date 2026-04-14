@@ -396,7 +396,7 @@ export async function insertLog(params: {
   notes: string | null;
   selectedActionId: number | null;
 }) {
-  await db.runAsync(
+  const result = await db.runAsync(
     `
     INSERT INTO logs (
       habitId,
@@ -423,6 +423,18 @@ export async function insertLog(params: {
       params.selectedActionId,
     ],
   );
+
+  return Number(result.lastInsertRowId ?? 0);
+}
+
+export async function updateLogSelectedActionInDb(
+  logId: number,
+  selectedActionId: number | null,
+) {
+  await db.runAsync(`UPDATE logs SET selectedActionId = ? WHERE id = ?;`, [
+    selectedActionId,
+    logId,
+  ]);
 }
 
 export async function insertAction(params: {

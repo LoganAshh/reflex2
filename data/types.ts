@@ -82,7 +82,11 @@ export type DataContextType = {
   addCustomLocation: (name: string, autoSelect?: boolean) => Promise<void>;
 
   logs: LogEntry[];
-  addLog: (input: AddLogInput) => Promise<void>;
+  addLog: (input: AddLogInput) => Promise<number | null>;
+  updateLogSelectedAction: (
+    logId: number,
+    selectedActionId: number | null,
+  ) => Promise<void>;
 
   actions: ReplacementAction[];
   addAction: (input: AddActionInput) => Promise<void>;
