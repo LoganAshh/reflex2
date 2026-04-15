@@ -121,7 +121,7 @@ export default function UrgeHelpScreen() {
       return {
         kind: "decision",
         title: "Nice job logging",
-        body: "You paused and checked in instead of staying on autopilot. Do you want help resisting the urge right now?",
+        body: "You paused and checked in instead of staying on autopilot. What do you want to do next?",
       };
     }
 
@@ -258,6 +258,8 @@ export default function UrgeHelpScreen() {
         ? "Continue"
         : "Next";
 
+  const isFirstGuidedStep = mode === "guided" && currentStepNumber === 1;
+
   return (
     <View className="flex-1 bg-white px-6 pt-12">
       {mode === "guided" ? (
@@ -352,41 +354,55 @@ export default function UrgeHelpScreen() {
         </View>
       ) : (
         <View className="mb-10 pb-8 pt-4">
-          <View className="flex-row items-center gap-3">
-            {canGoBack ? (
-              <Pressable
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onBack();
-                }}
-                className="flex-1 rounded-2xl border border-gray-200 bg-white px-5 py-4"
-              >
-                <Text className="text-center text-lg font-bold text-gray-900">
-                  Back
-                </Text>
-              </Pressable>
-            ) : null}
-
+          {isFirstGuidedStep ? (
             <Pressable
               onPress={() => {
-                if (currentStep.kind === "done") {
-                  Haptics.notificationAsync(
-                    Haptics.NotificationFeedbackType.Success,
-                  );
-                } else {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 onPrimary();
               }}
-              className={`rounded-2xl bg-green-600 px-5 py-4 ${
-                canGoBack ? "flex-1" : "w-full"
-              }`}
+              className="w-full rounded-2xl bg-green-600 px-5 py-4"
             >
               <Text className="text-center text-lg font-bold text-white">
                 {primaryLabel}
               </Text>
             </Pressable>
-          </View>
+          ) : (
+            <View className="flex-row items-center gap-3">
+              {canGoBack ? (
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onBack();
+                  }}
+                  className="flex-1 rounded-2xl border border-gray-200 bg-white px-5 py-4"
+                >
+                  <Text className="text-center text-lg font-bold text-gray-900">
+                    Back
+                  </Text>
+                </Pressable>
+              ) : (
+                <View className="flex-1" />
+              )}
+
+              <Pressable
+                onPress={() => {
+                  if (currentStep.kind === "done") {
+                    Haptics.notificationAsync(
+                      Haptics.NotificationFeedbackType.Success,
+                    );
+                  } else {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                  onPrimary();
+                }}
+                className="flex-1 rounded-2xl bg-green-600 px-5 py-4"
+              >
+                <Text className="text-center text-lg font-bold text-white">
+                  {primaryLabel}
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       )}
     </View>
