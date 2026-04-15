@@ -236,6 +236,13 @@ export default function UrgeHelpScreen() {
                 </Pressable>
               );
             })}
+
+            <Pressable
+              onPress={goToShop}
+              className="rounded-full border border-gray-200 bg-white px-4 py-2"
+            >
+              <Text className="text-sm font-semibold text-gray-900">+ Add</Text>
+            </Pressable>
           </View>
         )}
 
