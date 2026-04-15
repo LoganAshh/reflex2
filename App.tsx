@@ -35,6 +35,7 @@ export type RootStackParamList = {
   ProfileSetup: undefined;
   Settings: undefined;
   UrgeHelp: { logId: number };
+  ShopPicker: undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -201,6 +202,11 @@ function RootStack() {
         name="UrgeHelp"
         component={UrgeHelpScreen}
         options={{ title: "Resist the urge", headerBackTitle: "Back" }}
+      />
+      <Stack.Screen
+        name="ShopPicker"
+        component={ShopScreen}
+        options={{ title: "Shop", headerBackTitle: "Back" }}
       />
     </Stack.Navigator>
   );

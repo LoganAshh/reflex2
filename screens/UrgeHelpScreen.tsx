@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -116,6 +116,10 @@ export default function UrgeHelpScreen() {
     [logs, logId],
   );
 
+  useEffect(() => {
+    setSelectedActionId(currentLog?.selectedActionId ?? null);
+  }, [currentLog?.selectedActionId]);
+
   const currentStep: Step = useMemo(() => {
     if (mode === "decision") {
       return {
@@ -141,6 +145,8 @@ export default function UrgeHelpScreen() {
   const totalSteps = helpSteps.length + 1;
   const currentStepNumber = stepIndex + 1;
   const canGoBack = mode === "guided" && currentStepNumber > 1;
+  const isFirstGuidedStep = mode === "guided" && currentStepNumber === 1;
+  const hasSelectedActions = selectedActions.length > 0;
 
   const onChooseAction = async (actionId: number | null) => {
     try {
@@ -155,6 +161,11 @@ export default function UrgeHelpScreen() {
 
   const goBackToLog = () => {
     navigation.goBack();
+  };
+
+  const goToShop = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("ShopPicker");
   };
 
   const onPrimary = async () => {
@@ -187,11 +198,25 @@ export default function UrgeHelpScreen() {
           Selected replacement actions
         </Text>
 
-        {selectedActions.length === 0 ? (
-          <Text className="mt-3 text-sm text-gray-600">
-            You do not have any selected replacement actions yet. You can still
-            continue, or add some later in Shop.
-          </Text>
+        {!hasSelectedActions ? (
+          <>
+            <Text className="mt-3 text-sm text-gray-600">
+              You do not have any selected replacement actions yet.
+            </Text>
+
+            <Pressable
+              onPress={goToShop}
+              className="mt-4 w-full rounded-2xl border border-green-600 bg-white px-5 py-4"
+            >
+              <Text className="text-center text-base font-bold text-green-600">
+                Go to Shop
+              </Text>
+            </Pressable>
+
+            <Text className="mt-3 text-center text-xs text-gray-500">
+              Select a few actions in Shop, then tap Back to return here.
+            </Text>
+          </>
         ) : (
           <View className="mt-3 flex-row flex-wrap gap-2">
             <Pressable
@@ -257,8 +282,6 @@ export default function UrgeHelpScreen() {
       : currentStep.kind === "action"
         ? "Continue"
         : "Next";
-
-  const isFirstGuidedStep = mode === "guided" && currentStepNumber === 1;
 
   return (
     <View className="flex-1 bg-white px-6 pt-12">
