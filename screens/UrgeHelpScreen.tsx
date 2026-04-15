@@ -1,8 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  usePreventRemove,
+} from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
@@ -83,6 +87,7 @@ export default function UrgeHelpScreen() {
   const [stepIndex, setStepIndex] = useState(0);
   const [selectedActionId, setSelectedActionId] = useState<number | null>(null);
   const [savingAction, setSavingAction] = useState(false);
+  const allowExitRef = useRef(false);
 
   const selectedActions = useMemo(() => {
     if (selectedActionIds.length === 0) return [];
@@ -100,6 +105,17 @@ export default function UrgeHelpScreen() {
   useEffect(() => {
     setSelectedActionId(currentLog?.selectedActionId ?? null);
   }, [currentLog?.selectedActionId]);
+
+  usePreventRemove(mode === "guided", ({ data }) => {
+    if (allowExitRef.current) {
+      navigation.dispatch(data.action);
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setMode("decision");
+    setStepIndex(0);
+  });
 
   const currentStep: Step = useMemo(() => {
     if (mode === "decision") {
@@ -138,6 +154,7 @@ export default function UrgeHelpScreen() {
   };
 
   const goBackToLog = () => {
+    allowExitRef.current = true;
     navigation.goBack();
   };
 
@@ -146,15 +163,23 @@ export default function UrgeHelpScreen() {
     navigation.navigate("ShopPicker");
   };
 
+  const startGuided = () => {
+    allowExitRef.current = false;
+    setMode("guided");
+    setStepIndex(0);
+  };
+
   const onPrimary = async () => {
     if (currentStep.kind === "action") {
       setStepIndex((v) => v + 1);
       return;
     }
+
     if (currentStep.kind === "done") {
       goBackToLog();
       return;
     }
+
     setStepIndex((v) => v + 1);
   };
 
@@ -196,9 +221,7 @@ export default function UrgeHelpScreen() {
         ) : (
           <View className="mt-3 flex-row flex-wrap gap-2">
             <Pressable
-              onPress={() => {
-                onChooseAction(null);
-              }}
+              onPress={() => onChooseAction(null)}
               disabled={savingAction}
               className={`rounded-full border px-4 py-2 ${
                 selectedActionId == null
@@ -220,9 +243,7 @@ export default function UrgeHelpScreen() {
               return (
                 <Pressable
                   key={action.id}
-                  onPress={() => {
-                    onChooseAction(action.id);
-                  }}
+                  onPress={() => onChooseAction(action.id)}
                   disabled={savingAction}
                   className={`rounded-full border px-4 py-2 ${
                     isSelected
@@ -352,8 +373,7 @@ export default function UrgeHelpScreen() {
           <Pressable
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setMode("guided");
-              setStepIndex(0);
+              startGuided();
             }}
             className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4"
           >

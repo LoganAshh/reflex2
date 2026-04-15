@@ -201,7 +201,11 @@ function RootStack() {
       <Stack.Screen
         name="UrgeHelp"
         component={UrgeHelpScreen}
-        options={{ title: "Resist the urge", headerBackTitle: "Back" }}
+        options={{
+          title: "Resist the urge",
+          headerBackTitle: "Back",
+          headerBackButtonMenuEnabled: false,
+        }}
       />
       <Stack.Screen
         name="ShopPicker"
