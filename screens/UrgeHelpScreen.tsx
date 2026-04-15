@@ -131,7 +131,7 @@ export default function UrgeHelpScreen() {
       setSavingAction(true);
       await updateLogSelectedAction(logId, actionId);
       setSelectedActionId(actionId);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } finally {
       setSavingAction(false);
     }
@@ -196,7 +196,9 @@ export default function UrgeHelpScreen() {
         ) : (
           <View className="mt-3 flex-row flex-wrap gap-2">
             <Pressable
-              onPress={() => onChooseAction(null)}
+              onPress={() => {
+                onChooseAction(null);
+              }}
               disabled={savingAction}
               className={`rounded-full border px-4 py-2 ${
                 selectedActionId == null
@@ -218,7 +220,9 @@ export default function UrgeHelpScreen() {
               return (
                 <Pressable
                   key={action.id}
-                  onPress={() => onChooseAction(action.id)}
+                  onPress={() => {
+                    onChooseAction(action.id);
+                  }}
                   disabled={savingAction}
                   className={`rounded-full border px-4 py-2 ${
                     isSelected
