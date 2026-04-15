@@ -12,28 +12,10 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 type HelpRoute = RouteProp<RootStackParamList, "UrgeHelp">;
 
 type Step =
-  | {
-      kind: "decision";
-      title: string;
-      body: string;
-    }
-  | {
-      kind: "info";
-      title: string;
-      body: string;
-      tip?: string;
-    }
-  | {
-      kind: "action";
-      title: string;
-      body: string;
-      tip?: string;
-    }
-  | {
-      kind: "done";
-      title: string;
-      body: string;
-    };
+  | { kind: "decision"; title: string; body: string }
+  | { kind: "info"; title: string; body: string; tip?: string }
+  | { kind: "action"; title: string; body: string; tip?: string }
+  | { kind: "done"; title: string; body: string };
 
 const helpSteps: Step[] = [
   {
@@ -135,10 +117,7 @@ export default function UrgeHelpScreen() {
       body: "The goal was not to feel perfect. The goal was to slow down, create distance, and give yourself a better next move.",
     };
 
-    if (stepIndex < helpSteps.length) {
-      return helpSteps[stepIndex];
-    }
-
+    if (stepIndex < helpSteps.length) return helpSteps[stepIndex];
     return doneStep;
   }, [mode, stepIndex]);
 
@@ -173,12 +152,10 @@ export default function UrgeHelpScreen() {
       setStepIndex((v) => v + 1);
       return;
     }
-
     if (currentStep.kind === "done") {
       goBackToLog();
       return;
     }
-
     setStepIndex((v) => v + 1);
   };
 
@@ -206,9 +183,9 @@ export default function UrgeHelpScreen() {
 
             <Pressable
               onPress={goToShop}
-              className="mt-4 w-full rounded-2xl border border-green-600 bg-white px-5 py-4"
+              className="mt-4 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4"
             >
-              <Text className="text-center text-base font-bold text-green-600">
+              <Text className="text-center text-base font-bold text-gray-900">
                 Go to Shop
               </Text>
             </Pressable>
