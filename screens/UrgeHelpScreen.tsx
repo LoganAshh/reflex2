@@ -16,62 +16,93 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 type HelpRoute = RouteProp<RootStackParamList, "UrgeHelp">;
 
 type Step =
-  | { kind: "decision"; title: string; body: string }
-  | { kind: "info"; title: string; body: string; tip?: string }
-  | { kind: "action"; title: string; body: string; tip?: string }
-  | { kind: "done"; title: string; body: string };
+  | {
+      kind: "decision";
+      title: string;
+      body: string;
+      icon: keyof typeof Ionicons.glyphMap;
+    }
+  | {
+      kind: "info";
+      title: string;
+      body: string;
+      tip?: string;
+      icon: keyof typeof Ionicons.glyphMap;
+    }
+  | {
+      kind: "action";
+      title: string;
+      body: string;
+      tip?: string;
+      icon: keyof typeof Ionicons.glyphMap;
+    }
+  | {
+      kind: "done";
+      title: string;
+      body: string;
+      icon: keyof typeof Ionicons.glyphMap;
+    };
 
 const helpSteps: Step[] = [
   {
     kind: "info",
     title: "Catch it fast",
     body: "The moment you notice the urge, say to yourself: “This is an urge, not a command.”",
+    icon: "eye",
   },
   {
     kind: "info",
     title: "Pause for 60 seconds",
     body: "Do not immediately act. Buy a little space first.",
+    icon: "pause-circle",
   },
   {
     kind: "info",
     title: "Change your environment",
     body: "Put distance between yourself and the habit.",
     tip: "Stand up, leave the room, put your phone away, move the object out of reach, or go where other people are.",
+    icon: "walk",
   },
   {
     kind: "info",
     title: "Take 10 slow breaths",
     body: "In through your nose, out slowly.",
     tip: "The goal is to lower the intensity, not make it vanish instantly.",
+    icon: "leaf",
   },
   {
     kind: "info",
     title: "Delay the habit",
     body: "Tell yourself: “I can do it later, but not for the next 10 minutes.”",
     tip: "Urges usually rise and fall like a wave.",
+    icon: "time",
   },
   {
     kind: "info",
     title: "Name what triggered it",
     body: "Ask yourself what happened right before this.",
     tip: "Am I stressed, bored, lonely, tired, or anxious? What am I actually wanting right now?",
+    icon: "search",
   },
   {
     kind: "action",
     title: "Do a replacement action immediately",
     body: "Pick one action that is easy and short.",
+    icon: "flash",
   },
   {
     kind: "info",
     title: "Make the bad habit harder",
     body: "Add friction before you act.",
     tip: "Log out, block the app or site, put it in another room, give the item to someone else, or turn off Wi-Fi or data for a bit.",
+    icon: "lock-closed",
   },
   {
     kind: "info",
     title: "Wait for the urge to pass",
     body: "Don’t fight it dramatically. Just observe it.",
     tip: "Think: “This will peak, then drop.”",
+    icon: "water",
   },
 ];
 
@@ -123,6 +154,7 @@ export default function UrgeHelpScreen() {
         kind: "decision",
         title: "Nice job logging",
         body: "You paused and checked in instead of staying on autopilot. What do you want to do next?",
+        icon: "checkmark-circle",
       };
     }
 
@@ -130,6 +162,7 @@ export default function UrgeHelpScreen() {
       kind: "done",
       title: "You made space",
       body: "The goal was not to feel perfect. The goal was to slow down, create distance, and give yourself a better next move.",
+      icon: "shield-checkmark",
     };
 
     if (stepIndex < helpSteps.length) return helpSteps[stepIndex];
@@ -320,15 +353,7 @@ export default function UrgeHelpScreen() {
       >
         <View className="items-center px-2">
           <Ionicons
-            name={
-              currentStep.kind === "decision"
-                ? "checkmark-circle"
-                : currentStep.kind === "action"
-                  ? "flash"
-                  : currentStep.kind === "done"
-                    ? "shield-checkmark"
-                    : "leaf"
-            }
+            name={currentStep.icon}
             size={64}
             color="#16A34A"
             style={{ marginBottom: 20 }}
