@@ -286,7 +286,7 @@ export default function UrgeHelpScreen() {
 
   const primaryLabel =
     currentStep.kind === "done"
-      ? "Back to Log"
+      ? "Complete Log"
       : currentStep.kind === "action"
         ? "Continue"
         : "Next";
