@@ -56,7 +56,6 @@ const helpSteps: Step[] = [
     kind: "action",
     title: "Do a replacement action immediately",
     body: "Pick one action that is easy and short.",
-    tip: "Choose one of your selected replacement actions below.",
   },
   {
     kind: "info",
