@@ -153,8 +153,8 @@ export default function UrgeHelpScreen() {
     }
   };
 
-  const goHome = () => {
-    navigation.popToTop();
+  const goBackToLog = () => {
+    navigation.goBack();
   };
 
   const onPrimary = async () => {
@@ -164,7 +164,7 @@ export default function UrgeHelpScreen() {
     }
 
     if (currentStep.kind === "done") {
-      goHome();
+      goBackToLog();
       return;
     }
 
@@ -253,7 +253,7 @@ export default function UrgeHelpScreen() {
 
   const primaryLabel =
     currentStep.kind === "done"
-      ? "Back to Home"
+      ? "Back to Log"
       : currentStep.kind === "action"
         ? "Continue"
         : "Next";
@@ -323,34 +323,32 @@ export default function UrgeHelpScreen() {
 
       {mode === "decision" ? (
         <View className="mb-10 pb-8 pt-4">
-          <View className="flex-row items-center gap-3">
-            <Pressable
-              onPress={() => {
-                Haptics.notificationAsync(
-                  Haptics.NotificationFeedbackType.Success,
-                );
-                goHome();
-              }}
-              className="flex-1 rounded-2xl border border-gray-200 bg-white px-5 py-4"
-            >
-              <Text className="text-center text-lg font-bold text-gray-900">
-                Not now
-              </Text>
-            </Pressable>
+          <Pressable
+            onPress={() => {
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success,
+              );
+              goBackToLog();
+            }}
+            className="w-full rounded-2xl bg-green-600 px-5 py-4"
+          >
+            <Text className="text-center text-lg font-bold text-white">
+              Complete Log
+            </Text>
+          </Pressable>
 
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setMode("guided");
-                setStepIndex(0);
-              }}
-              className="flex-1 rounded-2xl bg-green-600 px-5 py-4"
-            >
-              <Text className="text-center text-lg font-bold text-white">
-                Help me resist
-              </Text>
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setMode("guided");
+              setStepIndex(0);
+            }}
+            className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4"
+          >
+            <Text className="text-center text-lg font-bold text-gray-900">
+              Help me resist
+            </Text>
+          </Pressable>
         </View>
       ) : (
         <View className="mb-10 pb-8 pt-4">
