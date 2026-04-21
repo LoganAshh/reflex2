@@ -18,6 +18,7 @@ import type {
   ReplacementAction,
   AddLogInput,
   AddActionInput,
+  UpdateLogInput,
   DataContextType,
   DataProviderProps,
 } from "./types";
@@ -45,6 +46,8 @@ import {
   insertCustomCue,
   insertCustomLocation,
   insertLog,
+  updateLogInDb,
+  deleteLogInDb,
   updateLogSelectedActionInDb,
   insertAction,
   selectedActionExists,
@@ -76,6 +79,7 @@ export type {
   ReplacementAction,
   AddLogInput,
   AddActionInput,
+  UpdateLogInput,
   DataContextType,
 } from "./types";
 
@@ -83,7 +87,7 @@ const DataContext = createContext<DataContextType | null>(null);
 
 async function resetDbForDev() {
   const savedPhoto = await loadProfilePhotoUri();
-  await deleteManagedProfilePhoto(savedPhoto);
+  await deleteManagedProfilePhoto(savedPhoto ?? "");
 
   await dropAllDataTables();
   await initDb();
@@ -165,10 +169,11 @@ export function DataProvider({ children }: DataProviderProps) {
             loadProfileDoneFlag(),
           ]);
 
-        const savedProfilePhoto =
-          await normalizeStoredProfilePhotoUri(rawSavedProfilePhoto);
+        const savedProfilePhoto = await normalizeStoredProfilePhotoUri(
+          rawSavedProfilePhoto ?? "",
+        );
 
-        if (savedProfilePhoto !== rawSavedProfilePhoto.trim()) {
+        if (savedProfilePhoto !== (rawSavedProfilePhoto ?? "").trim()) {
           await saveProfilePhotoUri(savedProfilePhoto);
           if (!savedProfilePhoto) {
             await saveProfileDoneFlag(false);
@@ -219,7 +224,10 @@ export function DataProvider({ children }: DataProviderProps) {
     photoUri,
   ) => {
     const cleanName = name.trim();
-    const cleanPhoto = (photoUri ?? "").trim();
+    const normalizedPhoto = await normalizeStoredProfilePhotoUri(
+      photoUri ?? "",
+    );
+    const cleanPhoto = normalizedPhoto.trim();
 
     if (!cleanName || !cleanPhoto) {
       throw new Error("Name and profile photo are required.");
@@ -238,7 +246,7 @@ export function DataProvider({ children }: DataProviderProps) {
     ]);
 
     setProfileName(cleanName);
-    setProfilePhotoUri(cleanPhoto);
+    setProfilePhotoUri(cleanPhoto || null);
     setHasCompletedLocalProfile(true);
   };
 
@@ -407,6 +415,47 @@ export function DataProvider({ children }: DataProviderProps) {
     return newLogId > 0 ? newLogId : null;
   };
 
+  const updateLog: DataContextType["updateLog"] = async (logId, input) => {
+    if (!Number.isFinite(logId)) return;
+    if (!Number.isFinite(input.habitId)) return;
+    if (!Number.isFinite(input.createdAt)) return;
+
+    const intensityIn = input.intensity ?? null;
+    const intensity: number | null =
+      intensityIn == null
+        ? null
+        : Math.min(10, Math.max(1, Math.round(intensityIn)));
+
+    const countIn = input.count ?? 1;
+    const count = Math.min(10, Math.max(0, Math.round(countIn)));
+
+    const selectedActionId =
+      input.selectedActionId == null || !Number.isFinite(input.selectedActionId)
+        ? null
+        : input.selectedActionId;
+
+    await updateLogInDb({
+      logId,
+      habitId: input.habitId,
+      cueId: input.cueId ?? null,
+      locationId: input.locationId ?? null,
+      intensity,
+      count,
+      didResist: input.didResist ? 1 : 0,
+      notes: input.notes?.trim() ?? null,
+      createdAt: Math.round(input.createdAt),
+      selectedActionId,
+    });
+
+    setLogs(await loadLogs());
+  };
+
+  const deleteLog: DataContextType["deleteLog"] = async (logId) => {
+    if (!Number.isFinite(logId)) return;
+    await deleteLogInDb(logId);
+    setLogs(await loadLogs());
+  };
+
   const updateLogSelectedAction: DataContextType["updateLogSelectedAction"] =
     async (logId, selectedActionId) => {
       if (!Number.isFinite(logId)) return;
@@ -509,8 +558,8 @@ export function DataProvider({ children }: DataProviderProps) {
   };
 
   const resetAll: DataContextType["resetAll"] = async () => {
-    const savedPhoto =
-      (profilePhotoUri ?? "").trim() || (await loadProfilePhotoUri());
+    const storedPhoto = await loadProfilePhotoUri();
+    const savedPhoto = ((profilePhotoUri ?? "").trim() || storedPhoto) ?? "";
     await deleteManagedProfilePhoto(savedPhoto);
 
     await dropAllDataTables();
@@ -560,6 +609,8 @@ export function DataProvider({ children }: DataProviderProps) {
       addCustomLocation,
       logs,
       addLog,
+      updateLog,
+      deleteLog,
       updateLogSelectedAction,
       actions,
       addAction,

@@ -1,5 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, ScrollView, Pressable, Modal } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Modal,
+  TextInput,
+  Alert,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useData, type LogEntry } from "../data/DataContext";
 
 function startOfWeekMs(d: Date) {
@@ -45,6 +54,94 @@ function percent(part: number, total: number) {
   return Math.round((part / total) * 100);
 }
 
+function formatAvg(n: number | null) {
+  if (n == null || Number.isNaN(n)) return "—";
+  return n.toFixed(1);
+}
+
+function monthInputValue(ms: number) {
+  return String(new Date(ms).getMonth() + 1);
+}
+
+function dayInputValue(ms: number) {
+  return String(new Date(ms).getDate());
+}
+
+function yearInputValue(ms: number) {
+  return String(new Date(ms).getFullYear());
+}
+
+function hour12InputValue(ms: number) {
+  const hour = new Date(ms).getHours();
+  const h12 = hour % 12 || 12;
+  return String(h12);
+}
+
+function minuteInputValue(ms: number) {
+  return String(new Date(ms).getMinutes()).padStart(2, "0");
+}
+
+function ampmValue(ms: number) {
+  return new Date(ms).getHours() >= 12 ? "PM" : "AM";
+}
+
+function buildTimestampFromInputs(params: {
+  monthText: string;
+  dayText: string;
+  yearText: string;
+  hourText: string;
+  minuteText: string;
+  ampm: "AM" | "PM";
+}) {
+  const month = Number(params.monthText);
+  const day = Number(params.dayText);
+  const year = Number(params.yearText);
+  const hour12 = Number(params.hourText);
+  const minute = Number(params.minuteText);
+
+  if (
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    !Number.isInteger(year) ||
+    !Number.isInteger(hour12) ||
+    !Number.isInteger(minute)
+  ) {
+    return null;
+  }
+
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    year < 2000 ||
+    year > 2100 ||
+    hour12 < 1 ||
+    hour12 > 12 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return null;
+  }
+
+  let hour24 = hour12 % 12;
+  if (params.ampm === "PM") hour24 += 12;
+
+  const candidate = new Date(year, month - 1, day, hour24, minute, 0, 0);
+
+  if (
+    candidate.getFullYear() !== year ||
+    candidate.getMonth() !== month - 1 ||
+    candidate.getDate() !== day ||
+    candidate.getHours() !== hour24 ||
+    candidate.getMinutes() !== minute
+  ) {
+    return null;
+  }
+
+  return candidate.getTime();
+}
+
 type TabKey = "Overall" | string;
 
 type CalendarCell = {
@@ -75,18 +172,109 @@ function textColorForCount(count: number) {
   return count <= 3 ? "text-white" : "text-gray-400";
 }
 
-function formatAvg(n: number | null) {
-  if (n == null || Number.isNaN(n)) return "—";
-  return n.toFixed(1);
+function ChipGroup({
+  title,
+  options,
+  selectedId,
+  onSelect,
+  noneLabel = "None",
+}: {
+  title: string;
+  options: { id: number; label: string }[];
+  selectedId: number | null;
+  onSelect: (id: number | null) => void;
+  noneLabel?: string;
+}) {
+  return (
+    <View className="mt-4">
+      <Text className="text-sm font-semibold text-gray-900">{title}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="mt-2"
+      >
+        <View className="flex-row gap-2 pr-6">
+          <Pressable
+            onPress={() => onSelect(null)}
+            className={`rounded-full border px-4 py-2 ${
+              selectedId == null
+                ? "border-gray-900 bg-gray-900"
+                : "border-gray-200 bg-white"
+            }`}
+          >
+            <Text
+              className={`text-sm font-semibold ${
+                selectedId == null ? "text-white" : "text-gray-900"
+              }`}
+            >
+              {noneLabel}
+            </Text>
+          </Pressable>
+
+          {options.map((item) => {
+            const selected = selectedId === item.id;
+            return (
+              <Pressable
+                key={item.id}
+                onPress={() => onSelect(item.id)}
+                className={`rounded-full border px-4 py-2 ${
+                  selected
+                    ? "border-gray-900 bg-gray-900"
+                    : "border-gray-200 bg-white"
+                }`}
+              >
+                <Text
+                  className={`text-sm font-semibold ${
+                    selected ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </View>
+  );
 }
 
 export default function AnalyticsScreen() {
-  const { logs } = useData();
+  const {
+    logs,
+    habits,
+    cues,
+    locations,
+    actions,
+    selectedActionIds,
+    updateLog,
+    deleteLog,
+  } = useData();
+
   const [activeTab, setActiveTab] = useState<TabKey>("Overall");
   const [monthOffset, setMonthOffset] = useState(0);
 
   const [dayModalOpen, setDayModalOpen] = useState(false);
   const [selectedDayMs, setSelectedDayMs] = useState<number | null>(null);
+
+  const [editingLog, setEditingLog] = useState<LogEntry | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
+  const [habitId, setHabitId] = useState<number | null>(null);
+  const [cueId, setCueId] = useState<number | null>(null);
+  const [locationId, setLocationId] = useState<number | null>(null);
+  const [selectedActionId, setSelectedActionId] = useState<number | null>(null);
+  const [didResist, setDidResist] = useState<0 | 1>(0);
+  const [intensityText, setIntensityText] = useState("");
+  const [countText, setCountText] = useState("1");
+  const [notesText, setNotesText] = useState("");
+  const [monthText, setMonthText] = useState("");
+  const [dayText, setDayText] = useState("");
+  const [yearText, setYearText] = useState("");
+  const [hourText, setHourText] = useState("");
+  const [minuteText, setMinuteText] = useState("");
+  const [ampm, setAmpm] = useState<"AM" | "PM">("AM");
+  const [editError, setEditError] = useState("");
 
   const todayStartMs = useMemo(() => startOfDayMs(Date.now()), []);
   const hasAnyLogs = logs.length > 0;
@@ -99,6 +287,26 @@ export default function AnalyticsScreen() {
     }
     return startOfDayMs(min);
   }, [logs, todayStartMs]);
+
+  const selectedActions = useMemo(() => {
+    const selectedSet = new Set(selectedActionIds);
+    return actions
+      .filter((a) => selectedSet.has(a.id))
+      .map((a) => ({ id: a.id, label: a.title }));
+  }, [actions, selectedActionIds]);
+
+  const habitOptions = useMemo(
+    () => habits.map((h) => ({ id: h.id, label: h.name })),
+    [habits],
+  );
+  const cueOptions = useMemo(
+    () => cues.map((c) => ({ id: c.id, label: c.name })),
+    [cues],
+  );
+  const locationOptions = useMemo(
+    () => locations.map((l) => ({ id: l.id, label: l.name })),
+    [locations],
+  );
 
   const habitTabs = useMemo(() => {
     const counts = new Map<string, number>();
@@ -241,6 +449,110 @@ export default function AnalyticsScreen() {
   const openDayModal = (dayStartMs: number) => {
     setSelectedDayMs(dayStartMs);
     setDayModalOpen(true);
+  };
+
+  const openEditModal = (log: LogEntry) => {
+    setDayModalOpen(false);
+
+    setTimeout(() => {
+      setEditingLog(log);
+      setHabitId(log.habitId);
+      setCueId(log.cueId ?? null);
+      setLocationId(log.locationId ?? null);
+      setSelectedActionId(log.selectedActionId ?? null);
+      setDidResist(log.didResist);
+      setIntensityText(log.intensity == null ? "" : String(log.intensity));
+      setCountText(String(log.count));
+      setNotesText(log.notes ?? "");
+      setMonthText(monthInputValue(log.createdAt));
+      setDayText(dayInputValue(log.createdAt));
+      setYearText(yearInputValue(log.createdAt));
+      setHourText(hour12InputValue(log.createdAt));
+      setMinuteText(minuteInputValue(log.createdAt));
+      setAmpm(ampmValue(log.createdAt));
+      setEditError("");
+      setEditModalOpen(true);
+    }, 150);
+  };
+
+  const closeEditModal = () => {
+    setEditModalOpen(false);
+    setEditingLog(null);
+    setEditError("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingLog || habitId == null) {
+      setEditError("Pick a habit.");
+      return;
+    }
+
+    const nextCreatedAt = buildTimestampFromInputs({
+      monthText,
+      dayText,
+      yearText,
+      hourText,
+      minuteText,
+      ampm,
+    });
+
+    if (nextCreatedAt == null) {
+      setEditError("Enter a valid date and time.");
+      return;
+    }
+
+    const intensityTrim = intensityText.trim();
+    const intensity =
+      intensityTrim === ""
+        ? null
+        : Math.min(10, Math.max(1, Math.round(Number(intensityTrim))));
+
+    if (
+      intensityTrim !== "" &&
+      (!Number.isFinite(Number(intensityTrim)) ||
+        Number(intensityTrim) < 1 ||
+        Number(intensityTrim) > 10)
+    ) {
+      setEditError("Intensity must be 1 to 10, or blank.");
+      return;
+    }
+
+    const countNum = Math.round(Number(countText.trim()));
+    if (!Number.isFinite(countNum) || countNum < 0 || countNum > 10) {
+      setEditError("Count must be between 0 and 10.");
+      return;
+    }
+
+    await updateLog(editingLog.id, {
+      habitId,
+      cueId,
+      locationId,
+      intensity,
+      count: countNum,
+      didResist: didResist === 1,
+      notes: notesText,
+      selectedActionId,
+      createdAt: nextCreatedAt,
+    });
+
+    closeEditModal();
+  };
+
+  const handleDeleteLog = () => {
+    if (!editingLog) return;
+
+    Alert.alert("Delete log?", "This will permanently delete this log.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          const id = editingLog.id;
+          closeEditModal();
+          await deleteLog(id);
+        },
+      },
+    ]);
   };
 
   const data = useMemo(() => {
@@ -494,26 +806,38 @@ export default function AnalyticsScreen() {
         key={String(item.id)}
         className="mb-3 rounded-2xl border border-gray-200 bg-white p-4"
       >
-        <View className="flex-row items-center justify-between">
-          <Text className="text-xs font-semibold text-gray-500">{t}</Text>
-          <View
-            className={`rounded-full px-2 py-1 ${
-              win ? "bg-emerald-50" : "bg-gray-50"
-            }`}
-          >
-            <Text
-              className={`text-[11px] font-semibold ${
-                win ? "text-emerald-700" : "text-gray-700"
-              }`}
-            >
-              {win ? "Resisted" : "Gave in"}
+        <View className="flex-row items-start justify-between">
+          <View>
+            <Text className="text-xs font-semibold text-gray-500">{t}</Text>
+            <Text className="mt-2 text-base font-bold text-gray-900">
+              {item.habitName}
             </Text>
           </View>
-        </View>
 
-        <Text className="mt-2 text-base font-bold text-gray-900">
-          {item.habitName}
-        </Text>
+          <View className="flex-row items-center gap-2">
+            <View
+              className={`rounded-full px-2 py-1 ${
+                win ? "bg-emerald-50" : "bg-gray-50"
+              }`}
+            >
+              <Text
+                className={`text-[11px] font-semibold ${
+                  win ? "text-emerald-700" : "text-gray-700"
+                }`}
+              >
+                {win ? "Resisted" : "Gave in"}
+              </Text>
+            </View>
+
+            <Pressable
+              onPress={() => openEditModal(item)}
+              className="h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white"
+              hitSlop={10}
+            >
+              <Ionicons name="create-outline" size={18} color="#111827" />
+            </Pressable>
+          </View>
+        </View>
 
         <View className="mt-2">
           {item.cueName ? (
@@ -978,6 +1302,269 @@ export default function AnalyticsScreen() {
                 Close
               </Text>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={editModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={closeEditModal}
+      >
+        <View className="flex-1 bg-black/40">
+          <View className="mt-16 flex-1 rounded-t-3xl bg-white px-5 pt-5">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-xl font-bold text-gray-900">Edit log</Text>
+              <Pressable
+                onPress={closeEditModal}
+                className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+              >
+                <Text className="text-lg font-bold text-gray-900">✕</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              className="mt-4"
+              contentContainerStyle={{ paddingBottom: 28 }}
+              showsVerticalScrollIndicator={false}
+            >
+              <ChipGroup
+                title="Habit"
+                options={habitOptions}
+                selectedId={habitId}
+                onSelect={(id) => setHabitId(id)}
+                noneLabel="None"
+              />
+
+              <ChipGroup
+                title="Cue"
+                options={cueOptions}
+                selectedId={cueId}
+                onSelect={(id) => setCueId(id)}
+              />
+
+              <ChipGroup
+                title="Location"
+                options={locationOptions}
+                selectedId={locationId}
+                onSelect={(id) => setLocationId(id)}
+              />
+
+              <ChipGroup
+                title="Replacement Action"
+                options={selectedActions}
+                selectedId={selectedActionId}
+                onSelect={(id) => setSelectedActionId(id)}
+              />
+
+              <View className="mt-4">
+                <Text className="text-sm font-semibold text-gray-900">
+                  Outcome
+                </Text>
+                <View className="mt-2 flex-row gap-2">
+                  <Pressable
+                    onPress={() => setDidResist(0)}
+                    className={`flex-1 rounded-2xl border px-4 py-3 ${
+                      didResist === 0
+                        ? "border-gray-900 bg-gray-900"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text
+                      className={`text-center text-sm font-semibold ${
+                        didResist === 0 ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      Gave in
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setDidResist(1)}
+                    className={`flex-1 rounded-2xl border px-4 py-3 ${
+                      didResist === 1
+                        ? "border-gray-900 bg-gray-900"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text
+                      className={`text-center text-sm font-semibold ${
+                        didResist === 1 ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      Resisted
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View className="mt-4 flex-row gap-3">
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-gray-900">
+                    Intensity
+                  </Text>
+                  <TextInput
+                    value={intensityText}
+                    onChangeText={setIntensityText}
+                    keyboardType="number-pad"
+                    placeholder="1-10 or blank"
+                    className="mt-2 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-gray-900">
+                    Count
+                  </Text>
+                  <TextInput
+                    value={countText}
+                    onChangeText={setCountText}
+                    keyboardType="number-pad"
+                    placeholder="0-10"
+                    className="mt-2 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+              </View>
+
+              <View className="mt-4">
+                <Text className="text-sm font-semibold text-gray-900">
+                  Date
+                </Text>
+                <View className="mt-2 flex-row gap-2">
+                  <TextInput
+                    value={monthText}
+                    onChangeText={setMonthText}
+                    keyboardType="number-pad"
+                    placeholder="MM"
+                    className="flex-1 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  <TextInput
+                    value={dayText}
+                    onChangeText={setDayText}
+                    keyboardType="number-pad"
+                    placeholder="DD"
+                    className="flex-1 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  <TextInput
+                    value={yearText}
+                    onChangeText={setYearText}
+                    keyboardType="number-pad"
+                    placeholder="YYYY"
+                    className="flex-[1.4] rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+              </View>
+
+              <View className="mt-4">
+                <Text className="text-sm font-semibold text-gray-900">
+                  Time
+                </Text>
+                <View className="mt-2 flex-row gap-2">
+                  <TextInput
+                    value={hourText}
+                    onChangeText={setHourText}
+                    keyboardType="number-pad"
+                    placeholder="HH"
+                    className="flex-1 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  <TextInput
+                    value={minuteText}
+                    onChangeText={setMinuteText}
+                    keyboardType="number-pad"
+                    placeholder="MM"
+                    className="flex-1 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  <Pressable
+                    onPress={() => setAmpm("AM")}
+                    className={`flex-1 rounded-2xl border px-4 py-3 ${
+                      ampm === "AM"
+                        ? "border-gray-900 bg-gray-900"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text
+                      className={`text-center text-sm font-semibold ${
+                        ampm === "AM" ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      AM
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setAmpm("PM")}
+                    className={`flex-1 rounded-2xl border px-4 py-3 ${
+                      ampm === "PM"
+                        ? "border-gray-900 bg-gray-900"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text
+                      className={`text-center text-sm font-semibold ${
+                        ampm === "PM" ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      PM
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View className="mt-4">
+                <Text className="text-sm font-semibold text-gray-900">
+                  Notes
+                </Text>
+                <TextInput
+                  value={notesText}
+                  onChangeText={setNotesText}
+                  multiline
+                  placeholder="Optional"
+                  className="mt-2 min-h-[110px] rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
+                  placeholderTextColor="#9CA3AF"
+                  textAlignVertical="top"
+                />
+              </View>
+
+              {editError ? (
+                <Text className="mt-4 text-sm font-semibold text-red-600">
+                  {editError}
+                </Text>
+              ) : null}
+
+              <Pressable
+                onPress={handleSaveEdit}
+                className="mt-5 rounded-2xl bg-green-600 py-4"
+              >
+                <Text className="text-center text-base font-bold text-white">
+                  Save Changes
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleDeleteLog}
+                className="mt-3 rounded-2xl border border-red-200 bg-red-50 py-4"
+              >
+                <Text className="text-center text-base font-bold text-red-700">
+                  Delete Log
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={closeEditModal}
+                className="mt-3 rounded-2xl border border-gray-200 bg-white py-4"
+              >
+                <Text className="text-center text-base font-bold text-gray-900">
+                  Cancel
+                </Text>
+              </Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>

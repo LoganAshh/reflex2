@@ -43,6 +43,18 @@ export type AddLogInput = {
   selectedActionId?: number | null;
 };
 
+export type UpdateLogInput = {
+  habitId: number;
+  cueId?: number | null;
+  locationId?: number | null;
+  intensity?: number | null;
+  count?: number;
+  didResist?: boolean;
+  notes?: string;
+  selectedActionId?: number | null;
+  createdAt: number;
+};
+
 export type AddActionInput = {
   title: string;
   category?: string;
@@ -83,6 +95,8 @@ export type DataContextType = {
 
   logs: LogEntry[];
   addLog: (input: AddLogInput) => Promise<number | null>;
+  updateLog: (logId: number, input: UpdateLogInput) => Promise<void>;
+  deleteLog: (logId: number) => Promise<void>;
   updateLogSelectedAction: (
     logId: number,
     selectedActionId: number | null,
