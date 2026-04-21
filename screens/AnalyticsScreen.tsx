@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,10 @@ import {
   Modal,
   TextInput,
   Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useData, type LogEntry } from "../data/DataContext";
@@ -153,6 +157,15 @@ type CalendarCell = {
   isInactive: boolean;
 };
 
+type ChipItem = {
+  key: string;
+  label: string;
+  id: number | null;
+  kind: "value" | "none";
+};
+
+type BaseItem = { id: number; name: string };
+
 const GREEN_SCALE = [
   "bg-green-600",
   "bg-green-500",
@@ -172,70 +185,230 @@ function textColorForCount(count: number) {
   return count <= 3 ? "text-white" : "text-gray-400";
 }
 
-function ChipGroup({
+function ChipRow<T extends BaseItem>({
   title,
-  options,
+  items,
   selectedId,
   onSelect,
-  noneLabel = "None",
+  allowNone = true,
+  listRef,
 }: {
   title: string;
-  options: { id: number; label: string }[];
+  items: T[];
   selectedId: number | null;
   onSelect: (id: number | null) => void;
-  noneLabel?: string;
+  allowNone?: boolean;
+  listRef: React.RefObject<FlatList<ChipItem> | null>;
 }) {
+  const data: ChipItem[] = [
+    ...(allowNone
+      ? [{ key: "none", label: "None", id: null, kind: "none" as const }]
+      : []),
+    ...items.map((x) => ({
+      key: `v-${x.id}`,
+      label: x.name,
+      id: x.id,
+      kind: "value" as const,
+    })),
+  ];
+
   return (
-    <View className="mt-4">
+    <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
       <Text className="text-sm font-semibold text-gray-900">{title}</Text>
-      <ScrollView
+
+      <FlatList
+        ref={listRef}
+        className="mt-2"
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="mt-2"
-      >
-        <View className="flex-row gap-2 pr-6">
-          <Pressable
-            onPress={() => onSelect(null)}
-            className={`rounded-full border px-4 py-2 ${
-              selectedId == null
-                ? "border-gray-900 bg-gray-900"
-                : "border-gray-200 bg-white"
-            }`}
-          >
-            <Text
-              className={`text-sm font-semibold ${
-                selectedId == null ? "text-white" : "text-gray-900"
+        data={data}
+        keyExtractor={(x) => x.key}
+        keyboardShouldPersistTaps="handled"
+        renderItem={({ item }) => {
+          const isSelected =
+            item.kind === "none" ? selectedId == null : item.id === selectedId;
+
+          return (
+            <Pressable
+              onPress={() => onSelect(item.id)}
+              className={`mr-2 rounded-full border px-4 py-2 ${
+                isSelected
+                  ? "border-green-600 bg-green-600"
+                  : "border-gray-200 bg-white"
               }`}
             >
-              {noneLabel}
-            </Text>
-          </Pressable>
-
-          {options.map((item) => {
-            const selected = selectedId === item.id;
-            return (
-              <Pressable
-                key={item.id}
-                onPress={() => onSelect(item.id)}
-                className={`rounded-full border px-4 py-2 ${
-                  selected
-                    ? "border-gray-900 bg-gray-900"
-                    : "border-gray-200 bg-white"
+              <Text
+                className={`text-sm font-semibold ${
+                  isSelected ? "text-white" : "text-gray-900"
                 }`}
+                numberOfLines={1}
               >
-                <Text
-                  className={`text-sm font-semibold ${
-                    selected ? "text-white" : "text-gray-900"
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        }}
+        extraData={selectedId}
+      />
+    </View>
+  );
+}
+
+function IntensityPickerModal({
+  visible,
+  value,
+  onPick,
+  onClear,
+  onClose,
+}: {
+  visible: boolean;
+  value: number | null;
+  onPick: (n: number) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const options = useMemo(
+    () => Array.from({ length: 10 }, (_, i) => i + 1),
+    [],
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable
+        className="flex-1 items-center justify-center bg-black/40 px-6"
+        onPress={onClose}
+      >
+        <Pressable
+          className="w-full rounded-2xl bg-white p-4"
+          onPress={() => {}}
+        >
+          <Text className="text-base font-bold text-gray-900">
+            Pick intensity
+          </Text>
+          <Text className="mt-1 text-xs text-gray-500">
+            1 (low) → 10 (high)
+          </Text>
+
+          <View className="mt-4 flex-row flex-wrap">
+            {options.map((n) => {
+              const selected = value === n;
+              return (
+                <Pressable
+                  key={n}
+                  onPress={() => onPick(n)}
+                  className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                    selected
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
                   }`}
                 >
-                  {item.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </ScrollView>
-    </View>
+                  <Text
+                    className={`text-sm font-semibold ${
+                      selected ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    {n}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View className="mt-2 flex-row justify-between">
+            <Pressable
+              onPress={onClear}
+              className="rounded-xl border border-gray-200 bg-white px-4 py-3"
+            >
+              <Text className="text-sm font-semibold text-gray-900">
+                Set None
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={onClose}
+              className="rounded-xl bg-gray-900 px-4 py-3"
+            >
+              <Text className="text-sm font-semibold text-white">Done</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function CountPickerModal({
+  visible,
+  value,
+  onPick,
+  onClose,
+}: {
+  visible: boolean;
+  value: number;
+  onPick: (n: number) => void;
+  onClose: () => void;
+}) {
+  const options = useMemo(() => Array.from({ length: 11 }, (_, i) => i), []);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable
+        className="flex-1 items-center justify-center bg-black/40 px-6"
+        onPress={onClose}
+      >
+        <Pressable
+          className="w-full rounded-2xl bg-white p-4"
+          onPress={() => {}}
+        >
+          <Text className="text-base font-bold text-gray-900">Pick count</Text>
+          <Text className="mt-1 text-xs text-gray-500">0 → 10</Text>
+
+          <View className="mt-4 flex-row flex-wrap">
+            {options.map((n) => {
+              const selected = value === n;
+              return (
+                <Pressable
+                  key={n}
+                  onPress={() => onPick(n)}
+                  className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                    selected
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-semibold ${
+                      selected ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    {n}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View className="mt-2 items-end">
+            <Pressable
+              onPress={onClose}
+              className="rounded-xl bg-gray-900 px-4 py-3"
+            >
+              <Text className="text-sm font-semibold text-white">Done</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -265,8 +438,8 @@ export default function AnalyticsScreen() {
   const [locationId, setLocationId] = useState<number | null>(null);
   const [selectedActionId, setSelectedActionId] = useState<number | null>(null);
   const [didResist, setDidResist] = useState<0 | 1>(0);
-  const [intensityText, setIntensityText] = useState("");
-  const [countText, setCountText] = useState("1");
+  const [intensity, setIntensity] = useState<number | null>(null);
+  const [count, setCount] = useState(1);
   const [notesText, setNotesText] = useState("");
   const [monthText, setMonthText] = useState("");
   const [dayText, setDayText] = useState("");
@@ -275,6 +448,13 @@ export default function AnalyticsScreen() {
   const [minuteText, setMinuteText] = useState("");
   const [ampm, setAmpm] = useState<"AM" | "PM">("AM");
   const [editError, setEditError] = useState("");
+  const [showIntensityPicker, setShowIntensityPicker] = useState(false);
+  const [showCountPicker, setShowCountPicker] = useState(false);
+
+  const habitListRef = useRef<FlatList<ChipItem> | null>(null);
+  const cueListRef = useRef<FlatList<ChipItem> | null>(null);
+  const locationListRef = useRef<FlatList<ChipItem> | null>(null);
+  const actionListRef = useRef<FlatList<ChipItem> | null>(null);
 
   const todayStartMs = useMemo(() => startOfDayMs(Date.now()), []);
   const hasAnyLogs = logs.length > 0;
@@ -292,19 +472,19 @@ export default function AnalyticsScreen() {
     const selectedSet = new Set(selectedActionIds);
     return actions
       .filter((a) => selectedSet.has(a.id))
-      .map((a) => ({ id: a.id, label: a.title }));
+      .map((a) => ({ id: a.id, name: a.title }));
   }, [actions, selectedActionIds]);
 
   const habitOptions = useMemo(
-    () => habits.map((h) => ({ id: h.id, label: h.name })),
+    () => habits.map((h) => ({ id: h.id, name: h.name })),
     [habits],
   );
   const cueOptions = useMemo(
-    () => cues.map((c) => ({ id: c.id, label: c.name })),
+    () => cues.map((c) => ({ id: c.id, name: c.name })),
     [cues],
   );
   const locationOptions = useMemo(
-    () => locations.map((l) => ({ id: l.id, label: l.name })),
+    () => locations.map((l) => ({ id: l.id, name: l.name })),
     [locations],
   );
 
@@ -384,10 +564,8 @@ export default function AnalyticsScreen() {
 
       const isToday = k === todayKeyStr;
       const isFuture = dayStart > todayStartMs;
-
       const isBeforeInstall = dayStart < installDayStartMs;
       const treatTodayAsActiveOnFirstOpen = !hasAnyLogs && isToday;
-
       const isInactive =
         isFuture || (isBeforeInstall && !treatTodayAsActiveOnFirstOpen);
 
@@ -461,8 +639,8 @@ export default function AnalyticsScreen() {
       setLocationId(log.locationId ?? null);
       setSelectedActionId(log.selectedActionId ?? null);
       setDidResist(log.didResist);
-      setIntensityText(log.intensity == null ? "" : String(log.intensity));
-      setCountText(String(log.count));
+      setIntensity(log.intensity ?? null);
+      setCount(log.count);
       setNotesText(log.notes ?? "");
       setMonthText(monthInputValue(log.createdAt));
       setDayText(dayInputValue(log.createdAt));
@@ -479,6 +657,9 @@ export default function AnalyticsScreen() {
     setEditModalOpen(false);
     setEditingLog(null);
     setEditError("");
+    setShowIntensityPicker(false);
+    setShowCountPicker(false);
+    Keyboard.dismiss();
   };
 
   const handleSaveEdit = async () => {
@@ -501,34 +682,12 @@ export default function AnalyticsScreen() {
       return;
     }
 
-    const intensityTrim = intensityText.trim();
-    const intensity =
-      intensityTrim === ""
-        ? null
-        : Math.min(10, Math.max(1, Math.round(Number(intensityTrim))));
-
-    if (
-      intensityTrim !== "" &&
-      (!Number.isFinite(Number(intensityTrim)) ||
-        Number(intensityTrim) < 1 ||
-        Number(intensityTrim) > 10)
-    ) {
-      setEditError("Intensity must be 1 to 10, or blank.");
-      return;
-    }
-
-    const countNum = Math.round(Number(countText.trim()));
-    if (!Number.isFinite(countNum) || countNum < 0 || countNum > 10) {
-      setEditError("Count must be between 0 and 10.");
-      return;
-    }
-
     await updateLog(editingLog.id, {
       habitId,
       cueId,
       locationId,
       intensity,
-      count: countNum,
+      count,
       didResist: didResist === 1,
       notes: notesText,
       selectedActionId,
@@ -669,11 +828,7 @@ export default function AnalyticsScreen() {
 
     const habitMap = new Map<
       string,
-      {
-        total: number;
-        resisted: number;
-        gaveIn: number;
-      }
+      { total: number; resisted: number; gaveIn: number }
     >();
 
     const sourceLogs = activeTab === "Overall" ? monthLogs : filteredLogs;
@@ -972,9 +1127,10 @@ export default function AnalyticsScreen() {
                     );
                   }
 
-                  const count = c.count ?? 0;
-
-                  const bg = c.isInactive ? "bg-white" : greenBgForCount(count);
+                  const countValue = c.count ?? 0;
+                  const bg = c.isInactive
+                    ? "bg-white"
+                    : greenBgForCount(countValue);
                   const baseBorder = c.isInactive
                     ? "border border-gray-200"
                     : "border border-transparent";
@@ -982,16 +1138,16 @@ export default function AnalyticsScreen() {
                     c.isToday && !c.isInactive
                       ? "border-2 border-gray-900"
                       : "";
-
                   const textColor = c.isInactive
                     ? "text-gray-400"
-                    : textColorForCount(count);
+                    : textColorForCount(countValue);
 
                   const badgeTextColor =
-                    count <= 3 ? "text-white" : "text-gray-400";
-                  const badgeBg = count <= 3 ? "bg-white/25" : "bg-black/10";
+                    countValue <= 3 ? "text-white" : "text-gray-400";
+                  const badgeBg =
+                    countValue <= 3 ? "bg-white/25" : "bg-black/10";
 
-                  const Tile = (
+                  const tile = (
                     <View
                       className={[
                         "aspect-square items-center justify-center overflow-hidden rounded-xl",
@@ -1017,7 +1173,7 @@ export default function AnalyticsScreen() {
                               badgeTextColor,
                             ].join(" ")}
                           >
-                            {count}
+                            {countValue}
                           </Text>
                         </View>
                       ) : (
@@ -1031,13 +1187,13 @@ export default function AnalyticsScreen() {
                   return (
                     <View key={c.key} className="flex-1 p-1">
                       {c.isInactive || c.dayStartMs == null ? (
-                        Tile
+                        tile
                       ) : (
                         <Pressable
                           onPress={() => openDayModal(c.dayStartMs!)}
                           hitSlop={6}
                         >
-                          {Tile}
+                          {tile}
                         </Pressable>
                       )}
                     </View>
@@ -1062,13 +1218,11 @@ export default function AnalyticsScreen() {
             items={data.topCues}
             empty="Add cues in your logs to see patterns."
           />
-
           <ListBlock
             title="Most Common Locations"
             items={data.topLocations}
             empty="Add locations in your logs to see patterns."
           />
-
           <ListBlock
             title="Most Common Times"
             items={data.topTimes}
@@ -1175,82 +1329,6 @@ export default function AnalyticsScreen() {
               </View>
             </View>
           </View>
-
-          <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
-            <Text className="text-base font-semibold text-gray-900">
-              Last 7 days
-            </Text>
-
-            <View className="mt-4">
-              {extraAnalytics.weeklyTrend.map((item) => {
-                const widthPct =
-                  extraAnalytics.weeklyTrendMax <= 0
-                    ? 0
-                    : (item.count / extraAnalytics.weeklyTrendMax) * 100;
-
-                return (
-                  <View
-                    key={item.label}
-                    className="mb-3 flex-row items-center gap-3"
-                  >
-                    <Text className="w-10 text-sm font-semibold text-gray-700">
-                      {item.label}
-                    </Text>
-
-                    <View className="flex-1 rounded-full bg-gray-100">
-                      <View
-                        className="h-3 rounded-full bg-green-600"
-                        style={{ width: `${Math.max(widthPct, 4)}%` }}
-                      />
-                    </View>
-
-                    <Text className="w-8 text-right text-sm font-semibold text-gray-900">
-                      {item.count}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-
-          <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
-            <Text className="text-base font-semibold text-gray-900">
-              Habit breakdown
-            </Text>
-
-            {extraAnalytics.habitBreakdown.length === 0 ? (
-              <Text className="mt-2 text-sm text-gray-600">
-                Log a few check-ins to see a breakdown here.
-              </Text>
-            ) : (
-              <View className="mt-3">
-                {extraAnalytics.habitBreakdown.map((item) => (
-                  <View
-                    key={item.name}
-                    className="mb-2 rounded-xl bg-gray-50 px-3 py-3"
-                  >
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-sm font-semibold text-gray-900">
-                        {item.name}
-                      </Text>
-                      <Text className="text-sm font-semibold text-gray-700">
-                        {item.total} logs
-                      </Text>
-                    </View>
-
-                    <View className="mt-2 flex-row items-center justify-between">
-                      <Text className="text-xs text-gray-600">
-                        {item.resisted} resisted • {item.gaveIn} gave in
-                      </Text>
-                      <Text className="text-xs font-semibold text-gray-900">
-                        {item.resistRate}% resist rate
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
         </View>
       </ScrollView>
 
@@ -1312,79 +1390,115 @@ export default function AnalyticsScreen() {
         animationType="slide"
         onRequestClose={closeEditModal}
       >
-        <View className="flex-1 bg-black/40">
-          <View className="mt-16 flex-1 rounded-t-3xl bg-white px-5 pt-5">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-xl font-bold text-gray-900">Edit log</Text>
-              <Pressable
-                onPress={closeEditModal}
-                className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
-              >
-                <Text className="text-lg font-bold text-gray-900">✕</Text>
-              </Pressable>
+        <KeyboardAvoidingView
+          className="flex-1 bg-white"
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View className="flex-1 bg-gray-50">
+            <View className="border-b border-gray-200 bg-white px-5 pb-4 pt-14">
+              <View className="flex-row items-center justify-between">
+                <View>
+                  <Text className="text-3xl font-bold text-gray-900">
+                    Edit Log
+                  </Text>
+                  <Text className="mt-1 text-sm text-gray-500">
+                    Update or delete this check-in
+                  </Text>
+                </View>
+
+                <Pressable
+                  onPress={closeEditModal}
+                  className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
+                >
+                  <Ionicons name="close" size={20} color="#111827" />
+                </Pressable>
+              </View>
             </View>
 
             <ScrollView
-              className="mt-4"
+              className="flex-1 px-4 pt-3"
               contentContainerStyle={{ paddingBottom: 28 }}
+              keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <ChipGroup
+              <ChipRow
                 title="Habit"
-                options={habitOptions}
+                items={habitOptions}
                 selectedId={habitId}
-                onSelect={(id) => setHabitId(id)}
-                noneLabel="None"
+                onSelect={setHabitId}
+                allowNone={false}
+                listRef={habitListRef}
               />
 
-              <ChipGroup
+              <ChipRow
                 title="Cue"
-                options={cueOptions}
+                items={cueOptions}
                 selectedId={cueId}
-                onSelect={(id) => setCueId(id)}
+                onSelect={setCueId}
+                listRef={cueListRef}
               />
 
-              <ChipGroup
+              <ChipRow
                 title="Location"
-                options={locationOptions}
+                items={locationOptions}
                 selectedId={locationId}
-                onSelect={(id) => setLocationId(id)}
+                onSelect={setLocationId}
+                listRef={locationListRef}
               />
 
-              <ChipGroup
+              <ChipRow
                 title="Replacement Action"
-                options={selectedActions}
+                items={selectedActions}
                 selectedId={selectedActionId}
-                onSelect={(id) => setSelectedActionId(id)}
+                onSelect={setSelectedActionId}
+                listRef={actionListRef}
               />
 
-              <View className="mt-4">
+              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
                 <Text className="text-sm font-semibold text-gray-900">
-                  Outcome
+                  Intensity
                 </Text>
+                <Pressable
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowIntensityPicker(true);
+                  }}
+                  className="mt-2 rounded-2xl border border-gray-200 bg-white px-4 py-3"
+                >
+                  <Text className="text-sm font-semibold text-gray-900">
+                    {intensity == null ? "None" : `${intensity}/10`}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                <Text className="text-sm font-semibold text-gray-900">
+                  Count
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowCountPicker(true);
+                  }}
+                  className="mt-2 rounded-2xl border border-gray-200 bg-white px-4 py-3"
+                >
+                  <Text className="text-sm font-semibold text-gray-900">
+                    {count}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                <Text className="text-sm font-semibold text-gray-900">
+                  Did you resist?
+                </Text>
+
                 <View className="mt-2 flex-row gap-2">
                   <Pressable
-                    onPress={() => setDidResist(0)}
-                    className={`flex-1 rounded-2xl border px-4 py-3 ${
-                      didResist === 0
-                        ? "border-gray-900 bg-gray-900"
-                        : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <Text
-                      className={`text-center text-sm font-semibold ${
-                        didResist === 0 ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      Gave in
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
                     onPress={() => setDidResist(1)}
-                    className={`flex-1 rounded-2xl border px-4 py-3 ${
+                    className={`flex-1 rounded-full border px-4 py-2 ${
                       didResist === 1
-                        ? "border-gray-900 bg-gray-900"
+                        ? "border-green-600 bg-green-600"
                         : "border-gray-200 bg-white"
                     }`}
                   >
@@ -1393,43 +1507,30 @@ export default function AnalyticsScreen() {
                         didResist === 1 ? "text-white" : "text-gray-900"
                       }`}
                     >
-                      Resisted
+                      Yes
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setDidResist(0)}
+                    className={`flex-1 rounded-full border px-4 py-2 ${
+                      didResist === 0
+                        ? "border-green-600 bg-green-600"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text
+                      className={`text-center text-sm font-semibold ${
+                        didResist === 0 ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      No
                     </Text>
                   </Pressable>
                 </View>
               </View>
 
-              <View className="mt-4 flex-row gap-3">
-                <View className="flex-1">
-                  <Text className="text-sm font-semibold text-gray-900">
-                    Intensity
-                  </Text>
-                  <TextInput
-                    value={intensityText}
-                    onChangeText={setIntensityText}
-                    keyboardType="number-pad"
-                    placeholder="1-10 or blank"
-                    className="mt-2 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                </View>
-
-                <View className="flex-1">
-                  <Text className="text-sm font-semibold text-gray-900">
-                    Count
-                  </Text>
-                  <TextInput
-                    value={countText}
-                    onChangeText={setCountText}
-                    keyboardType="number-pad"
-                    placeholder="0-10"
-                    className="mt-2 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                </View>
-              </View>
-
-              <View className="mt-4">
+              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
                 <Text className="text-sm font-semibold text-gray-900">
                   Date
                 </Text>
@@ -1461,7 +1562,7 @@ export default function AnalyticsScreen() {
                 </View>
               </View>
 
-              <View className="mt-4">
+              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
                 <Text className="text-sm font-semibold text-gray-900">
                   Time
                 </Text>
@@ -1486,7 +1587,7 @@ export default function AnalyticsScreen() {
                     onPress={() => setAmpm("AM")}
                     className={`flex-1 rounded-2xl border px-4 py-3 ${
                       ampm === "AM"
-                        ? "border-gray-900 bg-gray-900"
+                        ? "border-green-600 bg-green-600"
                         : "border-gray-200 bg-white"
                     }`}
                   >
@@ -1502,7 +1603,7 @@ export default function AnalyticsScreen() {
                     onPress={() => setAmpm("PM")}
                     className={`flex-1 rounded-2xl border px-4 py-3 ${
                       ampm === "PM"
-                        ? "border-gray-900 bg-gray-900"
+                        ? "border-green-600 bg-green-600"
                         : "border-gray-200 bg-white"
                     }`}
                   >
@@ -1517,7 +1618,7 @@ export default function AnalyticsScreen() {
                 </View>
               </View>
 
-              <View className="mt-4">
+              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
                 <Text className="text-sm font-semibold text-gray-900">
                   Notes
                 </Text>
@@ -1533,41 +1634,65 @@ export default function AnalyticsScreen() {
               </View>
 
               {editError ? (
-                <Text className="mt-4 text-sm font-semibold text-red-600">
+                <Text className="mt-4 px-1 text-sm font-semibold text-red-600">
                   {editError}
                 </Text>
               ) : null}
 
               <Pressable
                 onPress={handleSaveEdit}
-                className="mt-5 rounded-2xl bg-green-600 py-4"
+                className="mt-5 rounded-2xl bg-green-600 px-5 py-4"
               >
-                <Text className="text-center text-base font-bold text-white">
+                <Text className="text-center text-lg font-bold text-white">
                   Save Changes
                 </Text>
               </Pressable>
 
               <Pressable
                 onPress={handleDeleteLog}
-                className="mt-3 rounded-2xl border border-red-200 bg-red-50 py-4"
+                className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4"
               >
-                <Text className="text-center text-base font-bold text-red-700">
+                <Text className="text-center text-lg font-bold text-red-700">
                   Delete Log
                 </Text>
               </Pressable>
 
               <Pressable
                 onPress={closeEditModal}
-                className="mt-3 rounded-2xl border border-gray-200 bg-white py-4"
+                className="mt-3 rounded-2xl border border-gray-200 bg-white px-5 py-4"
               >
-                <Text className="text-center text-base font-bold text-gray-900">
+                <Text className="text-center text-lg font-bold text-gray-900">
                   Cancel
                 </Text>
               </Pressable>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
+
+      <IntensityPickerModal
+        visible={showIntensityPicker}
+        value={intensity}
+        onPick={(n) => {
+          setIntensity(n);
+          setShowIntensityPicker(false);
+        }}
+        onClear={() => {
+          setIntensity(null);
+          setShowIntensityPicker(false);
+        }}
+        onClose={() => setShowIntensityPicker(false)}
+      />
+
+      <CountPickerModal
+        visible={showCountPicker}
+        value={count}
+        onPick={(n) => {
+          setCount(n);
+          setShowCountPicker(false);
+        }}
+        onClose={() => setShowCountPicker(false)}
+      />
     </>
   );
 }
