@@ -21,10 +21,6 @@ function startOfWeekMs(d: Date) {
   return startOfDayMs(monday);
 }
 
-function dayKey(d: Date) {
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-}
-
 function getPercentIncrease(current: number, previous: number) {
   if (current <= previous) return null;
   if (previous <= 0) return current > 0 ? 100 : null;
@@ -42,8 +38,6 @@ export default function HomeScreen() {
   const { logs, profileName, profilePhotoUri } = useData();
 
   const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
-
-  const isFirstVisit = logs.length === 0;
   const displayName = useMemo(() => getFirstName(profileName), [profileName]);
 
   const habitOptions = useMemo(() => {
@@ -106,72 +100,50 @@ export default function HomeScreen() {
       0,
     );
 
-    const resistDays = new Set<string>();
-    for (const l of logsForStats) {
-      if (l.didResist === 1) {
-        resistDays.add(dayKey(new Date(l.createdAt)));
-      }
-    }
-
-    const hasResistOnDay = (d: Date) => resistDays.has(dayKey(d));
-
-    let currentStreak = 0;
-    {
-      const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      while (hasResistOnDay(cursor)) {
-        currentStreak++;
-        cursor.setDate(cursor.getDate() - 1);
-      }
-    }
-
-    const yesterday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() - 1,
+    const streakLogs = [...logsForStats].sort(
+      (a, b) => a.createdAt - b.createdAt,
     );
 
-    let previousCurrentStreak = 0;
-    {
-      const cursor = new Date(
-        yesterday.getFullYear(),
-        yesterday.getMonth(),
-        yesterday.getDate(),
-      );
-      while (hasResistOnDay(cursor)) {
-        previousCurrentStreak++;
-        cursor.setDate(cursor.getDate() - 1);
+    let bestStreak = 0;
+    let runningStreak = 0;
+
+    for (const log of streakLogs) {
+      if (log.didResist === 1) {
+        runningStreak += 1;
+        if (runningStreak > bestStreak) bestStreak = runningStreak;
+      } else {
+        runningStreak = 0;
       }
     }
 
-    const resistDates = Array.from(resistDays)
-      .map((k) => {
-        const [y, m, d] = k.split("-").map(Number);
-        return new Date(y, m - 1, d).getTime();
-      })
-      .sort((a, b) => a - b);
-
-    let bestStreak = 0;
-    let run = 0;
-    const oneDay = 24 * 60 * 60 * 1000;
-
-    for (let i = 0; i < resistDates.length; i++) {
-      if (i === 0) run = 1;
-      else run = resistDates[i] - resistDates[i - 1] === oneDay ? run + 1 : 1;
-      bestStreak = Math.max(bestStreak, run);
+    let currentStreak = 0;
+    for (let i = streakLogs.length - 1; i >= 0; i--) {
+      if (streakLogs[i].didResist === 1) currentStreak += 1;
+      else break;
     }
 
-    let previousBestStreak = 0;
-    let previousRun = 0;
-    const resistDatesBeforeToday = resistDates.filter((t) => t < todayStart);
+    const streakLogsBeforeToday = streakLogs.filter(
+      (l) => l.createdAt < todayStart,
+    );
 
-    for (let i = 0; i < resistDatesBeforeToday.length; i++) {
-      if (i === 0) previousRun = 1;
-      else
-        previousRun =
-          resistDatesBeforeToday[i] - resistDatesBeforeToday[i - 1] === oneDay
-            ? previousRun + 1
-            : 1;
-      previousBestStreak = Math.max(previousBestStreak, previousRun);
+    let previousBestStreak = 0;
+    let previousRunningStreak = 0;
+
+    for (const log of streakLogsBeforeToday) {
+      if (log.didResist === 1) {
+        previousRunningStreak += 1;
+        if (previousRunningStreak > previousBestStreak) {
+          previousBestStreak = previousRunningStreak;
+        }
+      } else {
+        previousRunningStreak = 0;
+      }
+    }
+
+    let previousCurrentStreak = 0;
+    for (let i = streakLogsBeforeToday.length - 1; i >= 0; i--) {
+      if (streakLogsBeforeToday[i].didResist === 1) previousCurrentStreak += 1;
+      else break;
     }
 
     return {
@@ -368,7 +340,6 @@ export default function HomeScreen() {
           <Card
             label="Current streak"
             value={`${stats.currentStreak}`}
-            sub="Days with ≥1 resist"
             percentIncrease={getPercentIncrease(
               stats.currentStreak,
               stats.previousCurrentStreak,
@@ -377,7 +348,6 @@ export default function HomeScreen() {
           <Card
             label="Best streak"
             value={`${stats.bestStreak}`}
-            sub="Days with ≥1 resist"
             percentIncrease={getPercentIncrease(
               stats.bestStreak,
               stats.previousBestStreak,
