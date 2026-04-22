@@ -166,9 +166,34 @@ export default function HomeScreen() {
         ? Math.round((previousWeekResists / previousWeekLogs) * 100)
         : 0;
 
+    const todayResistRate =
+      todayLogs > 0 ? Math.round((todayResists / todayLogs) * 100) : 0;
+    const previousTodayResistRate =
+      previousTodayLogs > 0
+        ? Math.round((previousTodayResists / previousTodayLogs) * 100)
+        : 0;
+
+    const allTimeLogs = logsForStats.length;
+    const allTimeResists = logsForStats.reduce(
+      (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
+      0,
+    );
+    const allTimeResistRate =
+      allTimeLogs > 0 ? Math.round((allTimeResists / allTimeLogs) * 100) : 0;
+
     const logsBeforeToday = logsForStats.filter(
       (l) => l.createdAt < todayStart,
     );
+
+    const previousAllTimeLogs = logsBeforeToday.length;
+    const previousAllTimeResists = logsBeforeToday.reduce(
+      (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
+      0,
+    );
+    const previousAllTimeResistRate =
+      previousAllTimeLogs > 0
+        ? Math.round((previousAllTimeResists / previousAllTimeLogs) * 100)
+        : 0;
 
     const daysSinceGiveIn = getDaysSinceGiveIn(logsForStats, todayStart);
     const previousDaysSinceGiveIn = getDaysSinceGiveIn(
@@ -190,6 +215,10 @@ export default function HomeScreen() {
       previousWeekResists,
       weekResistRate,
       previousWeekResistRate,
+      todayResistRate,
+      previousTodayResistRate,
+      allTimeResistRate,
+      previousAllTimeResistRate,
       daysSinceGiveIn,
       previousDaysSinceGiveIn,
       bestCleanStreakDays,
@@ -374,19 +403,19 @@ export default function HomeScreen() {
         {selectedHabit === null ? (
           <View className="mt-3 flex-row gap-3">
             <Card
-              label="Current streak"
-              value={`${stats.daysSinceGiveIn}`}
+              label="Resist rate today"
+              value={`${stats.todayResistRate}%`}
               percentIncrease={getPercentIncrease(
-                stats.daysSinceGiveIn,
-                stats.previousDaysSinceGiveIn,
+                stats.todayResistRate,
+                stats.previousTodayResistRate,
               )}
             />
             <Card
-              label="Resist rate this week"
-              value={`${stats.weekResistRate}%`}
+              label="Resist rate all time"
+              value={`${stats.allTimeResistRate}%`}
               percentIncrease={getPercentIncrease(
-                stats.weekResistRate,
-                stats.previousWeekResistRate,
+                stats.allTimeResistRate,
+                stats.previousAllTimeResistRate,
               )}
             />
           </View>
