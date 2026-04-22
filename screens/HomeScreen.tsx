@@ -33,11 +33,70 @@ function getFirstName(name: string) {
   return trimmed.split(/\s+/)[0];
 }
 
+function getDaysSinceGiveIn(
+  logs: { createdAt: number; didResist: number }[],
+  referenceDayMs: number,
+) {
+  if (logs.length === 0) return 0;
+
+  const sortedLogs = [...logs].sort((a, b) => a.createdAt - b.createdAt);
+  const giveInLogs = sortedLogs.filter((l) => l.didResist !== 1);
+  const lastGiveIn = giveInLogs[giveInLogs.length - 1] ?? null;
+
+  if (lastGiveIn) {
+    return Math.floor(
+      (referenceDayMs - startOfDayMs(new Date(lastGiveIn.createdAt))) /
+        (24 * 60 * 60 * 1000),
+    );
+  }
+
+  return (
+    Math.floor(
+      (referenceDayMs - startOfDayMs(new Date(sortedLogs[0].createdAt))) /
+        (24 * 60 * 60 * 1000),
+    ) + 1
+  );
+}
+
+function getBestCleanStreakDays(
+  logs: { createdAt: number; didResist: number }[],
+) {
+  if (logs.length === 0) return 0;
+
+  const sortedLogs = [...logs].sort((a, b) => a.createdAt - b.createdAt);
+
+  const giveInDaySet = new Set(
+    sortedLogs
+      .filter((l) => l.didResist !== 1)
+      .map((l) => startOfDayMs(new Date(l.createdAt))),
+  );
+
+  const firstDay = startOfDayMs(new Date(sortedLogs[0].createdAt));
+  const lastDay = startOfDayMs(
+    new Date(sortedLogs[sortedLogs.length - 1].createdAt),
+  );
+
+  let best = 0;
+  let current = 0;
+
+  for (let day = firstDay; day <= lastDay; day += 24 * 60 * 60 * 1000) {
+    if (giveInDaySet.has(day)) {
+      current = 0;
+    } else {
+      current += 1;
+      if (current > best) best = current;
+    }
+  }
+
+  return best;
+}
+
 export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { logs, profileName, profilePhotoUri } = useData();
 
   const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
+
   const displayName = useMemo(() => getFirstName(profileName), [profileName]);
 
   const habitOptions = useMemo(() => {
@@ -100,65 +159,41 @@ export default function HomeScreen() {
       0,
     );
 
-    const streakLogs = [...logsForStats].sort(
-      (a, b) => a.createdAt - b.createdAt,
-    );
+    const weekResistRate =
+      weekLogs > 0 ? Math.round((weekResists / weekLogs) * 100) : 0;
+    const previousWeekResistRate =
+      previousWeekLogs > 0
+        ? Math.round((previousWeekResists / previousWeekLogs) * 100)
+        : 0;
 
-    let bestStreak = 0;
-    let runningStreak = 0;
-
-    for (const log of streakLogs) {
-      if (log.didResist === 1) {
-        runningStreak += 1;
-        if (runningStreak > bestStreak) bestStreak = runningStreak;
-      } else {
-        runningStreak = 0;
-      }
-    }
-
-    let currentStreak = 0;
-    for (let i = streakLogs.length - 1; i >= 0; i--) {
-      if (streakLogs[i].didResist === 1) currentStreak += 1;
-      else break;
-    }
-
-    const streakLogsBeforeToday = streakLogs.filter(
+    const logsBeforeToday = logsForStats.filter(
       (l) => l.createdAt < todayStart,
     );
 
-    let previousBestStreak = 0;
-    let previousRunningStreak = 0;
+    const daysSinceGiveIn = getDaysSinceGiveIn(logsForStats, todayStart);
+    const previousDaysSinceGiveIn = getDaysSinceGiveIn(
+      logsBeforeToday,
+      yesterdayStart,
+    );
 
-    for (const log of streakLogsBeforeToday) {
-      if (log.didResist === 1) {
-        previousRunningStreak += 1;
-        if (previousRunningStreak > previousBestStreak) {
-          previousBestStreak = previousRunningStreak;
-        }
-      } else {
-        previousRunningStreak = 0;
-      }
-    }
-
-    let previousCurrentStreak = 0;
-    for (let i = streakLogsBeforeToday.length - 1; i >= 0; i--) {
-      if (streakLogsBeforeToday[i].didResist === 1) previousCurrentStreak += 1;
-      else break;
-    }
+    const bestCleanStreakDays = getBestCleanStreakDays(logsForStats);
+    const previousBestCleanStreakDays = getBestCleanStreakDays(logsBeforeToday);
 
     return {
       todayLogs,
       weekLogs,
       todayResists,
       weekResists,
-      currentStreak,
-      bestStreak,
       previousTodayLogs,
       previousWeekLogs,
       previousTodayResists,
       previousWeekResists,
-      previousCurrentStreak,
-      previousBestStreak,
+      weekResistRate,
+      previousWeekResistRate,
+      daysSinceGiveIn,
+      previousDaysSinceGiveIn,
+      bestCleanStreakDays,
+      previousBestCleanStreakDays,
     };
   }, [logs, selectedHabit]);
 
@@ -336,24 +371,45 @@ export default function HomeScreen() {
           />
         </View>
 
-        <View className="mt-3 flex-row gap-3">
-          <Card
-            label="Current streak"
-            value={`${stats.currentStreak}`}
-            percentIncrease={getPercentIncrease(
-              stats.currentStreak,
-              stats.previousCurrentStreak,
-            )}
-          />
-          <Card
-            label="Best streak"
-            value={`${stats.bestStreak}`}
-            percentIncrease={getPercentIncrease(
-              stats.bestStreak,
-              stats.previousBestStreak,
-            )}
-          />
-        </View>
+        {selectedHabit === null ? (
+          <View className="mt-3 flex-row gap-3">
+            <Card
+              label="Current streak"
+              value={`${stats.daysSinceGiveIn}`}
+              percentIncrease={getPercentIncrease(
+                stats.daysSinceGiveIn,
+                stats.previousDaysSinceGiveIn,
+              )}
+            />
+            <Card
+              label="Resist rate this week"
+              value={`${stats.weekResistRate}%`}
+              percentIncrease={getPercentIncrease(
+                stats.weekResistRate,
+                stats.previousWeekResistRate,
+              )}
+            />
+          </View>
+        ) : (
+          <View className="mt-3 flex-row gap-3">
+            <Card
+              label="Current streak"
+              value={`${stats.daysSinceGiveIn}`}
+              percentIncrease={getPercentIncrease(
+                stats.daysSinceGiveIn,
+                stats.previousDaysSinceGiveIn,
+              )}
+            />
+            <Card
+              label="Best streak"
+              value={`${stats.bestCleanStreakDays}`}
+              percentIncrease={getPercentIncrease(
+                stats.bestCleanStreakDays,
+                stats.previousBestCleanStreakDays,
+              )}
+            />
+          </View>
+        )}
 
         <Text className="mt-4 text-sm text-gray-600">
           {stats.todayLogs === 0
