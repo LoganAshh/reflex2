@@ -24,6 +24,20 @@ type ChipItem = {
 
 type BaseItem = { id: number; name: string };
 
+type TimePreset = {
+  label: string;
+  hourText: string;
+  minuteText: string;
+  ampm: "AM" | "PM";
+};
+
+const TIME_PRESETS: TimePreset[] = [
+  { label: "Morning", hourText: "8", minuteText: "00", ampm: "AM" },
+  { label: "Afternoon", hourText: "1", minuteText: "00", ampm: "PM" },
+  { label: "Evening", hourText: "6", minuteText: "00", ampm: "PM" },
+  { label: "Night", hourText: "10", minuteText: "00", ampm: "PM" },
+];
+
 function inputDateValue(monthText: string, dayText: string, yearText: string) {
   const month = Number(monthText);
   const day = Number(dayText);
@@ -623,6 +637,21 @@ export function EditLogModal({
     [hourText, minuteText, ampm],
   );
 
+  const selectedPreset = TIME_PRESETS.find(
+    (preset) =>
+      preset.hourText === hourText &&
+      preset.minuteText === minuteText &&
+      preset.ampm === ampm,
+  );
+
+  const applyTimePreset = (preset: TimePreset) => {
+    Keyboard.dismiss();
+    setHourText(preset.hourText);
+    setMinuteText(preset.minuteText);
+    setAmpm(preset.ampm);
+    setShowTimePicker(false);
+  };
+
   return (
     <>
       <Modal
@@ -832,17 +861,52 @@ export function EditLogModal({
                   Time
                 </Text>
 
+                <Text className="mt-1 text-xs text-gray-500">
+                  Choose a general time of day or tap exact time.
+                </Text>
+
+                <View className="mt-3 flex-row flex-wrap">
+                  {TIME_PRESETS.map((preset) => {
+                    const selected = selectedPreset?.label === preset.label;
+
+                    return (
+                      <Pressable
+                        key={preset.label}
+                        onPress={() => applyTimePreset(preset)}
+                        className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                          selected
+                            ? "border-green-600 bg-green-600"
+                            : "border-gray-200 bg-white"
+                        }`}
+                      >
+                        <Text
+                          className={`text-sm font-semibold ${
+                            selected ? "text-white" : "text-gray-900"
+                          }`}
+                        >
+                          {preset.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
                 <Pressable
                   onPress={() => {
                     Keyboard.dismiss();
                     setShowDatePicker(false);
                     setShowTimePicker((value) => !value);
                   }}
-                  className="mt-2 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
+                  className="mt-1 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
                 >
-                  <Text className="text-sm font-semibold text-gray-900">
-                    {formatTimeButton(hourText, minuteText, ampm)}
-                  </Text>
+                  <View>
+                    <Text className="text-xs font-semibold text-gray-500">
+                      Exact time
+                    </Text>
+                    <Text className="mt-1 text-sm font-semibold text-gray-900">
+                      {formatTimeButton(hourText, minuteText, ampm)}
+                    </Text>
+                  </View>
                   <Ionicons name="time-outline" size={18} color="#111827" />
                 </Pressable>
 
