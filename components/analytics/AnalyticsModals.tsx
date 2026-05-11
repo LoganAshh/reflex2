@@ -157,6 +157,13 @@ function dateToTimeParts(date: Date) {
   };
 }
 
+function countLabelFor(n: number) {
+  if (n === 0) return "None";
+  if (n === 1) return "Once";
+  if (n === 2) return "Twice";
+  return `${n}x`;
+}
+
 function ChipRow<T extends BaseItem>({
   title,
   items,
@@ -226,187 +233,6 @@ function ChipRow<T extends BaseItem>({
         extraData={selectedId}
       />
     </View>
-  );
-}
-
-function IntensityPickerModal({
-  visible,
-  value,
-  onPick,
-  onClear,
-  onClose,
-}: {
-  visible: boolean;
-  value: number | null;
-  onPick: (n: number) => void;
-  onClear: () => void;
-  onClose: () => void;
-}) {
-  const options = useMemo(
-    () => Array.from({ length: 10 }, (_, i) => i + 1),
-    [],
-  );
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        className="flex-1 items-center justify-center bg-black/40 px-6"
-        onPress={async () => {
-          await lightHaptic();
-          onClose();
-        }}
-      >
-        <Pressable
-          className="w-full rounded-2xl bg-white p-4"
-          onPress={() => {}}
-        >
-          <Text className="text-base font-bold text-gray-900">
-            Pick intensity
-          </Text>
-          <Text className="mt-1 text-xs text-gray-500">
-            1 (low) → 10 (high)
-          </Text>
-
-          <View className="mt-4 flex-row flex-wrap">
-            {options.map((n) => {
-              const selected = value === n;
-
-              return (
-                <Pressable
-                  key={n}
-                  onPress={async () => {
-                    await lightHaptic();
-                    onPick(n);
-                  }}
-                  className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
-                    selected
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <Text
-                    className={`text-sm font-semibold ${
-                      selected ? "text-white" : "text-gray-900"
-                    }`}
-                  >
-                    {n}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View className="mt-2 flex-row justify-between">
-            <Pressable
-              onPress={async () => {
-                await lightHaptic();
-                onClear();
-              }}
-              className="rounded-xl border border-gray-200 bg-white px-4 py-3"
-            >
-              <Text className="text-sm font-semibold text-gray-900">
-                Set None
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={async () => {
-                await lightHaptic();
-                onClose();
-              }}
-              className="rounded-xl bg-gray-900 px-4 py-3"
-            >
-              <Text className="text-sm font-semibold text-white">Done</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
-function CountPickerModal({
-  visible,
-  value,
-  onPick,
-  onClose,
-}: {
-  visible: boolean;
-  value: number;
-  onPick: (n: number) => void;
-  onClose: () => void;
-}) {
-  const options = useMemo(() => Array.from({ length: 11 }, (_, i) => i), []);
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        className="flex-1 items-center justify-center bg-black/40 px-6"
-        onPress={async () => {
-          await lightHaptic();
-          onClose();
-        }}
-      >
-        <Pressable
-          className="w-full rounded-2xl bg-white p-4"
-          onPress={() => {}}
-        >
-          <Text className="text-base font-bold text-gray-900">Pick count</Text>
-          <Text className="mt-1 text-xs text-gray-500">0 → 10</Text>
-
-          <View className="mt-4 flex-row flex-wrap">
-            {options.map((n) => {
-              const selected = value === n;
-
-              return (
-                <Pressable
-                  key={n}
-                  onPress={async () => {
-                    await lightHaptic();
-                    onPick(n);
-                  }}
-                  className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
-                    selected
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <Text
-                    className={`text-sm font-semibold ${
-                      selected ? "text-white" : "text-gray-900"
-                    }`}
-                  >
-                    {n}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View className="mt-2 items-end">
-            <Pressable
-              onPress={async () => {
-                await lightHaptic();
-                onClose();
-              }}
-              className="rounded-xl bg-gray-900 px-4 py-3"
-            >
-              <Text className="text-sm font-semibold text-white">Done</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
   );
 }
 
@@ -496,7 +322,8 @@ export function DayLogsModal({
           </Text>
 
           <Text className="mt-1 text-sm text-gray-700">
-            <Text className="font-semibold">Count:</Text> {item.count}
+            <Text className="font-semibold">Count:</Text>{" "}
+            {countLabelFor(item.count)}
           </Text>
 
           {item.notes ? (
@@ -673,6 +500,12 @@ export function EditLogModal({
       preset.ampm === ampm,
   );
 
+  const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
+  const countLabel = countLabelFor(count);
+  const chipBase = "rounded-full border px-2.5 py-1.5";
+  const chipSelected = "border-green-600 bg-green-600";
+  const chipUnselected = "border-gray-200 bg-white";
+
   const applyTimePreset = async (preset: TimePreset) => {
     await lightHaptic();
     Keyboard.dismiss();
@@ -682,395 +515,487 @@ export function EditLogModal({
     setShowTimePicker(false);
   };
 
+  const toggleIntensityPicker = async () => {
+    await lightHaptic();
+    Keyboard.dismiss();
+    setShowCountPicker(false);
+    setShowIntensityPicker(!showIntensityPicker);
+  };
+
+  const toggleCountPicker = async () => {
+    await lightHaptic();
+    Keyboard.dismiss();
+    setShowIntensityPicker(false);
+    setShowCountPicker(!showCountPicker);
+  };
+
+  const chooseIntensity = async (value: number | null) => {
+    await lightHaptic();
+    setIntensity(value);
+    setShowIntensityPicker(false);
+  };
+
+  const chooseCount = async (value: number) => {
+    await lightHaptic();
+    setCount(value);
+
+    if (value > 0) {
+      setDidResist(0);
+    }
+
+    setShowCountPicker(false);
+  };
+
   return (
-    <>
-      <Modal
-        visible={visible}
-        transparent
-        animationType="slide"
-        onRequestClose={onClose}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        className="flex-1 bg-white"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <KeyboardAvoidingView
-          className="flex-1 bg-white"
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <View className="flex-1 bg-gray-50">
-            <View className="border-b border-gray-200 bg-white px-5 pb-4 pt-14">
-              <View className="flex-row items-center justify-between">
-                <View>
-                  <Text className="text-3xl font-bold text-gray-900">
-                    Edit Log
-                  </Text>
-                  <Text className="mt-1 text-sm text-gray-500">
-                    Update or delete this check-in
-                  </Text>
-                </View>
-
-                <Pressable
-                  onPress={onClose}
-                  className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
-                >
-                  <Ionicons name="close" size={20} color="#111827" />
-                </Pressable>
-              </View>
-            </View>
-
-            <ScrollView
-              className="flex-1 px-4 pt-3"
-              contentContainerStyle={{ paddingBottom: 28 }}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <ChipRow
-                title="Habit"
-                items={habitOptions}
-                selectedId={habitId}
-                onSelect={setHabitId}
-                allowNone={false}
-                listRef={habitListRef}
-              />
-
-              <ChipRow
-                title="Cue"
-                items={cueOptions}
-                selectedId={cueId}
-                onSelect={setCueId}
-                listRef={cueListRef}
-              />
-
-              <ChipRow
-                title="Location"
-                items={locationOptions}
-                selectedId={locationId}
-                onSelect={setLocationId}
-                listRef={locationListRef}
-              />
-
-              <ChipRow
-                title="Replacement Action"
-                items={selectedActions}
-                selectedId={selectedActionId}
-                onSelect={setSelectedActionId}
-                listRef={actionListRef}
-              />
-
-              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
-                <Text className="text-sm font-semibold text-gray-900">
-                  Intensity
+        <View className="flex-1 bg-gray-50">
+          <View className="border-b border-gray-200 bg-white px-5 pb-4 pt-14">
+            <View className="flex-row items-center justify-between">
+              <View>
+                <Text className="text-3xl font-bold text-gray-900">
+                  Edit Log
                 </Text>
-
-                <Pressable
-                  onPress={async () => {
-                    await lightHaptic();
-                    Keyboard.dismiss();
-                    setShowIntensityPicker(true);
-                  }}
-                  className="mt-2 rounded-2xl border border-gray-200 bg-white px-4 py-3"
-                >
-                  <Text className="text-sm font-semibold text-gray-900">
-                    {intensity == null ? "None" : `${intensity}/10`}
-                  </Text>
-                </Pressable>
+                <Text className="mt-1 text-sm text-gray-500">
+                  Update or delete this check-in
+                </Text>
               </View>
 
-              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <Pressable
+                onPress={onClose}
+                className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
+              >
+                <Ionicons name="close" size={20} color="#111827" />
+              </Pressable>
+            </View>
+          </View>
+
+          <ScrollView
+            className="flex-1 px-4 pt-3"
+            contentContainerStyle={{ paddingBottom: 28 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <ChipRow
+              title="Habit"
+              items={habitOptions}
+              selectedId={habitId}
+              onSelect={setHabitId}
+              allowNone={false}
+              listRef={habitListRef}
+            />
+
+            <ChipRow
+              title="Cue"
+              items={cueOptions}
+              selectedId={cueId}
+              onSelect={setCueId}
+              listRef={cueListRef}
+            />
+
+            <ChipRow
+              title="Location"
+              items={locationOptions}
+              selectedId={locationId}
+              onSelect={setLocationId}
+              listRef={locationListRef}
+            />
+
+            <ChipRow
+              title="Replacement Action"
+              items={selectedActions}
+              selectedId={selectedActionId}
+              onSelect={setSelectedActionId}
+              listRef={actionListRef}
+            />
+
+            <View className="mt-3 w-full flex-row gap-3">
+              <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
                 <Text className="text-sm font-semibold text-gray-900">
                   Count
                 </Text>
 
-                <Pressable
-                  onPress={async () => {
-                    await lightHaptic();
-                    Keyboard.dismiss();
-                    setShowCountPicker(true);
-                  }}
-                  className="mt-2 rounded-2xl border border-gray-200 bg-white px-4 py-3"
-                >
-                  <Text className="text-sm font-semibold text-gray-900">
-                    {count}
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
-                <Text className="text-sm font-semibold text-gray-900">
-                  Did you resist?
-                </Text>
-
-                <View className="mt-2 flex-row gap-2">
+                <View className="mt-2 flex-row items-center">
                   <Pressable
-                    onPress={async () => {
-                      await lightHaptic();
-                      setDidResist(1);
-                    }}
-                    className={`flex-1 rounded-full border px-4 py-2 ${
-                      didResist === 1
-                        ? "border-green-600 bg-green-600"
-                        : "border-gray-200 bg-white"
-                    }`}
+                    onPress={toggleCountPicker}
+                    className={`${chipBase} ${chipSelected} mr-2`}
                   >
-                    <Text
-                      className={`text-center text-sm font-semibold ${
-                        didResist === 1 ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      Yes
+                    <Text className="text-sm font-semibold text-white">
+                      {countLabel}
                     </Text>
                   </Pressable>
 
                   <Pressable
-                    onPress={async () => {
-                      await lightHaptic();
-                      setDidResist(0);
-                    }}
-                    className={`flex-1 rounded-full border px-4 py-2 ${
-                      didResist === 0
-                        ? "border-green-600 bg-green-600"
-                        : "border-gray-200 bg-white"
-                    }`}
+                    onPress={toggleCountPicker}
+                    className={`${chipBase} ${chipUnselected}`}
                   >
-                    <Text
-                      className={`text-center text-sm font-semibold ${
-                        didResist === 0 ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      No
+                    <Text className="text-sm font-semibold text-gray-900">
+                      + Add
                     </Text>
                   </Pressable>
                 </View>
-              </View>
 
-              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
-                <Text className="text-sm font-semibold text-gray-900">
-                  Date
-                </Text>
+                {showCountPicker ? (
+                  <View className="mt-3 flex-row flex-wrap">
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => {
+                      const selected = count === value;
 
-                <Pressable
-                  onPress={async () => {
-                    await lightHaptic();
-                    Keyboard.dismiss();
-                    setShowTimePicker(false);
-                    setShowDatePicker((value) => !value);
-                  }}
-                  className="mt-2 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
-                >
-                  <Text className="text-sm font-semibold text-gray-900">
-                    {formatDateButton(monthText, dayText, yearText)}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={18} color="#111827" />
-                </Pressable>
-
-                {showDatePicker ? (
-                  <View className="mt-3 items-center rounded-2xl border border-gray-200 bg-gray-50 px-2 py-3">
-                    <DateTimePicker
-                      value={datePickerValue}
-                      mode="date"
-                      display={Platform.OS === "ios" ? "spinner" : "default"}
-                      onChange={(_, selectedDate) => {
-                        if (!selectedDate) return;
-
-                        setMonthText(String(selectedDate.getMonth() + 1));
-                        setDayText(String(selectedDate.getDate()));
-                        setYearText(String(selectedDate.getFullYear()));
-
-                        if (Platform.OS !== "ios") {
-                          setShowDatePicker(false);
-                        }
-                      }}
-                      textColor="#111827"
-                      themeVariant="light"
-                    />
-
-                    {Platform.OS === "ios" ? (
-                      <Pressable
-                        onPress={async () => {
-                          await lightHaptic();
-                          setShowDatePicker(false);
-                        }}
-                        className="mt-2 rounded-xl bg-gray-900 px-5 py-3"
-                      >
-                        <Text className="text-sm font-semibold text-white">
-                          Done
-                        </Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                ) : null}
-              </View>
-
-              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
-                <Text className="text-sm font-semibold text-gray-900">
-                  Time
-                </Text>
-
-                <Text className="mt-1 text-xs text-gray-500">
-                  Choose a general time of day or tap exact time.
-                </Text>
-
-                <View className="mt-3 flex-row flex-wrap">
-                  {TIME_PRESETS.map((preset) => {
-                    const selected = selectedPreset?.label === preset.label;
-
-                    return (
-                      <Pressable
-                        key={preset.label}
-                        onPress={() => applyTimePreset(preset)}
-                        className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
-                          selected
-                            ? "border-green-600 bg-green-600"
-                            : "border-gray-200 bg-white"
-                        }`}
-                      >
-                        <Text
-                          className={`text-sm font-semibold ${
-                            selected ? "text-white" : "text-gray-900"
+                      return (
+                        <Pressable
+                          key={value}
+                          onPress={() => chooseCount(value)}
+                          className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                            selected
+                              ? "border-green-600 bg-green-600"
+                              : "border-gray-200 bg-white"
                           }`}
                         >
-                          {preset.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Pressable
-                  onPress={async () => {
-                    await lightHaptic();
-                    Keyboard.dismiss();
-                    setShowDatePicker(false);
-                    setShowTimePicker((value) => !value);
-                  }}
-                  className="mt-1 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
-                >
-                  <View>
-                    <Text className="text-xs font-semibold text-gray-500">
-                      Exact time
-                    </Text>
-                    <Text className="mt-1 text-sm font-semibold text-gray-900">
-                      {formatTimeButton(hourText, minuteText, ampm)}
-                    </Text>
-                  </View>
-                  <Ionicons name="time-outline" size={18} color="#111827" />
-                </Pressable>
-
-                {showTimePicker ? (
-                  <View className="mt-3 items-center rounded-2xl border border-gray-200 bg-gray-50 px-2 py-3">
-                    <DateTimePicker
-                      value={timePickerValue}
-                      mode="time"
-                      display={Platform.OS === "ios" ? "spinner" : "default"}
-                      onChange={(_, selectedDate) => {
-                        if (!selectedDate) return;
-
-                        const parts = dateToTimeParts(selectedDate);
-                        setHourText(parts.hourText);
-                        setMinuteText(parts.minuteText);
-                        setAmpm(parts.ampm);
-
-                        if (Platform.OS !== "ios") {
-                          setShowTimePicker(false);
-                        }
-                      }}
-                      textColor="#111827"
-                      themeVariant="light"
-                    />
-
-                    {Platform.OS === "ios" ? (
-                      <Pressable
-                        onPress={async () => {
-                          await lightHaptic();
-                          setShowTimePicker(false);
-                        }}
-                        className="mt-2 rounded-xl bg-gray-900 px-5 py-3"
-                      >
-                        <Text className="text-sm font-semibold text-white">
-                          Done
-                        </Text>
-                      </Pressable>
-                    ) : null}
+                          <Text
+                            className={`text-sm font-semibold ${
+                              selected ? "text-white" : "text-gray-900"
+                            }`}
+                          >
+                            {countLabelFor(value)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
                 ) : null}
               </View>
 
-              <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
                 <Text className="text-sm font-semibold text-gray-900">
-                  Notes
+                  Intensity
                 </Text>
 
-                <TextInput
-                  value={notesText}
-                  onChangeText={setNotesText}
-                  multiline
-                  blurOnSubmit
-                  returnKeyType="done"
-                  onSubmitEditing={Keyboard.dismiss}
-                  placeholder="Optional"
-                  className="mt-2 min-h-[110px] rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
-                  placeholderTextColor="#9CA3AF"
-                  textAlignVertical="top"
-                />
+                <View className="mt-2 flex-row items-center">
+                  <Pressable
+                    onPress={toggleIntensityPicker}
+                    className={`${chipBase} ${chipSelected} mr-2`}
+                  >
+                    <Text className="text-sm font-semibold text-white">
+                      {intensityLabel}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={toggleIntensityPicker}
+                    className={`${chipBase} ${chipUnselected}`}
+                  >
+                    <Text className="text-sm font-semibold text-gray-900">
+                      + Add
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {showIntensityPicker ? (
+                  <View className="mt-3 flex-row flex-wrap">
+                    <Pressable
+                      onPress={() => chooseIntensity(null)}
+                      className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                        intensity == null
+                          ? "border-green-600 bg-green-600"
+                          : "border-gray-200 bg-white"
+                      }`}
+                    >
+                      <Text
+                        className={`text-sm font-semibold ${
+                          intensity == null ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        None
+                      </Text>
+                    </Pressable>
+
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => {
+                      const selected = intensity === value;
+
+                      return (
+                        <Pressable
+                          key={value}
+                          onPress={() => chooseIntensity(value)}
+                          className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                            selected
+                              ? "border-green-600 bg-green-600"
+                              : "border-gray-200 bg-white"
+                          }`}
+                        >
+                          <Text
+                            className={`text-sm font-semibold ${
+                              selected ? "text-white" : "text-gray-900"
+                            }`}
+                          >
+                            {value}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
+              </View>
+            </View>
+
+            <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <Text className="text-sm font-semibold text-gray-900">
+                Did you resist?
+              </Text>
+
+              <View className="mt-2 flex-row gap-2">
+                <Pressable
+                  onPress={async () => {
+                    await lightHaptic();
+                    setDidResist(1);
+                    setCount(0);
+                  }}
+                  className={`flex-1 rounded-full border px-4 py-2 ${
+                    didResist === 1
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <Text
+                    className={`text-center text-sm font-semibold ${
+                      didResist === 1 ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    Yes
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={async () => {
+                    await lightHaptic();
+                    setDidResist(0);
+                    if (count === 0) {
+                      setCount(1);
+                    }
+                  }}
+                  className={`flex-1 rounded-full border px-4 py-2 ${
+                    didResist === 0
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <Text
+                    className={`text-center text-sm font-semibold ${
+                      didResist === 0 ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    No
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <Text className="text-sm font-semibold text-gray-900">Date</Text>
+
+              <Pressable
+                onPress={async () => {
+                  await lightHaptic();
+                  Keyboard.dismiss();
+                  setShowTimePicker(false);
+                  setShowDatePicker((value) => !value);
+                }}
+                className="mt-2 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
+              >
+                <Text className="text-sm font-semibold text-gray-900">
+                  {formatDateButton(monthText, dayText, yearText)}
+                </Text>
+                <Ionicons name="calendar-outline" size={18} color="#111827" />
+              </Pressable>
+
+              {showDatePicker ? (
+                <View className="mt-3 items-center rounded-2xl border border-gray-200 bg-gray-50 px-2 py-3">
+                  <DateTimePicker
+                    value={datePickerValue}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(_, selectedDate) => {
+                      if (!selectedDate) return;
+
+                      setMonthText(String(selectedDate.getMonth() + 1));
+                      setDayText(String(selectedDate.getDate()));
+                      setYearText(String(selectedDate.getFullYear()));
+
+                      if (Platform.OS !== "ios") {
+                        setShowDatePicker(false);
+                      }
+                    }}
+                    textColor="#111827"
+                    themeVariant="light"
+                  />
+
+                  {Platform.OS === "ios" ? (
+                    <Pressable
+                      onPress={async () => {
+                        await lightHaptic();
+                        setShowDatePicker(false);
+                      }}
+                      className="mt-2 rounded-xl bg-gray-900 px-5 py-3"
+                    >
+                      <Text className="text-sm font-semibold text-white">
+                        Done
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+
+            <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <Text className="text-sm font-semibold text-gray-900">Time</Text>
+
+              <Text className="mt-1 text-xs text-gray-500">
+                Choose a general time of day or tap exact time.
+              </Text>
+
+              <View className="mt-3 flex-row flex-wrap">
+                {TIME_PRESETS.map((preset) => {
+                  const selected = selectedPreset?.label === preset.label;
+
+                  return (
+                    <Pressable
+                      key={preset.label}
+                      onPress={() => applyTimePreset(preset)}
+                      className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                        selected
+                          ? "border-green-600 bg-green-600"
+                          : "border-gray-200 bg-white"
+                      }`}
+                    >
+                      <Text
+                        className={`text-sm font-semibold ${
+                          selected ? "text-white" : "text-gray-900"
+                        }`}
+                      >
+                        {preset.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
 
-              {editError ? (
-                <Text className="mt-4 px-1 text-sm font-semibold text-red-600">
-                  {editError}
-                </Text>
+              <Pressable
+                onPress={async () => {
+                  await lightHaptic();
+                  Keyboard.dismiss();
+                  setShowDatePicker(false);
+                  setShowTimePicker((value) => !value);
+                }}
+                className="mt-1 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
+              >
+                <View>
+                  <Text className="text-xs font-semibold text-gray-500">
+                    Exact time
+                  </Text>
+                  <Text className="mt-1 text-sm font-semibold text-gray-900">
+                    {formatTimeButton(hourText, minuteText, ampm)}
+                  </Text>
+                </View>
+                <Ionicons name="time-outline" size={18} color="#111827" />
+              </Pressable>
+
+              {showTimePicker ? (
+                <View className="mt-3 items-center rounded-2xl border border-gray-200 bg-gray-50 px-2 py-3">
+                  <DateTimePicker
+                    value={timePickerValue}
+                    mode="time"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(_, selectedDate) => {
+                      if (!selectedDate) return;
+
+                      const parts = dateToTimeParts(selectedDate);
+                      setHourText(parts.hourText);
+                      setMinuteText(parts.minuteText);
+                      setAmpm(parts.ampm);
+
+                      if (Platform.OS !== "ios") {
+                        setShowTimePicker(false);
+                      }
+                    }}
+                    textColor="#111827"
+                    themeVariant="light"
+                  />
+
+                  {Platform.OS === "ios" ? (
+                    <Pressable
+                      onPress={async () => {
+                        await lightHaptic();
+                        setShowTimePicker(false);
+                      }}
+                      className="mt-2 rounded-xl bg-gray-900 px-5 py-3"
+                    >
+                      <Text className="text-sm font-semibold text-white">
+                        Done
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               ) : null}
+            </View>
 
-              <Pressable
-                onPress={onSave}
-                className="mt-5 rounded-2xl bg-green-600 px-5 py-4"
-              >
-                <Text className="text-center text-lg font-bold text-white">
-                  Save Changes
-                </Text>
-              </Pressable>
+            <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
+              <Text className="text-sm font-semibold text-gray-900">Notes</Text>
 
-              <Pressable
-                onPress={onDelete}
-                className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4"
-              >
-                <Text className="text-center text-lg font-bold text-red-700">
-                  Delete Log
-                </Text>
-              </Pressable>
+              <TextInput
+                value={notesText}
+                onChangeText={setNotesText}
+                multiline
+                blurOnSubmit
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
+                placeholder="Optional"
+                className="mt-2 min-h-[110px] rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
+                placeholderTextColor="#9CA3AF"
+                textAlignVertical="top"
+              />
+            </View>
 
-              <Pressable
-                onPress={onClose}
-                className="mt-3 rounded-2xl border border-gray-200 bg-white px-5 py-4"
-              >
-                <Text className="text-center text-lg font-bold text-gray-900">
-                  Cancel
-                </Text>
-              </Pressable>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+            {editError ? (
+              <Text className="mt-4 px-1 text-sm font-semibold text-red-600">
+                {editError}
+              </Text>
+            ) : null}
 
-      <IntensityPickerModal
-        visible={showIntensityPicker}
-        value={intensity}
-        onPick={(n) => {
-          setIntensity(n);
-          setShowIntensityPicker(false);
-        }}
-        onClear={() => {
-          setIntensity(null);
-          setShowIntensityPicker(false);
-        }}
-        onClose={() => setShowIntensityPicker(false)}
-      />
+            <Pressable
+              onPress={onSave}
+              className="mt-5 rounded-2xl bg-green-600 px-5 py-4"
+            >
+              <Text className="text-center text-lg font-bold text-white">
+                Save Changes
+              </Text>
+            </Pressable>
 
-      <CountPickerModal
-        visible={showCountPicker}
-        value={count}
-        onPick={(n) => {
-          setCount(n);
-          setShowCountPicker(false);
-        }}
-        onClose={() => setShowCountPicker(false)}
-      />
-    </>
+            <Pressable
+              onPress={onDelete}
+              className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4"
+            >
+              <Text className="text-center text-lg font-bold text-red-700">
+                Delete Log
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={onClose}
+              className="mt-3 rounded-2xl border border-gray-200 bg-white px-5 py-4"
+            >
+              <Text className="text-center text-lg font-bold text-gray-900">
+                Cancel
+              </Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
