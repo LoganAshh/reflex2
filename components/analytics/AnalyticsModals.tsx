@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import type { LogEntry } from "../../data/DataContext";
 
@@ -37,6 +38,10 @@ const TIME_PRESETS: TimePreset[] = [
   { label: "Evening", hourText: "6", minuteText: "00", ampm: "PM" },
   { label: "Night", hourText: "10", minuteText: "00", ampm: "PM" },
 ];
+
+async function lightHaptic() {
+  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+}
 
 function inputDateValue(monthText: string, dayText: string, yearText: string) {
   const month = Number(monthText);
@@ -197,7 +202,10 @@ function ChipRow<T extends BaseItem>({
 
           return (
             <Pressable
-              onPress={() => onSelect(item.id)}
+              onPress={async () => {
+                await lightHaptic();
+                onSelect(item.id);
+              }}
               className={`mr-2 rounded-full border px-4 py-2 ${
                 isSelected
                   ? "border-green-600 bg-green-600"
@@ -248,7 +256,10 @@ function IntensityPickerModal({
     >
       <Pressable
         className="flex-1 items-center justify-center bg-black/40 px-6"
-        onPress={onClose}
+        onPress={async () => {
+          await lightHaptic();
+          onClose();
+        }}
       >
         <Pressable
           className="w-full rounded-2xl bg-white p-4"
@@ -268,7 +279,10 @@ function IntensityPickerModal({
               return (
                 <Pressable
                   key={n}
-                  onPress={() => onPick(n)}
+                  onPress={async () => {
+                    await lightHaptic();
+                    onPick(n);
+                  }}
                   className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
                     selected
                       ? "border-green-600 bg-green-600"
@@ -289,7 +303,10 @@ function IntensityPickerModal({
 
           <View className="mt-2 flex-row justify-between">
             <Pressable
-              onPress={onClear}
+              onPress={async () => {
+                await lightHaptic();
+                onClear();
+              }}
               className="rounded-xl border border-gray-200 bg-white px-4 py-3"
             >
               <Text className="text-sm font-semibold text-gray-900">
@@ -298,7 +315,10 @@ function IntensityPickerModal({
             </Pressable>
 
             <Pressable
-              onPress={onClose}
+              onPress={async () => {
+                await lightHaptic();
+                onClose();
+              }}
               className="rounded-xl bg-gray-900 px-4 py-3"
             >
               <Text className="text-sm font-semibold text-white">Done</Text>
@@ -332,7 +352,10 @@ function CountPickerModal({
     >
       <Pressable
         className="flex-1 items-center justify-center bg-black/40 px-6"
-        onPress={onClose}
+        onPress={async () => {
+          await lightHaptic();
+          onClose();
+        }}
       >
         <Pressable
           className="w-full rounded-2xl bg-white p-4"
@@ -348,7 +371,10 @@ function CountPickerModal({
               return (
                 <Pressable
                   key={n}
-                  onPress={() => onPick(n)}
+                  onPress={async () => {
+                    await lightHaptic();
+                    onPick(n);
+                  }}
                   className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
                     selected
                       ? "border-green-600 bg-green-600"
@@ -369,7 +395,10 @@ function CountPickerModal({
 
           <View className="mt-2 items-end">
             <Pressable
-              onPress={onClose}
+              onPress={async () => {
+                await lightHaptic();
+                onClose();
+              }}
               className="rounded-xl bg-gray-900 px-4 py-3"
             >
               <Text className="text-sm font-semibold text-white">Done</Text>
@@ -644,7 +673,8 @@ export function EditLogModal({
       preset.ampm === ampm,
   );
 
-  const applyTimePreset = (preset: TimePreset) => {
+  const applyTimePreset = async (preset: TimePreset) => {
+    await lightHaptic();
     Keyboard.dismiss();
     setHourText(preset.hourText);
     setMinuteText(preset.minuteText);
@@ -730,7 +760,8 @@ export function EditLogModal({
                 </Text>
 
                 <Pressable
-                  onPress={() => {
+                  onPress={async () => {
+                    await lightHaptic();
                     Keyboard.dismiss();
                     setShowIntensityPicker(true);
                   }}
@@ -748,7 +779,8 @@ export function EditLogModal({
                 </Text>
 
                 <Pressable
-                  onPress={() => {
+                  onPress={async () => {
+                    await lightHaptic();
                     Keyboard.dismiss();
                     setShowCountPicker(true);
                   }}
@@ -767,7 +799,10 @@ export function EditLogModal({
 
                 <View className="mt-2 flex-row gap-2">
                   <Pressable
-                    onPress={() => setDidResist(1)}
+                    onPress={async () => {
+                      await lightHaptic();
+                      setDidResist(1);
+                    }}
                     className={`flex-1 rounded-full border px-4 py-2 ${
                       didResist === 1
                         ? "border-green-600 bg-green-600"
@@ -784,7 +819,10 @@ export function EditLogModal({
                   </Pressable>
 
                   <Pressable
-                    onPress={() => setDidResist(0)}
+                    onPress={async () => {
+                      await lightHaptic();
+                      setDidResist(0);
+                    }}
                     className={`flex-1 rounded-full border px-4 py-2 ${
                       didResist === 0
                         ? "border-green-600 bg-green-600"
@@ -808,7 +846,8 @@ export function EditLogModal({
                 </Text>
 
                 <Pressable
-                  onPress={() => {
+                  onPress={async () => {
+                    await lightHaptic();
                     Keyboard.dismiss();
                     setShowTimePicker(false);
                     setShowDatePicker((value) => !value);
@@ -844,7 +883,10 @@ export function EditLogModal({
 
                     {Platform.OS === "ios" ? (
                       <Pressable
-                        onPress={() => setShowDatePicker(false)}
+                        onPress={async () => {
+                          await lightHaptic();
+                          setShowDatePicker(false);
+                        }}
                         className="mt-2 rounded-xl bg-gray-900 px-5 py-3"
                       >
                         <Text className="text-sm font-semibold text-white">
@@ -892,7 +934,8 @@ export function EditLogModal({
                 </View>
 
                 <Pressable
-                  onPress={() => {
+                  onPress={async () => {
+                    await lightHaptic();
                     Keyboard.dismiss();
                     setShowDatePicker(false);
                     setShowTimePicker((value) => !value);
@@ -934,7 +977,10 @@ export function EditLogModal({
 
                     {Platform.OS === "ios" ? (
                       <Pressable
-                        onPress={() => setShowTimePicker(false)}
+                        onPress={async () => {
+                          await lightHaptic();
+                          setShowTimePicker(false);
+                        }}
                         className="mt-2 rounded-xl bg-gray-900 px-5 py-3"
                       >
                         <Text className="text-sm font-semibold text-white">

@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useData, type LogEntry } from "../data/DataContext";
 import {
   AnalyticsCalendar,
@@ -148,6 +149,14 @@ function buildTimestampFromInputs(params: {
   return candidate.getTime();
 }
 
+async function lightHaptic() {
+  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+}
+
+async function successHaptic() {
+  await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+}
+
 type TabKey = "Overall" | string;
 
 type BaseItem = { id: number; name: string };
@@ -247,9 +256,11 @@ export default function AnalyticsScreen() {
   const installDayStartMs = useMemo(() => {
     if (!logs || logs.length === 0) return todayStartMs;
     let min = logs[0].createdAt;
+
     for (let i = 1; i < logs.length; i++) {
       if (logs[i].createdAt < min) min = logs[i].createdAt;
     }
+
     return startOfDayMs(min);
   }, [logs, todayStartMs]);
 
@@ -264,10 +275,12 @@ export default function AnalyticsScreen() {
     () => habits.map((h) => ({ id: h.id, name: h.name })),
     [habits],
   );
+
   const cueOptions = useMemo(
     () => cues.map((c) => ({ id: c.id, name: c.name })),
     [cues],
   );
+
   const locationOptions = useMemo(
     () => locations.map((l) => ({ id: l.id, name: l.name })),
     [locations],
@@ -406,12 +419,19 @@ export default function AnalyticsScreen() {
     });
   }, [selectedDayMs]);
 
-  const openDayModal = (dayStartMs: number) => {
+  const openDayModal = async (dayStartMs: number) => {
+    await lightHaptic();
     setSelectedDayMs(dayStartMs);
     setDayModalOpen(true);
   };
 
-  const openEditModal = (log: LogEntry) => {
+  const closeDayModal = async () => {
+    await lightHaptic();
+    setDayModalOpen(false);
+  };
+
+  const openEditModal = async (log: LogEntry) => {
+    await lightHaptic();
     setDayModalOpen(false);
 
     setTimeout(() => {
@@ -435,13 +455,18 @@ export default function AnalyticsScreen() {
     }, 150);
   };
 
-  const closeEditModal = () => {
+  const closeEditModalWithoutHaptic = () => {
     setEditModalOpen(false);
     setEditingLog(null);
     setEditError("");
     setShowIntensityPicker(false);
     setShowCountPicker(false);
     Keyboard.dismiss();
+  };
+
+  const closeEditModal = async () => {
+    await lightHaptic();
+    closeEditModalWithoutHaptic();
   };
 
   const handleSaveEdit = async () => {
@@ -476,21 +501,31 @@ export default function AnalyticsScreen() {
       createdAt: nextCreatedAt,
     });
 
-    closeEditModal();
+    await successHaptic();
+    closeEditModalWithoutHaptic();
   };
 
-  const handleDeleteLog = () => {
+  const handleDeleteLog = async () => {
     if (!editingLog) return;
 
+    await lightHaptic();
+
     Alert.alert("Delete log?", "This will permanently delete this log.", [
-      { text: "Cancel", style: "cancel" },
+      {
+        text: "Cancel",
+        style: "cancel",
+        onPress: () => {
+          lightHaptic();
+        },
+      },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
           const id = editingLog.id;
-          closeEditModal();
+          closeEditModalWithoutHaptic();
           await deleteLog(id);
+          await successHaptic();
         },
       },
     ]);
@@ -504,9 +539,11 @@ export default function AnalyticsScreen() {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
         .map(([name, count]) => ({ name, count }));
+
     const cueCounts = new Map<string, number>();
     const locCounts = new Map<string, number>();
     const timeCounts = new Map<string, number>();
+
     const timeBucket = (ms: number) => {
       const d = new Date(ms);
       const h = d.getHours();
@@ -564,6 +601,7 @@ export default function AnalyticsScreen() {
 
     for (const l of filteredLogs) {
       if (typeof l.intensity !== "number") continue;
+
       if (l.didResist === 1) {
         resistedIntensitySum += l.intensity;
         resistedIntensityCount += 1;
@@ -607,11 +645,13 @@ export default function AnalyticsScreen() {
     for (const l of sourceLogs) {
       const habit = (l.habitName ?? "").trim();
       if (!habit) continue;
+
       const curr = habitMap.get(habit) ?? {
         total: 0,
         resisted: 0,
         gaveIn: 0,
       };
+
       curr.total += 1;
       if (l.didResist === 1) curr.resisted += 1;
       else curr.gaveIn += 1;
@@ -694,7 +734,10 @@ export default function AnalyticsScreen() {
             {habitTabs.map((t) => (
               <Pressable
                 key={t}
-                onPress={() => setActiveTab(t)}
+                onPress={async () => {
+                  await lightHaptic();
+                  setActiveTab(t);
+                }}
                 className={`rounded-full border px-4 py-2 ${
                   t === activeTab
                     ? "border-gray-900 bg-gray-900"
@@ -717,8 +760,14 @@ export default function AnalyticsScreen() {
         <AnalyticsCalendar
           monthLabel={calendar.monthLabel}
           weeks={calendar.weeks}
-          onPreviousMonth={() => setMonthOffset((v) => v - 1)}
-          onNextMonth={() => setMonthOffset((v) => v + 1)}
+          onPreviousMonth={async () => {
+            await lightHaptic();
+            setMonthOffset((v) => v - 1);
+          }}
+          onNextMonth={async () => {
+            await lightHaptic();
+            setMonthOffset((v) => v + 1);
+          }}
           onOpenDay={openDayModal}
         />
 
@@ -850,7 +899,7 @@ export default function AnalyticsScreen() {
         visible={dayModalOpen}
         selectedDayLabel={selectedDayLabel}
         selectedDayLogs={selectedDayLogs}
-        onClose={() => setDayModalOpen(false)}
+        onClose={closeDayModal}
         onEditLog={openEditModal}
       />
 
