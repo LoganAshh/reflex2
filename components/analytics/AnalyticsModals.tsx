@@ -1001,6 +1001,9 @@ export function EditLogModal({
                   value={notesText}
                   onChangeText={setNotesText}
                   multiline
+                  blurOnSubmit
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
                   placeholder="Optional"
                   className="mt-2 min-h-[110px] rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
                   placeholderTextColor="#9CA3AF"
