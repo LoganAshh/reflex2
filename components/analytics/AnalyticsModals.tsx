@@ -480,6 +480,8 @@ export function EditLogModal({
   const cueListRef = useRef<FlatList<ChipItem> | null>(null);
   const locationListRef = useRef<FlatList<ChipItem> | null>(null);
   const actionListRef = useRef<FlatList<ChipItem> | null>(null);
+  const editScrollViewRef = useRef<ScrollView | null>(null);
+  const notesInputRef = useRef<TextInput | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -505,6 +507,15 @@ export function EditLogModal({
   const chipBase = "rounded-full border px-2.5 py-1.5";
   const chipSelected = "border-green-600 bg-green-600";
   const chipUnselected = "border-gray-200 bg-white";
+
+  const scrollNotesIntoView = () => {
+    setTimeout(() => {
+      editScrollViewRef.current?.scrollTo({
+        y: 820,
+        animated: true,
+      });
+    }, 250);
+  };
 
   const applyTimePreset = async (preset: TimePreset) => {
     await lightHaptic();
@@ -579,8 +590,9 @@ export function EditLogModal({
           </View>
 
           <ScrollView
+            ref={editScrollViewRef}
             className="flex-1 px-4 pt-3"
-            contentContainerStyle={{ paddingBottom: 28 }}
+            contentContainerStyle={{ paddingBottom: 100 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -948,12 +960,14 @@ export function EditLogModal({
               <Text className="text-sm font-semibold text-gray-900">Notes</Text>
 
               <TextInput
+                ref={notesInputRef}
                 value={notesText}
                 onChangeText={setNotesText}
                 multiline
                 blurOnSubmit
                 returnKeyType="done"
-                onSubmitEditing={Keyboard.dismiss}
+                onSubmitEditing={() => Keyboard.dismiss()}
+                onFocus={scrollNotesIntoView}
                 placeholder="Optional"
                 className="mt-2 min-h-[110px] rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
                 placeholderTextColor="#9CA3AF"
