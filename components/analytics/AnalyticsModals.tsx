@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Keyboard,
@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import type { LogEntry } from "../../data/DataContext";
 
@@ -22,6 +23,120 @@ type ChipItem = {
 };
 
 type BaseItem = { id: number; name: string };
+
+function inputDateValue(monthText: string, dayText: string, yearText: string) {
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const year = Number(yearText);
+
+  if (
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    !Number.isInteger(year)
+  ) {
+    return new Date();
+  }
+
+  const candidate = new Date(year, month - 1, day);
+
+  if (
+    candidate.getFullYear() !== year ||
+    candidate.getMonth() !== month - 1 ||
+    candidate.getDate() !== day
+  ) {
+    return new Date();
+  }
+
+  return candidate;
+}
+
+function inputTimeDateValue(
+  hourText: string,
+  minuteText: string,
+  ampm: "AM" | "PM",
+) {
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const date = new Date();
+
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 1 ||
+    hour > 12 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return date;
+  }
+
+  let hour24 = hour;
+
+  if (ampm === "PM" && hour !== 12) {
+    hour24 = hour + 12;
+  }
+
+  if (ampm === "AM" && hour === 12) {
+    hour24 = 0;
+  }
+
+  date.setHours(hour24, minute, 0, 0);
+  return date;
+}
+
+function formatDateButton(
+  monthText: string,
+  dayText: string,
+  yearText: string,
+) {
+  const date = inputDateValue(monthText, dayText, yearText);
+
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatTimeButton(
+  hourText: string,
+  minuteText: string,
+  ampm: "AM" | "PM",
+) {
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 1 ||
+    hour > 12 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return "Pick time";
+  }
+
+  return `${hour}:${String(minute).padStart(2, "0")} ${ampm}`;
+}
+
+function dateToTimeParts(date: Date) {
+  const hours24 = date.getHours();
+  const minutes = date.getMinutes();
+  const nextAmpm: "AM" | "PM" = hours24 >= 12 ? "PM" : "AM";
+  let hour12 = hours24 % 12;
+
+  if (hour12 === 0) {
+    hour12 = 12;
+  }
+
+  return {
+    hourText: String(hour12),
+    minuteText: String(minutes).padStart(2, "0"),
+    ampm: nextAmpm,
+  };
+}
 
 function ChipRow<T extends BaseItem>({
   title,
@@ -135,6 +250,7 @@ function IntensityPickerModal({
           <View className="mt-4 flex-row flex-wrap">
             {options.map((n) => {
               const selected = value === n;
+
               return (
                 <Pressable
                   key={n}
@@ -214,6 +330,7 @@ function CountPickerModal({
           <View className="mt-4 flex-row flex-wrap">
             {options.map((n) => {
               const selected = value === n;
+
               return (
                 <Pressable
                   key={n}
@@ -268,6 +385,7 @@ export function DayLogsModal({
       hour: "numeric",
       minute: "2-digit",
     });
+
     const win = item.didResist === 1;
 
     return (
@@ -492,6 +610,18 @@ export function EditLogModal({
   const cueListRef = useRef<FlatList<ChipItem> | null>(null);
   const locationListRef = useRef<FlatList<ChipItem> | null>(null);
   const actionListRef = useRef<FlatList<ChipItem> | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const datePickerValue = useMemo(
+    () => inputDateValue(monthText, dayText, yearText),
+    [monthText, dayText, yearText],
+  );
+
+  const timePickerValue = useMemo(
+    () => inputTimeDateValue(hourText, minuteText, ampm),
+    [hourText, minuteText, ampm],
+  );
 
   return (
     <>
@@ -569,6 +699,7 @@ export function EditLogModal({
                 <Text className="text-sm font-semibold text-gray-900">
                   Intensity
                 </Text>
+
                 <Pressable
                   onPress={() => {
                     Keyboard.dismiss();
@@ -586,6 +717,7 @@ export function EditLogModal({
                 <Text className="text-sm font-semibold text-gray-900">
                   Count
                 </Text>
+
                 <Pressable
                   onPress={() => {
                     Keyboard.dismiss();
@@ -645,94 +777,116 @@ export function EditLogModal({
                 <Text className="text-sm font-semibold text-gray-900">
                   Date
                 </Text>
-                <View className="mt-2 flex-row gap-2">
-                  <TextInput
-                    value={monthText}
-                    onChangeText={setMonthText}
-                    keyboardType="number-pad"
-                    placeholder="MM"
-                    className="flex-1 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                  <TextInput
-                    value={dayText}
-                    onChangeText={setDayText}
-                    keyboardType="number-pad"
-                    placeholder="DD"
-                    className="flex-1 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                  <TextInput
-                    value={yearText}
-                    onChangeText={setYearText}
-                    keyboardType="number-pad"
-                    placeholder="YYYY"
-                    className="flex-[1.4] rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                </View>
+
+                <Pressable
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowTimePicker(false);
+                    setShowDatePicker((value) => !value);
+                  }}
+                  className="mt-2 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
+                >
+                  <Text className="text-sm font-semibold text-gray-900">
+                    {formatDateButton(monthText, dayText, yearText)}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={18} color="#111827" />
+                </Pressable>
+
+                {showDatePicker ? (
+                  <View className="mt-3 items-center rounded-2xl border border-gray-200 bg-gray-50 px-2 py-3">
+                    <DateTimePicker
+                      value={datePickerValue}
+                      mode="date"
+                      display={Platform.OS === "ios" ? "spinner" : "default"}
+                      onChange={(_, selectedDate) => {
+                        if (!selectedDate) return;
+
+                        setMonthText(String(selectedDate.getMonth() + 1));
+                        setDayText(String(selectedDate.getDate()));
+                        setYearText(String(selectedDate.getFullYear()));
+
+                        if (Platform.OS !== "ios") {
+                          setShowDatePicker(false);
+                        }
+                      }}
+                      textColor="#111827"
+                      themeVariant="light"
+                    />
+
+                    {Platform.OS === "ios" ? (
+                      <Pressable
+                        onPress={() => setShowDatePicker(false)}
+                        className="mt-2 rounded-xl bg-gray-900 px-5 py-3"
+                      >
+                        <Text className="text-sm font-semibold text-white">
+                          Done
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ) : null}
               </View>
 
               <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
                 <Text className="text-sm font-semibold text-gray-900">
                   Time
                 </Text>
-                <View className="mt-2 flex-row gap-2">
-                  <TextInput
-                    value={hourText}
-                    onChangeText={setHourText}
-                    keyboardType="number-pad"
-                    placeholder="HH"
-                    className="flex-1 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                  <TextInput
-                    value={minuteText}
-                    onChangeText={setMinuteText}
-                    keyboardType="number-pad"
-                    placeholder="MM"
-                    className="flex-1 rounded-2xl border border-gray-200 px-4 py-3 text-gray-900"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                  <Pressable
-                    onPress={() => setAmpm("AM")}
-                    className={`flex-1 rounded-2xl border px-4 py-3 ${
-                      ampm === "AM"
-                        ? "border-green-600 bg-green-600"
-                        : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <Text
-                      className={`text-center text-sm font-semibold ${
-                        ampm === "AM" ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      AM
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setAmpm("PM")}
-                    className={`flex-1 rounded-2xl border px-4 py-3 ${
-                      ampm === "PM"
-                        ? "border-green-600 bg-green-600"
-                        : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <Text
-                      className={`text-center text-sm font-semibold ${
-                        ampm === "PM" ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      PM
-                    </Text>
-                  </Pressable>
-                </View>
+
+                <Pressable
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowDatePicker(false);
+                    setShowTimePicker((value) => !value);
+                  }}
+                  className="mt-2 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
+                >
+                  <Text className="text-sm font-semibold text-gray-900">
+                    {formatTimeButton(hourText, minuteText, ampm)}
+                  </Text>
+                  <Ionicons name="time-outline" size={18} color="#111827" />
+                </Pressable>
+
+                {showTimePicker ? (
+                  <View className="mt-3 items-center rounded-2xl border border-gray-200 bg-gray-50 px-2 py-3">
+                    <DateTimePicker
+                      value={timePickerValue}
+                      mode="time"
+                      display={Platform.OS === "ios" ? "spinner" : "default"}
+                      onChange={(_, selectedDate) => {
+                        if (!selectedDate) return;
+
+                        const parts = dateToTimeParts(selectedDate);
+                        setHourText(parts.hourText);
+                        setMinuteText(parts.minuteText);
+                        setAmpm(parts.ampm);
+
+                        if (Platform.OS !== "ios") {
+                          setShowTimePicker(false);
+                        }
+                      }}
+                      textColor="#111827"
+                      themeVariant="light"
+                    />
+
+                    {Platform.OS === "ios" ? (
+                      <Pressable
+                        onPress={() => setShowTimePicker(false)}
+                        className="mt-2 rounded-xl bg-gray-900 px-5 py-3"
+                      >
+                        <Text className="text-sm font-semibold text-white">
+                          Done
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ) : null}
               </View>
 
               <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
                 <Text className="text-sm font-semibold text-gray-900">
                   Notes
                 </Text>
+
                 <TextInput
                   value={notesText}
                   onChangeText={setNotesText}
