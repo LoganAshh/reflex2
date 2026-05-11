@@ -10,6 +10,8 @@ import {
   TextInput,
   Keyboard,
   Modal,
+  ScrollView,
+  Animated,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
@@ -346,25 +348,21 @@ export default function LogScreen() {
   const [habitId, setHabitId] = useState<number | null>(null);
   const [cueId, setCueId] = useState<number | null>(null);
   const [locationId, setLocationId] = useState<number | null>(null);
-
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
-
   const [didResist, setDidResist] = useState<boolean>(false);
-
   const [intensity, setIntensity] = useState<number | null>(null);
   const [showIntensityPicker, setShowIntensityPicker] = useState(false);
-
   const [count, setCount] = useState<number>(1);
   const [showCountPicker, setShowCountPicker] = useState(false);
-
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
   const [recentHabitIds, setRecentHabitIds] = useState<number[]>([]);
   const [recentCueIds, setRecentCueIds] = useState<number[]>([]);
   const [recentLocationIds, setRecentLocationIds] = useState<number[]>([]);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
+  const keyboardLiftAnim = useRef(new Animated.Value(0)).current;
   const orderedHabits = useMemo(
     () => applyRecentOrdering(selectedHabits, recentHabitIds),
     [selectedHabits, recentHabitIds],
@@ -382,12 +380,40 @@ export default function LogScreen() {
   const cueListRef = useRef<FlatList<ChipItem> | null>(null);
   const locationListRef = useRef<FlatList<ChipItem> | null>(null);
   const notesInputRef = useRef<TextInput | null>(null);
+  const scrollViewRef = useRef<ScrollView | null>(null);
 
   useEffect(() => {
     if (habitId == null && orderedHabits.length > 0) {
       setHabitId(orderedHabits[0].id);
     }
   }, [orderedHabits, habitId]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+
+      Animated.timing(keyboardLiftAnim, {
+        toValue: -160,
+        duration: 240,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardHeight(0);
+
+      Animated.timing(keyboardLiftAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [keyboardLiftAnim]);
 
   const bumpRecent = (prev: number[], id: number, max = 25) => {
     const next = [id, ...prev.filter((x) => x !== id)];
@@ -400,29 +426,28 @@ export default function LogScreen() {
     locationListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
+  const scrollNotesIntoView = () => {};
+
   const getDefaultHabitId = () =>
     recentHabitIds[0] ?? orderedHabits[0]?.id ?? selectedHabits[0]?.id ?? null;
 
   const resetToDefaults = (habitOverrideId?: number) => {
     setErrorMsg(null);
-
     setHabitId(habitOverrideId ?? getDefaultHabitId());
     setCueId(null);
     setLocationId(null);
-
     setNotes("");
     setShowNotes(false);
-
     setDidResist(false);
     setIntensity(null);
     setCount(1);
-
     setShowIntensityPicker(false);
     setShowCountPicker(false);
 
     requestAnimationFrame(() => {
       scrollAllToStart();
       Keyboard.dismiss();
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     });
   };
 
@@ -462,10 +487,14 @@ export default function LogScreen() {
       });
 
       setRecentHabitIds((prev) => bumpRecent(prev, submittedHabitId));
-      if (submittedCueId != null)
+
+      if (submittedCueId != null) {
         setRecentCueIds((prev) => bumpRecent(prev, submittedCueId));
-      if (submittedLocationId != null)
+      }
+
+      if (submittedLocationId != null) {
         setRecentLocationIds((prev) => bumpRecent(prev, submittedLocationId));
+      }
 
       resetToDefaults(submittedHabitId);
 
@@ -482,17 +511,26 @@ export default function LogScreen() {
   const onShowNotes = () => {
     setShowNotes((v) => {
       const next = !v;
+
       if (!v && next) {
-        setTimeout(() => notesInputRef.current?.focus(), 50);
+        setTimeout(() => {
+          notesInputRef.current?.focus();
+          scrollNotesIntoView();
+        }, 50);
       }
+
       return next;
     });
   };
 
   const setDidResistAndMaybeCount = (v: boolean) => {
     setDidResist(v);
-    if (v) setCount(0);
-    else if (count === 0) setCount(1);
+
+    if (v) {
+      setCount(0);
+    } else if (count === 0) {
+      setCount(1);
+    }
   };
 
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
@@ -511,9 +549,9 @@ export default function LogScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       className="flex-1 bg-white"
-      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+      keyboardVerticalOffset={0}
     >
       <IntensityPickerModal
         visible={showIntensityPicker}
@@ -541,8 +579,25 @@ export default function LogScreen() {
         onClose={() => setShowCountPicker(false)}
       />
 
-      <View className="flex-1 items-center justify-center px-5 py-4">
-        <View className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
+      <ScrollView
+        ref={scrollViewRef}
+        className="flex-1"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          paddingHorizontal: 20,
+          paddingVertical: 16,
+          paddingBottom: keyboardHeight > 0 ? 80 : 16,
+        }}
+      >
+        <Animated.View
+          className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4"
+          style={{
+            transform: [{ translateY: keyboardLiftAnim }],
+          }}
+        >
           <ChipRow<SelectedHabit>
             title="Habit"
             items={orderedHabits}
@@ -660,6 +715,7 @@ export default function LogScreen() {
               returnKeyType="done"
               blurOnSubmit
               onSubmitEditing={() => Keyboard.dismiss()}
+              onFocus={scrollNotesIntoView}
             />
           ) : null}
 
@@ -680,8 +736,8 @@ export default function LogScreen() {
               {saving ? "Saving..." : "Save"}
             </Text>
           </Pressable>
-        </View>
-      </View>
+        </Animated.View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
