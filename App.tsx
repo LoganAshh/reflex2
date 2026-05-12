@@ -1,5 +1,5 @@
 import "./global.css";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -101,9 +101,14 @@ function AppLockScreen({
 
 function AppLockGate({ children }: { children: React.ReactNode }) {
   const { appLockEnabled } = useData();
+
   const [unlocked, setUnlocked] = useState(!appLockEnabled);
   const [authenticating, setAuthenticating] = useState(false);
   const [shouldPrompt, setShouldPrompt] = useState(appLockEnabled);
+
+  const appStateRef = useRef(AppState.currentState);
+  const authenticatingRef = useRef(false);
+  const lastAuthCompletedAtRef = useRef(0);
 
   const unlock = useCallback(async () => {
     if (!appLockEnabled) {
@@ -112,10 +117,12 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (authenticating) return;
+    if (authenticatingRef.current) return;
 
     try {
+      authenticatingRef.current = true;
       setAuthenticating(true);
+      setShouldPrompt(false);
 
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: "Unlock Reflex",
@@ -124,42 +131,58 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
         disableDeviceFallback: false,
       });
 
+      lastAuthCompletedAtRef.current = Date.now();
+
       if (result.success) {
         await Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success,
         );
         setUnlocked(true);
-        setShouldPrompt(false);
       } else {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setShouldPrompt(false);
       }
     } catch {
+      lastAuthCompletedAtRef.current = Date.now();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setShouldPrompt(false);
     } finally {
+      authenticatingRef.current = false;
       setAuthenticating(false);
     }
-  }, [appLockEnabled, authenticating]);
+  }, [appLockEnabled]);
 
   useEffect(() => {
     if (!appLockEnabled) {
       setUnlocked(true);
       setShouldPrompt(false);
+      return;
     }
+
+    setShouldPrompt((current) => current);
   }, [appLockEnabled]);
 
   useEffect(() => {
-    if (!appLockEnabled || unlocked || !shouldPrompt || authenticating) return;
+    if (!appLockEnabled) return;
+    if (unlocked) return;
+    if (!shouldPrompt) return;
+    if (authenticatingRef.current) return;
+
     unlock();
-  }, [appLockEnabled, unlocked, shouldPrompt, authenticating, unlock]);
+  }, [appLockEnabled, unlocked, shouldPrompt, unlock]);
 
   useEffect(() => {
     if (!appLockEnabled) return;
 
-    let previousState = AppState.currentState;
-
     const subscription = AppState.addEventListener("change", (nextState) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
+
+      if (authenticatingRef.current) return;
+
+      const justAuthenticated =
+        Date.now() - lastAuthCompletedAtRef.current < 2000;
+
+      if (justAuthenticated) return;
+
       const wasAway =
         previousState === "inactive" || previousState === "background";
 
@@ -167,8 +190,6 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
         setUnlocked(false);
         setShouldPrompt(true);
       }
-
-      previousState = nextState;
     });
 
     return () => subscription.remove();
