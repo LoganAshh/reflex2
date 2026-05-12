@@ -19,7 +19,6 @@ import HomeScreen from "./screens/HomeScreen";
 import ShopScreen from "./screens/ShopScreen";
 import LogScreen from "./screens/LogScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
-import SubscriptionScreen from "./screens/SubscriptionScreen";
 import SettingsScreen from "./screens/SettingsScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import ManageListScreen from "./screens/ManageListScreen";
@@ -33,7 +32,6 @@ export type RootTabParamList = {
   Shop: undefined;
   Log: undefined;
   Analytics: undefined;
-  Subscription: undefined;
 };
 
 export type RootStackParamList = {
@@ -69,10 +67,6 @@ function AppLockScreen({
   authenticating: boolean;
   onUnlock: () => void;
 }) {
-  useEffect(() => {
-    onUnlock();
-  }, [onUnlock]);
-
   return (
     <View className="flex-1 items-center justify-center bg-white px-6">
       <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-green-50">
@@ -109,12 +103,16 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
   const { appLockEnabled } = useData();
   const [unlocked, setUnlocked] = useState(!appLockEnabled);
   const [authenticating, setAuthenticating] = useState(false);
+  const [shouldPrompt, setShouldPrompt] = useState(appLockEnabled);
 
   const unlock = useCallback(async () => {
-    if (!appLockEnabled || authenticating) {
+    if (!appLockEnabled) {
       setUnlocked(true);
+      setShouldPrompt(false);
       return;
     }
+
+    if (authenticating) return;
 
     try {
       setAuthenticating(true);
@@ -131,11 +129,14 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
           Haptics.NotificationFeedbackType.Success,
         );
         setUnlocked(true);
+        setShouldPrompt(false);
       } else {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setShouldPrompt(false);
       }
     } catch {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setShouldPrompt(false);
     } finally {
       setAuthenticating(false);
     }
@@ -144,8 +145,14 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!appLockEnabled) {
       setUnlocked(true);
+      setShouldPrompt(false);
     }
   }, [appLockEnabled]);
+
+  useEffect(() => {
+    if (!appLockEnabled || unlocked || !shouldPrompt || authenticating) return;
+    unlock();
+  }, [appLockEnabled, unlocked, shouldPrompt, authenticating, unlock]);
 
   useEffect(() => {
     if (!appLockEnabled) return;
@@ -158,6 +165,7 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
 
       if (wasAway && nextState === "active") {
         setUnlocked(false);
+        setShouldPrompt(true);
       }
 
       previousState = nextState;
@@ -208,9 +216,6 @@ function Tabs() {
             case "Analytics":
               iconName = focused ? "bar-chart" : "bar-chart-outline";
               break;
-            case "Subscription":
-              iconName = focused ? "diamond" : "diamond-outline";
-              break;
             default:
               iconName = "ellipse";
           }
@@ -260,24 +265,22 @@ function Tabs() {
           ),
         })}
       />
+
       <Tab.Screen
         name="Shop"
         component={ShopScreen}
         listeners={{ tabPress: () => tabHaptic() }}
       />
+
       <Tab.Screen
         name="Log"
         component={LogScreen}
         listeners={{ tabPress: () => tabHaptic() }}
       />
+
       <Tab.Screen
         name="Analytics"
         component={AnalyticsScreen}
-        listeners={{ tabPress: () => tabHaptic() }}
-      />
-      <Tab.Screen
-        name="Subscription"
-        component={SubscriptionScreen}
         listeners={{ tabPress: () => tabHaptic() }}
       />
     </Tab.Navigator>
@@ -302,21 +305,25 @@ function RootStack() {
           component={Tabs}
           options={{ headerShown: false }}
         />
+
         <Stack.Screen
           name="Settings"
           component={SettingsScreen}
           options={{ title: "Settings", headerBackTitle: "Back" }}
         />
+
         <Stack.Screen
           name="ManageList"
           component={ManageListScreen}
           options={{ title: "Manage", headerBackTitle: "Back" }}
         />
+
         <Stack.Screen
           name="ProfileSetup"
           component={ProfileSetupScreen}
           options={{ title: "Edit Profile", headerBackTitle: "Back" }}
         />
+
         <Stack.Screen
           name="UrgeHelp"
           component={UrgeHelpScreen}
@@ -326,6 +333,7 @@ function RootStack() {
             headerBackButtonMenuEnabled: false,
           }}
         />
+
         <Stack.Screen
           name="ShopPicker"
           component={ShopScreen}
