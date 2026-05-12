@@ -636,14 +636,9 @@ export default function LogScreen() {
           />
 
           <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
-            <View className="mr-4 flex-1">
-              <Text className="text-sm font-semibold text-gray-900">
-                Did you resist?
-              </Text>
-              <Text className="mt-1 text-xs font-medium text-gray-500">
-                Turn this on if you had the urge but did not give in.
-              </Text>
-            </View>
+            <Text className="mr-4 flex-1 text-sm font-semibold text-gray-900">
+              Did you resist?
+            </Text>
             <Switch
               value={didResist}
               onValueChange={setDidResistAndMaybeCount}
@@ -663,9 +658,6 @@ export default function LogScreen() {
                       0 times
                     </Text>
                   </View>
-                  <Text className="mt-2 text-xs font-medium text-gray-500">
-                    Nice. This saves as resisted.
-                  </Text>
                 </View>
               ) : (
                 <View className="mt-2 flex-row items-center">
@@ -722,7 +714,7 @@ export default function LogScreen() {
             className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
           >
             <Text className="text-sm font-semibold text-gray-900">
-              {showNotes ? "Hide notes" : "Add notes optional"}
+              {showNotes ? "Hide notes" : "Add notes (optional)"}
             </Text>
           </Pressable>
 
