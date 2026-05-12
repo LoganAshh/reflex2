@@ -1,12 +1,19 @@
 import "./global.css";
-import React from "react";
-import { View, Text, ActivityIndicator, Pressable } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  ActivityIndicator,
+  Pressable,
+  AppState,
+} from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as LocalAuthentication from "expo-local-authentication";
 
 import HomeScreen from "./screens/HomeScreen";
 import ShopScreen from "./screens/ShopScreen";
@@ -53,6 +60,108 @@ function AppLoadingScreen() {
       </Text>
     </View>
   );
+}
+
+function AppLockScreen({
+  authenticating,
+  onUnlock,
+}: {
+  authenticating: boolean;
+  onUnlock: () => void;
+}) {
+  useEffect(() => {
+    onUnlock();
+  }, [onUnlock]);
+
+  return (
+    <View className="flex-1 items-center justify-center bg-white px-6">
+      <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-green-50">
+        <Ionicons name="lock-closed" size={38} color="#16A34A" />
+      </View>
+
+      <Text className="text-2xl font-bold text-zinc-900">Reflex is locked</Text>
+
+      <Text className="mt-2 text-center text-base text-zinc-600">
+        Use Face ID or your device passcode to unlock your local data.
+      </Text>
+
+      <Pressable
+        onPress={onUnlock}
+        disabled={authenticating}
+        className={[
+          "mt-8 w-full rounded-2xl py-4",
+          authenticating ? "bg-green-400" : "bg-green-600",
+        ].join(" ")}
+      >
+        {authenticating ? (
+          <ActivityIndicator color="white" />
+        ) : (
+          <Text className="text-center text-base font-bold text-white">
+            Unlock Reflex
+          </Text>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+function AppLockGate({ children }: { children: React.ReactNode }) {
+  const { appLockEnabled } = useData();
+  const [unlocked, setUnlocked] = useState(!appLockEnabled);
+  const [authenticating, setAuthenticating] = useState(false);
+
+  const unlock = useCallback(async () => {
+    if (!appLockEnabled || authenticating) {
+      setUnlocked(true);
+      return;
+    }
+
+    try {
+      setAuthenticating(true);
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Unlock Reflex",
+        fallbackLabel: "Use Passcode",
+        cancelLabel: "Cancel",
+        disableDeviceFallback: false,
+      });
+
+      if (result.success) {
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success,
+        );
+        setUnlocked(true);
+      } else {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } catch {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setAuthenticating(false);
+    }
+  }, [appLockEnabled, authenticating]);
+
+  useEffect(() => {
+    setUnlocked(!appLockEnabled);
+  }, [appLockEnabled]);
+
+  useEffect(() => {
+    if (!appLockEnabled) return;
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "inactive" || nextState === "background") {
+        setUnlocked(false);
+      }
+    });
+
+    return () => subscription.remove();
+  }, [appLockEnabled]);
+
+  if (appLockEnabled && !unlocked) {
+    return <AppLockScreen authenticating={authenticating} onUnlock={unlock} />;
+  }
+
+  return <>{children}</>;
 }
 
 function Tabs() {
@@ -177,42 +286,44 @@ function RootStack() {
   if (!hasCompletedLocalProfile) return <ProfileSetupScreen />;
 
   return (
-    <Stack.Navigator>
-      <Stack.Screen
-        name="Main"
-        component={Tabs}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{ title: "Settings", headerBackTitle: "Back" }}
-      />
-      <Stack.Screen
-        name="ManageList"
-        component={ManageListScreen}
-        options={{ title: "Manage", headerBackTitle: "Back" }}
-      />
-      <Stack.Screen
-        name="ProfileSetup"
-        component={ProfileSetupScreen}
-        options={{ title: "Edit Profile", headerBackTitle: "Back" }}
-      />
-      <Stack.Screen
-        name="UrgeHelp"
-        component={UrgeHelpScreen}
-        options={{
-          title: "Resist the urge",
-          headerBackTitle: "Back",
-          headerBackButtonMenuEnabled: false,
-        }}
-      />
-      <Stack.Screen
-        name="ShopPicker"
-        component={ShopScreen}
-        options={{ title: "Shop", headerBackTitle: "Back" }}
-      />
-    </Stack.Navigator>
+    <AppLockGate>
+      <Stack.Navigator>
+        <Stack.Screen
+          name="Main"
+          component={Tabs}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ title: "Settings", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="ManageList"
+          component={ManageListScreen}
+          options={{ title: "Manage", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="ProfileSetup"
+          component={ProfileSetupScreen}
+          options={{ title: "Edit Profile", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="UrgeHelp"
+          component={UrgeHelpScreen}
+          options={{
+            title: "Resist the urge",
+            headerBackTitle: "Back",
+            headerBackButtonMenuEnabled: false,
+          }}
+        />
+        <Stack.Screen
+          name="ShopPicker"
+          component={ShopScreen}
+          options={{ title: "Shop", headerBackTitle: "Back" }}
+        />
+      </Stack.Navigator>
+    </AppLockGate>
   );
 }
 

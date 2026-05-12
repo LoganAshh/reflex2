@@ -64,6 +64,8 @@ import {
   saveProfilePhotoUri,
   loadProfileDoneFlag,
   saveProfileDoneFlag,
+  loadAppLockEnabledFlag,
+  saveAppLockEnabledFlag,
   deleteManagedProfilePhoto,
   normalizeStoredProfilePhotoUri,
 } from "./profileStorage";
@@ -99,6 +101,7 @@ async function resetDbForDev() {
   await saveProfileName("");
   await saveProfilePhotoUri("");
   await saveProfileDoneFlag(false);
+  await saveAppLockEnabledFlag(false);
 }
 
 export function DataProvider({ children }: DataProviderProps) {
@@ -108,6 +111,7 @@ export function DataProvider({ children }: DataProviderProps) {
   const [profilePhotoUri, setProfilePhotoUri] = useState<string | null>(null);
   const [hasCompletedLocalProfile, setHasCompletedLocalProfile] =
     useState(false);
+  const [appLockEnabled, setAppLockEnabledState] = useState(false);
 
   const [habits, setHabits] = useState<Habit[]>([]);
   const [cues, setCues] = useState<Cue[]>([]);
@@ -161,13 +165,19 @@ export function DataProvider({ children }: DataProviderProps) {
         await seedDefaultLocationsIfEmpty();
         await seedDefaultActionsIfEmpty();
 
-        const [onboarded, savedProfileName, rawSavedProfilePhoto, profileDone] =
-          await Promise.all([
-            loadOnboardedFlag(),
-            loadProfileName(),
-            loadProfilePhotoUri(),
-            loadProfileDoneFlag(),
-          ]);
+        const [
+          onboarded,
+          savedProfileName,
+          rawSavedProfilePhoto,
+          profileDone,
+          savedAppLockEnabled,
+        ] = await Promise.all([
+          loadOnboardedFlag(),
+          loadProfileName(),
+          loadProfilePhotoUri(),
+          loadProfileDoneFlag(),
+          loadAppLockEnabledFlag(),
+        ]);
 
         const savedProfilePhoto = await normalizeStoredProfilePhotoUri(
           rawSavedProfilePhoto ?? "",
@@ -190,6 +200,7 @@ export function DataProvider({ children }: DataProviderProps) {
           setProfileName(cleanName);
           setProfilePhotoUri(cleanPhoto || null);
           setHasCompletedLocalProfile(normalizedProfileDone);
+          setAppLockEnabledState(savedAppLockEnabled);
         }
 
         await refresh();
@@ -217,6 +228,13 @@ export function DataProvider({ children }: DataProviderProps) {
   const resetOnboarding = async () => {
     await saveOnboardedFlag(false);
     setHasOnboarded(false);
+  };
+
+  const setAppLockEnabled: DataContextType["setAppLockEnabled"] = async (
+    value,
+  ) => {
+    await saveAppLockEnabledFlag(value);
+    setAppLockEnabledState(value);
   };
 
   const completeLocalProfile: DataContextType["completeLocalProfile"] = async (
@@ -530,6 +548,9 @@ export function DataProvider({ children }: DataProviderProps) {
         photoUri: profilePhotoUri,
         isComplete: hasCompletedLocalProfile,
       },
+      settings: {
+        appLockEnabled,
+      },
       hasOnboarded,
       habits,
       cues,
@@ -574,12 +595,14 @@ export function DataProvider({ children }: DataProviderProps) {
       saveProfileName(""),
       saveProfilePhotoUri(""),
       saveProfileDoneFlag(false),
+      saveAppLockEnabledFlag(false),
     ]);
 
     setHasOnboarded(false);
     setProfileName("");
     setProfilePhotoUri(null);
     setHasCompletedLocalProfile(false);
+    setAppLockEnabledState(false);
 
     await refresh();
   };
@@ -592,6 +615,8 @@ export function DataProvider({ children }: DataProviderProps) {
       hasCompletedLocalProfile,
       completeLocalProfile,
       clearLocalProfile,
+      appLockEnabled,
+      setAppLockEnabled,
       habits,
       cues,
       locations,
@@ -627,6 +652,7 @@ export function DataProvider({ children }: DataProviderProps) {
       profileName,
       profilePhotoUri,
       hasCompletedLocalProfile,
+      appLockEnabled,
       habits,
       cues,
       locations,

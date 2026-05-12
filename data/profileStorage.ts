@@ -5,6 +5,7 @@ const ONBOARD_KEY = "hasOnboarded";
 const PROFILE_NAME_KEY = "profileName";
 const PROFILE_PHOTO_KEY = "profilePhotoUri";
 const PROFILE_DONE_KEY = "hasCompletedLocalProfile";
+const APP_LOCK_ENABLED_KEY = "appLockEnabled";
 const PROFILE_PHOTOS_DIR_NAME = "profile-photos";
 
 function getProfilePhotosDirectory() {
@@ -103,4 +104,12 @@ export async function loadProfileDoneFlag(): Promise<boolean> {
 
 export async function saveProfileDoneFlag(value: boolean): Promise<void> {
   await saveBoolean(PROFILE_DONE_KEY, value);
+}
+
+export async function loadAppLockEnabledFlag(): Promise<boolean> {
+  return loadBoolean(APP_LOCK_ENABLED_KEY);
+}
+
+export async function saveAppLockEnabledFlag(value: boolean): Promise<void> {
+  await saveBoolean(APP_LOCK_ENABLED_KEY, value);
 }

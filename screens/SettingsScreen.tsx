@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
+import * as LocalAuthentication from "expo-local-authentication";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
@@ -83,6 +84,20 @@ function Row({
   );
 }
 
+function getBiometricName(types: LocalAuthentication.AuthenticationType[]) {
+  if (
+    types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)
+  ) {
+    return "Face ID";
+  }
+
+  if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+    return "Touch ID";
+  }
+
+  return "biometrics";
+}
+
 export default function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   const {
@@ -91,6 +106,8 @@ export default function SettingsScreen() {
     profileName,
     profilePhotoUri,
     clearLocalProfile,
+    appLockEnabled,
+    setAppLockEnabled,
   } = useData();
 
   const version = useMemo(() => {
@@ -108,8 +125,9 @@ export default function SettingsScreen() {
     return build ? `${v} (${build})` : `${v}`;
   }, []);
 
-  const [busy, setBusy] = useState<null | "export" | "reset" | "profile">(null);
-  const [appLockEnabled, setAppLockEnabled] = useState(false);
+  const [busy, setBusy] = useState<
+    null | "export" | "reset" | "profile" | "lock"
+  >(null);
 
   async function onExport() {
     try {
@@ -120,6 +138,79 @@ export default function SettingsScreen() {
       Alert.alert("Export failed", e?.message ?? "Something went wrong.");
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function enableAppLock() {
+    try {
+      setBusy("lock");
+
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      if (!hasHardware) {
+        Alert.alert(
+          "App lock unavailable",
+          "This device does not support biometric authentication.",
+        );
+        return;
+      }
+
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!enrolled) {
+        Alert.alert(
+          "Set up Face ID first",
+          "Turn on Face ID or another biometric unlock method in your device settings before enabling App Lock.",
+        );
+        return;
+      }
+
+      const types =
+        await LocalAuthentication.supportedAuthenticationTypesAsync();
+      const biometricName = getBiometricName(types);
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: `Enable ${biometricName} for Reflex`,
+        fallbackLabel: "Use Passcode",
+        cancelLabel: "Cancel",
+        disableDeviceFallback: false,
+      });
+
+      if (!result.success) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
+
+      await setAppLockEnabled(true);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e: any) {
+      Alert.alert(
+        "Could not enable App Lock",
+        e?.message ?? "Something went wrong.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function disableAppLock() {
+    try {
+      setBusy("lock");
+      await setAppLockEnabled(false);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e: any) {
+      Alert.alert(
+        "Could not disable App Lock",
+        e?.message ?? "Something went wrong.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onToggleAppLock(nextValue: boolean) {
+    if (nextValue) {
+      await enableAppLock();
+    } else {
+      await disableAppLock();
     }
   }
 
@@ -285,15 +376,25 @@ export default function SettingsScreen() {
         </Text>
 
         <Row
-          title="App lock"
-          subtitle="Coming soon."
-          disabled
+          title="App Lock"
+          subtitle={
+            appLockEnabled
+              ? "Require Face ID or your device passcode when opening Reflex."
+              : "Protect your local Reflex data with Face ID or your device passcode."
+          }
+          disabled={busy === "lock"}
           right={
-            <Switch
-              value={appLockEnabled}
-              onValueChange={setAppLockEnabled}
-              disabled
-            />
+            busy === "lock" ? (
+              <ActivityIndicator />
+            ) : (
+              <Switch
+                value={appLockEnabled}
+                onValueChange={onToggleAppLock}
+                disabled={!!busy}
+                trackColor={{ false: "#D4D4D8", true: "#BBF7D0" }}
+                thumbColor={appLockEnabled ? "#16A34A" : "#F4F4F5"}
+              />
+            )
           }
         />
 

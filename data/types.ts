@@ -73,6 +73,9 @@ export type DataContextType = {
   ) => Promise<void>;
   clearLocalProfile: () => Promise<void>;
 
+  appLockEnabled: boolean;
+  setAppLockEnabled: (value: boolean) => Promise<void>;
+
   habits: Habit[];
   cues: Cue[];
   locations: Place[];
