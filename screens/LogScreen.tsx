@@ -12,6 +12,8 @@ import {
   Modal,
   ScrollView,
   Animated,
+  UIManager,
+  findNodeHandle,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
@@ -190,9 +192,7 @@ function IntensityPickerModal({
           <Text className="text-base font-bold text-gray-900">
             Pick intensity
           </Text>
-          <Text className="mt-1 text-xs text-gray-500">
-            1 (low) → 10 (high)
-          </Text>
+          <Text className="mt-1 text-xs text-gray-500">1 low, 10 high</Text>
 
           <View className="mt-4 flex-row flex-wrap">
             {options.map((n) => {
@@ -245,13 +245,11 @@ function IntensityPickerModal({
 function CountPickerModal({
   visible,
   value,
-  allowNone,
   onPick,
   onClose,
 }: {
   visible: boolean;
   value: number;
-  allowNone: boolean;
   onPick: (n: number) => void;
   onClose: () => void;
 }) {
@@ -260,8 +258,7 @@ function CountPickerModal({
     [],
   );
 
-  const labelFor = (n: number) =>
-    n === 0 ? "None" : n === 1 ? "Once" : n === 2 ? "Twice" : `${n}x`;
+  const labelFor = (n: number) => (n === 1 ? "1 time" : `${n} times`);
 
   return (
     <Modal
@@ -278,31 +275,14 @@ function CountPickerModal({
           className="w-full rounded-2xl bg-white p-4"
           onPress={() => {}}
         >
-          <Text className="text-base font-bold text-gray-900">Pick count</Text>
+          <Text className="text-base font-bold text-gray-900">
+            Times given in
+          </Text>
           <Text className="mt-1 text-xs text-gray-500">
-            How many times did it happen?
+            Only count times you actually gave in.
           </Text>
 
           <View className="mt-4 flex-row flex-wrap">
-            {allowNone ? (
-              <Pressable
-                onPress={() => onPick(0)}
-                className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
-                  value === 0
-                    ? "border-green-600 bg-green-600"
-                    : "border-gray-200 bg-white"
-                }`}
-              >
-                <Text
-                  className={`text-sm font-semibold ${
-                    value === 0 ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  None
-                </Text>
-              </Pressable>
-            ) : null}
-
             {options.map((n) => {
               const selected = value === n;
               return (
@@ -363,6 +343,13 @@ export default function LogScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const keyboardLiftAnim = useRef(new Animated.Value(0)).current;
+  const habitListRef = useRef<FlatList<ChipItem> | null>(null);
+  const cueListRef = useRef<FlatList<ChipItem> | null>(null);
+  const locationListRef = useRef<FlatList<ChipItem> | null>(null);
+  const notesInputRef = useRef<TextInput | null>(null);
+  const notesAnchorRef = useRef<View | null>(null);
+  const scrollViewRef = useRef<ScrollView | null>(null);
+
   const orderedHabits = useMemo(
     () => applyRecentOrdering(selectedHabits, recentHabitIds),
     [selectedHabits, recentHabitIds],
@@ -375,12 +362,6 @@ export default function LogScreen() {
     () => applyRecentOrdering(selectedLocations, recentLocationIds),
     [selectedLocations, recentLocationIds],
   );
-
-  const habitListRef = useRef<FlatList<ChipItem> | null>(null);
-  const cueListRef = useRef<FlatList<ChipItem> | null>(null);
-  const locationListRef = useRef<FlatList<ChipItem> | null>(null);
-  const notesInputRef = useRef<TextInput | null>(null);
-  const scrollViewRef = useRef<ScrollView | null>(null);
 
   useEffect(() => {
     if (habitId == null && orderedHabits.length > 0) {
@@ -426,7 +407,27 @@ export default function LogScreen() {
     locationListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
-  const scrollNotesIntoView = () => {};
+  const scrollNotesIntoView = () => {
+    requestAnimationFrame(() => {
+      const scrollNode = findNodeHandle(scrollViewRef.current);
+      const notesNode = findNodeHandle(notesAnchorRef.current);
+
+      if (!scrollNode || !notesNode) {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+        return;
+      }
+
+      UIManager.measureLayout(
+        notesNode,
+        scrollNode,
+        () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+        (_x, y, _width, height) => {
+          const targetY = Math.max(0, y + height - 280);
+          scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+        },
+      );
+    });
+  };
 
   const getDefaultHabitId = () =>
     recentHabitIds[0] ?? orderedHabits[0]?.id ?? selectedHabits[0]?.id ?? null;
@@ -459,19 +460,22 @@ export default function LogScreen() {
   }, [navigation, orderedHabits, selectedHabits, recentHabitIds]);
 
   const onSave = async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
-      () => {},
-    );
+    if (saving) return;
+
     setErrorMsg(null);
 
     if (habitId == null) {
-      setErrorMsg("Select a habit.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
+        () => {},
+      );
+      setErrorMsg("Select a habit before saving.");
       return;
     }
 
     const submittedHabitId = habitId;
     const submittedCueId = cueId;
     const submittedLocationId = locationId;
+    const submittedCount = didResist ? 0 : Math.max(1, count);
 
     try {
       setSaving(true);
@@ -481,7 +485,7 @@ export default function LogScreen() {
         cueId: submittedCueId,
         locationId: submittedLocationId,
         intensity,
-        count,
+        count: submittedCount,
         didResist,
         notes: notes.trim() || undefined,
       });
@@ -496,13 +500,20 @@ export default function LogScreen() {
         setRecentLocationIds((prev) => bumpRecent(prev, submittedLocationId));
       }
 
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+        () => {},
+      );
+
       resetToDefaults(submittedHabitId);
 
       if (newLogId != null) {
         navigation.navigate("UrgeHelp", { logId: newLogId });
       }
     } catch {
-      setErrorMsg("Could not save.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
+        () => {},
+      );
+      setErrorMsg("Could not save. Try again.");
     } finally {
       setSaving(false);
     }
@@ -516,7 +527,7 @@ export default function LogScreen() {
         setTimeout(() => {
           notesInputRef.current?.focus();
           scrollNotesIntoView();
-        }, 50);
+        }, 80);
       }
 
       return next;
@@ -534,14 +545,7 @@ export default function LogScreen() {
   };
 
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
-  const countLabel =
-    count === 0
-      ? "None"
-      : count === 1
-        ? "Once"
-        : count === 2
-          ? "Twice"
-          : `${count}x`;
+  const countLabel = count === 1 ? "1 time" : `${count} times`;
 
   const chipBase = "rounded-full border px-2.5 py-1.5";
   const chipSelected = "bg-green-600 border-green-600";
@@ -569,11 +573,10 @@ export default function LogScreen() {
 
       <CountPickerModal
         visible={showCountPicker}
-        value={count}
-        allowNone={didResist}
+        value={Math.max(1, count)}
         onPick={(n) => {
           setCount(n);
-          if (n > 0) setDidResist(false);
+          setDidResist(false);
           setShowCountPicker(false);
         }}
         onClose={() => setShowCountPicker(false)}
@@ -602,7 +605,10 @@ export default function LogScreen() {
             title="Habit"
             items={orderedHabits}
             selectedId={habitId}
-            onSelect={setHabitId}
+            onSelect={(id) => {
+              setHabitId(id);
+              setErrorMsg(null);
+            }}
             onAdd={() => navigation.navigate("ManageList", { type: "habits" })}
             listRef={habitListRef}
           />
@@ -630,9 +636,14 @@ export default function LogScreen() {
           />
 
           <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
-            <Text className="text-sm font-semibold text-gray-900">
-              Resisted?
-            </Text>
+            <View className="mr-4 flex-1">
+              <Text className="text-sm font-semibold text-gray-900">
+                Did you resist?
+              </Text>
+              <Text className="mt-1 text-xs font-medium text-gray-500">
+                Turn this on if you had the urge but did not give in.
+              </Text>
+            </View>
             <Switch
               value={didResist}
               onValueChange={setDidResistAndMaybeCount}
@@ -641,31 +652,42 @@ export default function LogScreen() {
 
           <View className="mt-3 w-full flex-row gap-3">
             <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
-              <Text className="text-sm font-semibold text-gray-900">Count</Text>
+              <Text className="text-sm font-semibold text-gray-900">
+                Times given in
+              </Text>
 
-              <View className="mt-2 flex-row items-center">
-                <Pressable
-                  onPress={() => setShowCountPicker(true)}
-                  className={`${chipBase} ${chipSelected} ${
-                    didResist ? "" : "mr-2"
-                  }`}
-                >
-                  <Text className="text-sm font-semibold text-white">
-                    {countLabel}
+              {didResist ? (
+                <View className="mt-2">
+                  <View className={`${chipBase} ${chipSelected} self-start`}>
+                    <Text className="text-sm font-semibold text-white">
+                      0 times
+                    </Text>
+                  </View>
+                  <Text className="mt-2 text-xs font-medium text-gray-500">
+                    Nice. This saves as resisted.
                   </Text>
-                </Pressable>
+                </View>
+              ) : (
+                <View className="mt-2 flex-row items-center">
+                  <Pressable
+                    onPress={() => setShowCountPicker(true)}
+                    className={`${chipBase} ${chipSelected} mr-2`}
+                  >
+                    <Text className="text-sm font-semibold text-white">
+                      {countLabel}
+                    </Text>
+                  </Pressable>
 
-                {!didResist ? (
                   <Pressable
                     onPress={() => setShowCountPicker(true)}
                     className={`${chipBase} ${chipUnselected}`}
                   >
                     <Text className="text-sm font-semibold text-gray-900">
-                      + Add
+                      Change
                     </Text>
                   </Pressable>
-                ) : null}
-              </View>
+                </View>
+              )}
             </View>
 
             <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
@@ -688,7 +710,7 @@ export default function LogScreen() {
                   className={`${chipBase} ${chipUnselected}`}
                 >
                   <Text className="text-sm font-semibold text-gray-900">
-                    + Add
+                    Change
                   </Text>
                 </Pressable>
               </View>
@@ -700,29 +722,31 @@ export default function LogScreen() {
             className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
           >
             <Text className="text-sm font-semibold text-gray-900">
-              {showNotes ? "Hide notes" : "Add Notes (optional)"}
+              {showNotes ? "Hide notes" : "Add notes optional"}
             </Text>
           </Pressable>
 
           {showNotes ? (
-            <TextInput
-              ref={notesInputRef}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Anything useful to remember…"
-              placeholderTextColor="#9CA3AF"
-              className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
-              returnKeyType="done"
-              blurOnSubmit
-              onSubmitEditing={() => Keyboard.dismiss()}
-              onFocus={scrollNotesIntoView}
-            />
+            <View ref={notesAnchorRef} collapsable={false}>
+              <TextInput
+                ref={notesInputRef}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Anything useful to remember..."
+                placeholderTextColor="#9CA3AF"
+                className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={() => Keyboard.dismiss()}
+                onFocus={scrollNotesIntoView}
+              />
+            </View>
           ) : null}
 
           {errorMsg ? (
-            <Text className="mt-2 text-sm font-semibold text-red-600">
-              {errorMsg}
-            </Text>
+            <View className="mt-3 w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+              <Text className="text-sm font-bold text-red-700">{errorMsg}</Text>
+            </View>
           ) : null}
 
           <Pressable
