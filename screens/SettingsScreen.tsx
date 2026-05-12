@@ -12,6 +12,7 @@ import {
 import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
 import * as LocalAuthentication from "expo-local-authentication";
+import * as DocumentPicker from "expo-document-picker";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
@@ -102,6 +103,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   const {
     exportData,
+    importData,
     resetAll,
     profileName,
     profilePhotoUri,
@@ -126,8 +128,63 @@ export default function SettingsScreen() {
   }, []);
 
   const [busy, setBusy] = useState<
-    null | "export" | "reset" | "profile" | "lock"
+    null | "export" | "import" | "reset" | "profile" | "lock"
   >(null);
+
+  async function onImport() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "application/json",
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
+        Alert.alert("Restore failed", "No backup file was selected.");
+        return;
+      }
+
+      Alert.alert(
+        "Restore backup?",
+        "This will replace your current Reflex data with the selected backup. Your current local data will be deleted first.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Restore",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                setBusy("import");
+                await importData(asset.uri);
+                await Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success,
+                );
+                Alert.alert(
+                  "Backup restored",
+                  "Your Reflex data was restored. Profile photos are not restored from backup files, so choose a new profile photo if prompted.",
+                );
+              } catch (e: any) {
+                await Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Error,
+                );
+                Alert.alert(
+                  "Restore failed",
+                  e?.message ?? "Something went wrong.",
+                );
+              } finally {
+                setBusy(null);
+              }
+            },
+          },
+        ],
+      );
+    } catch (e: any) {
+      Alert.alert("Restore failed", e?.message ?? "Something went wrong.");
+    }
+  }
 
   async function onExport() {
     try {
@@ -352,6 +409,20 @@ export default function SettingsScreen() {
               <ActivityIndicator />
             ) : (
               <Text className="text-zinc-400">Share</Text>
+            )
+          }
+        />
+
+        <Row
+          title="Restore from backup"
+          subtitle="Import a Reflex JSON backup and replace the current local data."
+          onPress={busy ? undefined : onImport}
+          disabled={!!busy}
+          right={
+            busy === "import" ? (
+              <ActivityIndicator />
+            ) : (
+              <Text className="text-zinc-400">Import</Text>
             )
           }
         />
