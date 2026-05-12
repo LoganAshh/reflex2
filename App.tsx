@@ -142,16 +142,25 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
   }, [appLockEnabled, authenticating]);
 
   useEffect(() => {
-    setUnlocked(!appLockEnabled);
+    if (!appLockEnabled) {
+      setUnlocked(true);
+    }
   }, [appLockEnabled]);
 
   useEffect(() => {
     if (!appLockEnabled) return;
 
+    let previousState = AppState.currentState;
+
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "inactive" || nextState === "background") {
+      const wasAway =
+        previousState === "inactive" || previousState === "background";
+
+      if (wasAway && nextState === "active") {
         setUnlocked(false);
       }
+
+      previousState = nextState;
     });
 
     return () => subscription.remove();
