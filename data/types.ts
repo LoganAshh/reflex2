@@ -113,7 +113,7 @@ export type DataContextType = {
   clearSelectedActions: () => Promise<void>;
 
   exportData: () => Promise<void>;
-  importData: (backupFileUri: string) => Promise<void>;
+  importData: (fileUri: string) => Promise<void>;
   resetAll: () => Promise<void>;
 
   refresh: () => Promise<void>;

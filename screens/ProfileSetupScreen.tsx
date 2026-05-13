@@ -13,42 +13,13 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { useData } from "../data/DataContext";
+import { persistPickedProfilePhoto } from "../data/profileStorage";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-const PROFILE_PHOTOS_DIR_NAME = "profile-photos";
-
-function getPhotoExtension(uri: string) {
-  const cleanUri = uri.split("?")[0];
-  const match = cleanUri.match(/\.([a-zA-Z0-9]+)$/);
-  return match?.[1]?.toLowerCase() ?? "jpg";
-}
-
-function persistPickedProfilePhoto(uri: string) {
-  const photosDir = new FileSystem.Directory(
-    FileSystem.Paths.document,
-    PROFILE_PHOTOS_DIR_NAME,
-  );
-
-  if (!photosDir.exists) {
-    photosDir.create({ idempotent: true });
-  }
-
-  const ext = getPhotoExtension(uri);
-  const filename = `profile-${Date.now()}.${ext}`;
-
-  const source = new FileSystem.File(uri);
-  const destination = new FileSystem.File(photosDir, filename);
-
-  source.copy(destination);
-
-  return destination.uri;
-}
 
 export default function ProfileSetupScreen() {
   const navigation = useNavigation<Nav>();
@@ -90,7 +61,9 @@ export default function ProfileSetupScreen() {
 
     if (!result.canceled && result.assets[0]?.uri) {
       try {
-        const persistentUri = persistPickedProfilePhoto(result.assets[0].uri);
+        const persistentUri = await persistPickedProfilePhoto(
+          result.assets[0].uri,
+        );
         await Haptics.selectionAsync();
         setPhotoUri(persistentUri);
       } catch {

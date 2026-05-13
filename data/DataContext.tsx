@@ -23,6 +23,7 @@ import type {
   DataProviderProps,
 } from "./types";
 import {
+  db,
   normalizeName,
   initDb,
   seedDefaultHabitsIfEmpty,
@@ -54,8 +55,6 @@ import {
   removeSelectedAction,
   addSelectedAction,
   clearAllSelectedActions,
-  replaceAllDataFromBackup,
-  type RestorableData,
 } from "./db";
 import {
   loadOnboardedFlag,
@@ -87,291 +86,184 @@ export type {
   DataContextType,
 } from "./types";
 
-const DataContext = createContext<DataContextType | null>(null);
-
-type ReflexBackupPayload = {
-  app?: unknown;
-  localProfile?: {
-    name?: unknown;
-    isComplete?: unknown;
-  };
-  settings?: {
-    appLockEnabled?: unknown;
-  };
-  hasOnboarded?: unknown;
-  habits?: unknown;
-  cues?: unknown;
-  locations?: unknown;
-  selectedHabits?: unknown;
-  selectedCues?: unknown;
-  selectedLocations?: unknown;
-  logs?: unknown;
-  actions?: unknown;
-  selectedActionIds?: unknown;
+type BackupNamedEntity = {
+  id: number;
+  name: string;
+  isCustom: 0 | 1;
 };
 
-function isObject(value: unknown): value is Record<string, unknown> {
+type BackupActionEntity = {
+  id: number;
+  title: string;
+  category: string | null;
+  isCustom: 0 | 1;
+};
+
+type BackupLog = {
+  id: number;
+  habitId: number;
+  cueId: number | null;
+  locationId: number | null;
+  intensity: number | null;
+  count: number;
+  didResist: 0 | 1;
+  notes: string | null;
+  createdAt: number;
+  selectedActionId: number | null;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isFiniteInteger(value: unknown): value is number {
-  return (
-    typeof value === "number" &&
-    Number.isInteger(value) &&
-    Number.isFinite(value)
-  );
+function asArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
 }
 
-function cleanOptionalString(value: unknown) {
-  return typeof value === "string" ? value.trim() : null;
+function cleanString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
-function cleanRequiredString(value: unknown, label: string) {
-  const clean = cleanOptionalString(value);
-  if (!clean) throw new Error(`Invalid backup: ${label} is missing.`);
-  return clean;
+function cleanNullableString(value: unknown) {
+  const clean = cleanString(value);
+  return clean.length > 0 ? clean : null;
 }
 
-function cleanFlag(value: unknown, label: string): 0 | 1 {
-  if (value === 0 || value === 1) return value;
-  if (value === false) return 0;
-  if (value === true) return 1;
-  throw new Error(`Invalid backup: ${label} must be 0 or 1.`);
+function cleanInt(value: unknown, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.round(n);
 }
 
-function requireArray(value: unknown, label: string) {
-  if (!Array.isArray(value)) {
-    throw new Error(`Invalid backup: ${label} must be an array.`);
+function cleanOptionalInt(value: unknown) {
+  if (value == null) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n);
+}
+
+function cleanBoolean(value: unknown) {
+  return value === true || value === "true" || value === 1;
+}
+
+function cleanIsCustom(value: unknown): 0 | 1 {
+  return cleanBoolean(value) ? 1 : 0;
+}
+
+function validateBackupPayload(value: unknown) {
+  if (!isRecord(value)) {
+    throw new Error("That backup file is not valid JSON data.");
   }
+
+  if (value.app !== "Reflex") {
+    throw new Error("That file does not look like a Reflex backup.");
+  }
+
+  const habits = asArray(value.habits);
+  const cues = asArray(value.cues);
+  const locations = asArray(value.locations);
+  const actions = asArray(value.actions);
+  const logs = asArray(value.logs);
+
+  for (const list of [habits, cues, locations, actions, logs]) {
+    if (!list.every(isRecord)) {
+      throw new Error("That backup file has invalid data inside it.");
+    }
+  }
+
   return value;
 }
 
-function uniqueNumbers(
-  values: unknown[],
-  validIds: Set<number>,
-  label: string,
-) {
-  const ids: number[] = [];
-
-  for (const value of values) {
-    if (!isFiniteInteger(value) || !validIds.has(value)) {
-      throw new Error(`Invalid backup: ${label} contains an unknown id.`);
-    }
-    if (!ids.includes(value)) ids.push(value);
-  }
-
-  return ids;
-}
-
-function validateCollectionItemIds<T extends { id: number }>(
-  items: T[],
-  label: string,
-) {
-  const ids = new Set<number>();
+function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
+  const result: BackupNamedEntity[] = [];
 
   for (const item of items) {
-    if (ids.has(item.id)) {
-      throw new Error(`Invalid backup: ${label} contains duplicate ids.`);
-    }
-    ids.add(item.id);
+    if (!isRecord(item)) continue;
+
+    const id = cleanInt(item.id);
+    const name = cleanString(item.name);
+
+    if (id <= 0 || !name) continue;
+
+    result.push({
+      id,
+      name,
+      isCustom: cleanIsCustom(item.isCustom),
+    });
   }
 
-  return ids;
+  return result;
 }
 
-function validateBackupPayload(raw: unknown) {
-  if (!isObject(raw)) {
-    throw new Error("Invalid backup: expected a JSON object.");
+function sanitizeActions(items: unknown[]): BackupActionEntity[] {
+  const result: BackupActionEntity[] = [];
+
+  for (const item of items) {
+    if (!isRecord(item)) continue;
+
+    const id = cleanInt(item.id);
+    const title = cleanString(item.title);
+
+    if (id <= 0 || !title) continue;
+
+    result.push({
+      id,
+      title,
+      category: cleanNullableString(item.category),
+      isCustom: cleanIsCustom(item.isCustom),
+    });
   }
 
-  const payload = raw as ReflexBackupPayload;
-
-  if (payload.app !== "Reflex") {
-    throw new Error(
-      "Invalid backup: this does not look like a Reflex backup file.",
-    );
-  }
-
-  const habits = requireArray(payload.habits, "habits").map((item, index) => {
-    if (!isObject(item))
-      throw new Error(`Invalid backup: habit ${index + 1} is invalid.`);
-    if (!isFiniteInteger(item.id) || item.id <= 0)
-      throw new Error(`Invalid backup: habit ${index + 1} has an invalid id.`);
-    return {
-      id: item.id,
-      name: cleanRequiredString(item.name, `habit ${index + 1} name`),
-      isCustom: cleanFlag(item.isCustom, `habit ${index + 1} isCustom`),
-    };
-  });
-
-  const cues = requireArray(payload.cues, "cues").map((item, index) => {
-    if (!isObject(item))
-      throw new Error(`Invalid backup: cue ${index + 1} is invalid.`);
-    if (!isFiniteInteger(item.id) || item.id <= 0)
-      throw new Error(`Invalid backup: cue ${index + 1} has an invalid id.`);
-    return {
-      id: item.id,
-      name: cleanRequiredString(item.name, `cue ${index + 1} name`),
-      isCustom: cleanFlag(item.isCustom, `cue ${index + 1} isCustom`),
-    };
-  });
-
-  const locations = requireArray(payload.locations, "locations").map(
-    (item, index) => {
-      if (!isObject(item))
-        throw new Error(`Invalid backup: location ${index + 1} is invalid.`);
-      if (!isFiniteInteger(item.id) || item.id <= 0)
-        throw new Error(
-          `Invalid backup: location ${index + 1} has an invalid id.`,
-        );
-      return {
-        id: item.id,
-        name: cleanRequiredString(item.name, `location ${index + 1} name`),
-        isCustom: cleanFlag(item.isCustom, `location ${index + 1} isCustom`),
-      };
-    },
-  );
-
-  const actions = requireArray(payload.actions, "actions").map(
-    (item, index) => {
-      if (!isObject(item))
-        throw new Error(`Invalid backup: action ${index + 1} is invalid.`);
-      if (!isFiniteInteger(item.id) || item.id <= 0)
-        throw new Error(
-          `Invalid backup: action ${index + 1} has an invalid id.`,
-        );
-      return {
-        id: item.id,
-        title: cleanRequiredString(item.title, `action ${index + 1} title`),
-        category: cleanOptionalString(item.category),
-        isCustom: cleanFlag(item.isCustom, `action ${index + 1} isCustom`),
-      };
-    },
-  );
-
-  const habitIds = validateCollectionItemIds(habits, "habits");
-  const cueIds = validateCollectionItemIds(cues, "cues");
-  const locationIds = validateCollectionItemIds(locations, "locations");
-  const actionIds = validateCollectionItemIds(actions, "actions");
-
-  const selectedHabitIds = uniqueNumbers(
-    requireArray(payload.selectedHabits, "selectedHabits").map((item) =>
-      isObject(item) ? item.id : item,
-    ),
-    habitIds,
-    "selectedHabits",
-  );
-
-  const selectedCueIds = uniqueNumbers(
-    requireArray(payload.selectedCues, "selectedCues").map((item) =>
-      isObject(item) ? item.id : item,
-    ),
-    cueIds,
-    "selectedCues",
-  );
-
-  const selectedLocationIds = uniqueNumbers(
-    requireArray(payload.selectedLocations, "selectedLocations").map((item) =>
-      isObject(item) ? item.id : item,
-    ),
-    locationIds,
-    "selectedLocations",
-  );
-
-  const selectedActionIds = uniqueNumbers(
-    requireArray(payload.selectedActionIds, "selectedActionIds"),
-    actionIds,
-    "selectedActionIds",
-  );
-
-  const logs = requireArray(payload.logs, "logs").map((item, index) => {
-    if (!isObject(item))
-      throw new Error(`Invalid backup: log ${index + 1} is invalid.`);
-    if (!isFiniteInteger(item.id) || item.id <= 0)
-      throw new Error(`Invalid backup: log ${index + 1} has an invalid id.`);
-    if (!isFiniteInteger(item.habitId) || !habitIds.has(item.habitId))
-      throw new Error(
-        `Invalid backup: log ${index + 1} references an unknown habit.`,
-      );
-
-    const cueId = item.cueId == null ? null : item.cueId;
-    const locationId = item.locationId == null ? null : item.locationId;
-    const selectedActionId =
-      item.selectedActionId == null ? null : item.selectedActionId;
-    const intensity = item.intensity == null ? null : item.intensity;
-    const count = item.count == null ? 1 : item.count;
-
-    if (cueId !== null && (!isFiniteInteger(cueId) || !cueIds.has(cueId)))
-      throw new Error(
-        `Invalid backup: log ${index + 1} references an unknown cue.`,
-      );
-    if (
-      locationId !== null &&
-      (!isFiniteInteger(locationId) || !locationIds.has(locationId))
-    )
-      throw new Error(
-        `Invalid backup: log ${index + 1} references an unknown location.`,
-      );
-    if (
-      selectedActionId !== null &&
-      (!isFiniteInteger(selectedActionId) || !actionIds.has(selectedActionId))
-    )
-      throw new Error(
-        `Invalid backup: log ${index + 1} references an unknown action.`,
-      );
-    if (
-      intensity !== null &&
-      (!isFiniteInteger(intensity) || intensity < 1 || intensity > 10)
-    )
-      throw new Error(
-        `Invalid backup: log ${index + 1} has an invalid intensity.`,
-      );
-    if (!isFiniteInteger(count) || count < 0 || count > 10)
-      throw new Error(`Invalid backup: log ${index + 1} has an invalid count.`);
-    if (!isFiniteInteger(item.createdAt) || item.createdAt <= 0)
-      throw new Error(`Invalid backup: log ${index + 1} has an invalid date.`);
-
-    return {
-      id: item.id,
-      habitId: item.habitId,
-      cueId,
-      locationId,
-      intensity,
-      count,
-      didResist: cleanFlag(item.didResist, `log ${index + 1} didResist`),
-      notes: typeof item.notes === "string" ? item.notes.trim() || null : null,
-      createdAt: item.createdAt,
-      selectedActionId,
-    };
-  });
-
-  validateCollectionItemIds(logs, "logs");
-
-  const data: RestorableData = {
-    habits,
-    cues,
-    locations,
-    actions,
-    selectedHabitIds,
-    selectedCueIds,
-    selectedLocationIds,
-    selectedActionIds,
-    logs,
-  };
-
-  const localProfile = isObject(payload.localProfile)
-    ? payload.localProfile
-    : {};
-  const settings = isObject(payload.settings) ? payload.settings : {};
-
-  return {
-    data,
-    profileName:
-      typeof localProfile.name === "string" ? localProfile.name.trim() : "",
-    hasOnboarded: payload.hasOnboarded === true,
-    appLockEnabled: settings.appLockEnabled === true,
-  };
+  return result;
 }
+
+function sanitizeSelectedIds(items: unknown[], key: string) {
+  return Array.from(
+    new Set(
+      items
+        .map((item) => {
+          if (typeof item === "number") return cleanInt(item);
+          if (!isRecord(item)) return 0;
+          return cleanInt(item[key]);
+        })
+        .filter((id) => id > 0),
+    ),
+  );
+}
+
+function sanitizeLogs(items: unknown[]): BackupLog[] {
+  const result: BackupLog[] = [];
+
+  for (const item of items) {
+    if (!isRecord(item)) continue;
+
+    const id = cleanInt(item.id);
+    const habitId = cleanInt(item.habitId);
+    const createdAt = cleanInt(item.createdAt);
+
+    if (id <= 0 || habitId <= 0 || createdAt <= 0) continue;
+
+    const intensity = cleanOptionalInt(item.intensity);
+
+    result.push({
+      id,
+      habitId,
+      cueId: cleanOptionalInt(item.cueId),
+      locationId: cleanOptionalInt(item.locationId),
+      intensity:
+        intensity == null ? null : Math.min(10, Math.max(1, intensity)),
+      count: Math.min(10, Math.max(0, cleanInt(item.count, 1))),
+      didResist: cleanBoolean(item.didResist) ? 1 : 0,
+      notes: cleanNullableString(item.notes),
+      createdAt,
+      selectedActionId: cleanOptionalInt(item.selectedActionId),
+    });
+  }
+
+  return result;
+}
+
+const DataContext = createContext<DataContextType | null>(null);
 
 async function resetDbForDev() {
   const savedPhoto = await loadProfilePhotoUri();
@@ -454,7 +346,7 @@ export function DataProvider({ children }: DataProviderProps) {
         const [
           onboarded,
           savedProfileName,
-          rawSavedProfilePhoto,
+          savedProfilePhoto,
           profileDone,
           savedAppLockEnabled,
         ] = await Promise.all([
@@ -465,21 +357,11 @@ export function DataProvider({ children }: DataProviderProps) {
           loadAppLockEnabledFlag(),
         ]);
 
-        const savedProfilePhoto = await normalizeStoredProfilePhotoUri(
-          rawSavedProfilePhoto ?? "",
-        );
-
-        if (savedProfilePhoto !== (rawSavedProfilePhoto ?? "").trim()) {
-          await saveProfilePhotoUri(savedProfilePhoto);
-          if (!savedProfilePhoto) {
-            await saveProfileDoneFlag(false);
-          }
-        }
+        await saveProfilePhotoUri(savedProfilePhoto);
 
         const cleanName = savedProfileName.trim();
         const cleanPhoto = savedProfilePhoto.trim();
-        const normalizedProfileDone =
-          profileDone && cleanName.length > 0 && cleanPhoto.length > 0;
+        const normalizedProfileDone = profileDone && cleanName.length > 0;
 
         if (mounted) {
           setHasOnboarded(onboarded);
@@ -864,31 +746,170 @@ export function DataProvider({ children }: DataProviderProps) {
     });
   };
 
-  const importData: DataContextType["importData"] = async (backupFileUri) => {
-    const file = new FileSystem.File(backupFileUri);
+  const importData: DataContextType["importData"] = async (fileUri) => {
+    const file = new FileSystem.File(fileUri);
     const text = await file.text();
-    const parsed = JSON.parse(text);
-    const restored = validateBackupPayload(parsed);
+    const parsed = validateBackupPayload(JSON.parse(text));
 
-    const storedPhoto = await loadProfilePhotoUri();
-    const savedPhoto = ((profilePhotoUri ?? "").trim() || storedPhoto) ?? "";
-    await deleteManagedProfilePhoto(savedPhoto);
+    const importedHabits = sanitizeNamedEntities(asArray(parsed.habits));
+    const importedCues = sanitizeNamedEntities(asArray(parsed.cues));
+    const importedLocations = sanitizeNamedEntities(asArray(parsed.locations));
+    const importedActions = sanitizeActions(asArray(parsed.actions));
+    const importedLogs = sanitizeLogs(asArray(parsed.logs));
 
-    await replaceAllDataFromBackup(restored.data);
+    if (importedHabits.length === 0) {
+      throw new Error("That backup does not contain any valid habits.");
+    }
+
+    const habitIds = new Set(importedHabits.map((item) => item.id));
+    const cueIds = new Set(importedCues.map((item) => item.id));
+    const locationIds = new Set(importedLocations.map((item) => item.id));
+    const actionIds = new Set(importedActions.map((item) => item.id));
+
+    const selectedHabitIds = sanitizeSelectedIds(
+      asArray(parsed.selectedHabits),
+      "id",
+    ).filter((id) => habitIds.has(id));
+    const selectedCueIds = sanitizeSelectedIds(
+      asArray(parsed.selectedCues),
+      "id",
+    ).filter((id) => cueIds.has(id));
+    const selectedLocationIds = sanitizeSelectedIds(
+      asArray(parsed.selectedLocations),
+      "id",
+    ).filter((id) => locationIds.has(id));
+    const importedSelectedActionIds = sanitizeSelectedIds(
+      asArray(parsed.selectedActionIds),
+      "actionId",
+    ).filter((id) => actionIds.has(id));
+
+    const validLogs = importedLogs.filter((log) => habitIds.has(log.habitId));
+    const profile = isRecord(parsed.localProfile) ? parsed.localProfile : {};
+    const settings = isRecord(parsed.settings) ? parsed.settings : {};
+    const restoredProfileName = cleanString(profile.name);
+    const restoredProfileDone =
+      cleanBoolean(profile.isComplete) && restoredProfileName.length > 0;
+    const restoredAppLockEnabled = cleanBoolean(settings.appLockEnabled);
+    const restoredHasOnboarded = cleanBoolean(parsed.hasOnboarded);
+    const previousPhoto = (profilePhotoUri ?? "").trim();
+
+    if (previousPhoto) {
+      await deleteManagedProfilePhoto(previousPhoto);
+    }
+
+    await dropAllDataTables();
+    await initDb();
+
+    for (const habit of importedHabits) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO habits (id, name, isCustom) VALUES (?, ?, ?);`,
+        [habit.id, habit.name, habit.isCustom],
+      );
+    }
+
+    for (const cue of importedCues) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO cues (id, name, isCustom) VALUES (?, ?, ?);`,
+        [cue.id, cue.name, cue.isCustom],
+      );
+    }
+
+    for (const location of importedLocations) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO locations (id, name, isCustom) VALUES (?, ?, ?);`,
+        [location.id, location.name, location.isCustom],
+      );
+    }
+
+    for (const action of importedActions) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO actions (id, title, category, isCustom) VALUES (?, ?, ?, ?);`,
+        [action.id, action.title, action.category, action.isCustom],
+      );
+    }
+
+    const finalSelectedHabitIds =
+      selectedHabitIds.length > 0 ? selectedHabitIds : [importedHabits[0].id];
+
+    for (const id of finalSelectedHabitIds) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO user_habits (habitId) VALUES (?);`,
+        [id],
+      );
+    }
+
+    for (const id of selectedCueIds) {
+      await db.runAsync(`INSERT OR IGNORE INTO user_cues (cueId) VALUES (?);`, [
+        id,
+      ]);
+    }
+
+    for (const id of selectedLocationIds) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO user_locations (locationId) VALUES (?);`,
+        [id],
+      );
+    }
+
+    for (const log of validLogs) {
+      const selectedActionId =
+        log.selectedActionId != null && actionIds.has(log.selectedActionId)
+          ? log.selectedActionId
+          : null;
+
+      await db.runAsync(
+        `
+        INSERT OR IGNORE INTO logs (
+          id,
+          habitId,
+          cueId,
+          locationId,
+          intensity,
+          count,
+          didResist,
+          notes,
+          createdAt,
+          selectedActionId
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        `,
+        [
+          log.id,
+          log.habitId,
+          log.cueId != null && cueIds.has(log.cueId) ? log.cueId : null,
+          log.locationId != null && locationIds.has(log.locationId)
+            ? log.locationId
+            : null,
+          log.intensity,
+          log.count,
+          log.didResist,
+          log.notes,
+          log.createdAt,
+          selectedActionId,
+        ],
+      );
+    }
+
+    for (const actionId of importedSelectedActionIds) {
+      await db.runAsync(
+        `INSERT OR IGNORE INTO selected_actions (actionId, createdAt) VALUES (?, ?);`,
+        [actionId, Date.now()],
+      );
+    }
 
     await Promise.all([
-      saveOnboardedFlag(restored.hasOnboarded),
-      saveProfileName(restored.profileName),
+      saveOnboardedFlag(restoredHasOnboarded),
+      saveProfileName(restoredProfileName),
       saveProfilePhotoUri(""),
-      saveProfileDoneFlag(false),
-      saveAppLockEnabledFlag(restored.appLockEnabled),
+      saveProfileDoneFlag(restoredProfileDone),
+      saveAppLockEnabledFlag(restoredAppLockEnabled),
     ]);
 
-    setHasOnboarded(restored.hasOnboarded);
-    setProfileName(restored.profileName);
+    setHasOnboarded(restoredHasOnboarded);
+    setProfileName(restoredProfileName);
     setProfilePhotoUri(null);
-    setHasCompletedLocalProfile(false);
-    setAppLockEnabledState(restored.appLockEnabled);
+    setHasCompletedLocalProfile(restoredProfileDone);
+    setAppLockEnabledState(restoredAppLockEnabled);
 
     await refresh();
   };

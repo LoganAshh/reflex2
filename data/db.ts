@@ -361,24 +361,30 @@ export async function replaceSelectedLocations(locationIds: number[]) {
 }
 
 export async function insertCustomHabit(name: string) {
-  await db.runAsync(
+  const result = await db.runAsync(
     `INSERT OR IGNORE INTO habits (name, isCustom) VALUES (?, 1);`,
     [name],
   );
+
+  return Number(result.lastInsertRowId ?? 0);
 }
 
 export async function insertCustomCue(name: string) {
-  await db.runAsync(
+  const result = await db.runAsync(
     `INSERT OR IGNORE INTO cues (name, isCustom) VALUES (?, 1);`,
     [name],
   );
+
+  return Number(result.lastInsertRowId ?? 0);
 }
 
 export async function insertCustomLocation(name: string) {
-  await db.runAsync(
+  const result = await db.runAsync(
     `INSERT OR IGNORE INTO locations (name, isCustom) VALUES (?, 1);`,
     [name],
   );
+
+  return Number(result.lastInsertRowId ?? 0);
 }
 
 export async function insertLog(params: {
@@ -512,122 +518,4 @@ export async function addSelectedAction(actionId: number) {
 
 export async function clearAllSelectedActions() {
   await db.execAsync(`DELETE FROM selected_actions;`);
-}
-
-export type RestorableHabit = Habit;
-export type RestorableCue = Cue;
-export type RestorablePlace = Place;
-export type RestorableAction = ReplacementAction;
-
-export type RestorableLogEntry = {
-  id: number;
-  habitId: number;
-  cueId: number | null;
-  locationId: number | null;
-  intensity: number | null;
-  count: number;
-  didResist: 0 | 1;
-  notes: string | null;
-  createdAt: number;
-  selectedActionId: number | null;
-};
-
-export type RestorableData = {
-  habits: RestorableHabit[];
-  cues: RestorableCue[];
-  locations: RestorablePlace[];
-  actions: RestorableAction[];
-  selectedHabitIds: number[];
-  selectedCueIds: number[];
-  selectedLocationIds: number[];
-  selectedActionIds: number[];
-  logs: RestorableLogEntry[];
-};
-
-export async function replaceAllDataFromBackup(data: RestorableData) {
-  await dropAllDataTables();
-  await initDb();
-
-  for (const habit of data.habits) {
-    await db.runAsync(
-      `INSERT INTO habits (id, name, isCustom) VALUES (?, ?, ?);`,
-      [habit.id, habit.name, habit.isCustom],
-    );
-  }
-
-  for (const cue of data.cues) {
-    await db.runAsync(
-      `INSERT INTO cues (id, name, isCustom) VALUES (?, ?, ?);`,
-      [cue.id, cue.name, cue.isCustom],
-    );
-  }
-
-  for (const location of data.locations) {
-    await db.runAsync(
-      `INSERT INTO locations (id, name, isCustom) VALUES (?, ?, ?);`,
-      [location.id, location.name, location.isCustom],
-    );
-  }
-
-  for (const action of data.actions) {
-    await db.runAsync(
-      `INSERT INTO actions (id, title, category, isCustom) VALUES (?, ?, ?, ?);`,
-      [action.id, action.title, action.category, action.isCustom],
-    );
-  }
-
-  for (const habitId of data.selectedHabitIds) {
-    await db.runAsync(`INSERT INTO user_habits (habitId) VALUES (?);`, [
-      habitId,
-    ]);
-  }
-
-  for (const cueId of data.selectedCueIds) {
-    await db.runAsync(`INSERT INTO user_cues (cueId) VALUES (?);`, [cueId]);
-  }
-
-  for (const locationId of data.selectedLocationIds) {
-    await db.runAsync(`INSERT INTO user_locations (locationId) VALUES (?);`, [
-      locationId,
-    ]);
-  }
-
-  for (const actionId of data.selectedActionIds) {
-    await db.runAsync(
-      `INSERT INTO selected_actions (actionId, createdAt) VALUES (?, ?);`,
-      [actionId, Date.now()],
-    );
-  }
-
-  for (const log of data.logs) {
-    await db.runAsync(
-      `
-      INSERT INTO logs (
-        id,
-        habitId,
-        cueId,
-        locationId,
-        intensity,
-        count,
-        didResist,
-        notes,
-        createdAt,
-        selectedActionId
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-      `,
-      [
-        log.id,
-        log.habitId,
-        log.cueId,
-        log.locationId,
-        log.intensity,
-        log.count,
-        log.didResist,
-        log.notes,
-        log.createdAt,
-        log.selectedActionId,
-      ],
-    );
-  }
 }
