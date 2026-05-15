@@ -128,9 +128,9 @@ function ChipRow<T extends BaseItem>({
           : false;
 
     const base = "mr-2 rounded-full border px-4 py-2";
-    const selected = "bg-green-600 border-green-600";
-    const unselected = "bg-white border-gray-200";
-    const addStyle = "bg-white border-gray-200";
+    const selected = "border-green-600 bg-green-600";
+    const unselected = "border-gray-200 bg-white";
+    const addStyle = "border-gray-200 bg-white";
 
     return (
       <Pressable
@@ -235,7 +235,7 @@ function IntensityPickerModal({
                 <Pressable
                   key={n}
                   onPress={() => onPick(n)}
-                  className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                  className={`mb-2 mr-2 rounded-full border px-4 py-2 ${
                     selected
                       ? "border-green-600 bg-green-600"
                       : "border-gray-200 bg-white"
@@ -324,7 +324,7 @@ function CountPickerModal({
                 <Pressable
                   key={n}
                   onPress={() => onPick(n)}
-                  className={`mr-2 mb-2 rounded-full border px-4 py-2 ${
+                  className={`mb-2 mr-2 rounded-full border px-4 py-2 ${
                     selected
                       ? "border-green-600 bg-green-600"
                       : "border-gray-200 bg-white"
@@ -385,6 +385,7 @@ export default function LogScreen() {
   const notesAnchorRef = useRef<View | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
   const handledManageListTokenRef = useRef<number | null>(null);
+  const handledResetTokenRef = useRef<number | null>(null);
 
   const habitFrequencyCounts = useMemo(() => {
     const counts = new Map<number, number>();
@@ -441,6 +442,12 @@ export default function LogScreen() {
     [selectedLocations, locationAssociationCounts],
   );
 
+  const scrollChipRowsToStart = () => {
+    habitListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    cueListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    locationListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
   const scrollNotesIntoView = () => {
     requestAnimationFrame(() => {
       const scrollNode = findNodeHandle(scrollViewRef.current);
@@ -463,6 +470,28 @@ export default function LogScreen() {
     });
   };
 
+  const getDefaultHabitId = () => orderedHabits[0]?.id ?? null;
+
+  const resetToDefaults = (habitOverrideId?: number) => {
+    setErrorMsg(null);
+    setHabitId(habitOverrideId ?? getDefaultHabitId());
+    setCueId(null);
+    setLocationId(null);
+    setNotes("");
+    setShowNotes(false);
+    setDidResist(false);
+    setIntensity(null);
+    setCount(1);
+    setShowIntensityPicker(false);
+    setShowCountPicker(false);
+
+    requestAnimationFrame(() => {
+      Keyboard.dismiss();
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      scrollChipRowsToStart();
+    });
+  };
+
   useEffect(() => {
     if (habitId == null && orderedHabits.length > 0) {
       setHabitId(orderedHabits[0].id);
@@ -470,16 +499,13 @@ export default function LogScreen() {
   }, [orderedHabits, habitId]);
 
   useEffect(() => {
-    scrollChipToId(habitListRef, orderedHabits, habitId);
-  }, [orderedHabits, habitId]);
+    const resetToken = route.params?.resetToken;
+    if (!resetToken) return;
+    if (handledResetTokenRef.current === resetToken) return;
 
-  useEffect(() => {
-    scrollChipToId(cueListRef, orderedCues, cueId, true);
-  }, [orderedCues, cueId]);
-
-  useEffect(() => {
-    scrollChipToId(locationListRef, orderedLocations, locationId, true);
-  }, [orderedLocations, locationId]);
+    handledResetTokenRef.current = resetToken;
+    resetToDefaults();
+  }, [route.params?.resetToken, orderedHabits]);
 
   useEffect(() => {
     const selection = route.params?.manageListSelection;
@@ -566,35 +592,6 @@ export default function LogScreen() {
     };
   }, [keyboardLiftAnim]);
 
-  const getDefaultHabitId = () => orderedHabits[0]?.id ?? null;
-
-  const resetToDefaults = (habitOverrideId?: number) => {
-    setErrorMsg(null);
-    setHabitId(habitOverrideId ?? getDefaultHabitId());
-    setCueId(null);
-    setLocationId(null);
-    setNotes("");
-    setShowNotes(false);
-    setDidResist(false);
-    setIntensity(null);
-    setCount(1);
-    setShowIntensityPicker(false);
-    setShowCountPicker(false);
-
-    requestAnimationFrame(() => {
-      Keyboard.dismiss();
-      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-    });
-  };
-
-  useEffect(() => {
-    const unsub = navigation.addListener("tabPress", () => {
-      if (navigation.isFocused?.()) resetToDefaults();
-    });
-
-    return unsub;
-  }, [navigation, orderedHabits]);
-
   const onSave = async () => {
     if (saving) return;
 
@@ -674,8 +671,8 @@ export default function LogScreen() {
   const countLabel = count === 1 ? "1 time" : `${count} times`;
 
   const chipBase = "rounded-full border px-2.5 py-1.5";
-  const chipSelected = "bg-green-600 border-green-600";
-  const chipUnselected = "bg-white border-gray-200";
+  const chipSelected = "border-green-600 bg-green-600";
+  const chipUnselected = "border-gray-200 bg-white";
 
   return (
     <KeyboardAvoidingView
