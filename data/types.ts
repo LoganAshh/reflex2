@@ -1,8 +1,18 @@
 import type React from "react";
 
-export type Habit = { id: number; name: string; isCustom: 0 | 1 };
-export type Cue = { id: number; name: string; isCustom: 0 | 1 };
-export type Place = { id: number; name: string; isCustom: 0 | 1 };
+export type Habit = {
+  id: number;
+  name: string;
+  isCustom: 0 | 1;
+  hidden: 0 | 1;
+};
+export type Cue = { id: number; name: string; isCustom: 0 | 1; hidden: 0 | 1 };
+export type Place = {
+  id: number;
+  name: string;
+  isCustom: 0 | 1;
+  hidden: 0 | 1;
+};
 
 export type SelectedHabit = Habit;
 export type SelectedCue = Cue;
@@ -30,6 +40,7 @@ export type ReplacementAction = {
   title: string;
   category: string | null;
   isCustom: 0 | 1;
+  hidden: 0 | 1;
 };
 
 export type AddLogInput = {
@@ -96,6 +107,13 @@ export type DataContextType = {
   addCustomCue: (name: string, autoSelect?: boolean) => Promise<void>;
   addCustomLocation: (name: string, autoSelect?: boolean) => Promise<void>;
 
+  renameCustomHabit: (habitId: number, name: string) => Promise<void>;
+  renameCustomCue: (cueId: number, name: string) => Promise<void>;
+  renameCustomLocation: (locationId: number, name: string) => Promise<void>;
+  deleteCustomHabit: (habitId: number) => Promise<"deleted" | "hidden">;
+  deleteCustomCue: (cueId: number) => Promise<"deleted" | "hidden">;
+  deleteCustomLocation: (locationId: number) => Promise<"deleted" | "hidden">;
+
   logs: LogEntry[];
   addLog: (input: AddLogInput) => Promise<number | null>;
   updateLog: (logId: number, input: UpdateLogInput) => Promise<void>;
@@ -107,6 +125,12 @@ export type DataContextType = {
 
   actions: ReplacementAction[];
   addAction: (input: AddActionInput) => Promise<void>;
+  renameCustomAction: (
+    actionId: number,
+    title: string,
+    category?: string,
+  ) => Promise<void>;
+  deleteCustomAction: (actionId: number) => Promise<"deleted" | "hidden">;
 
   selectedActionIds: number[];
   toggleSelectedAction: (actionId: number) => Promise<void>;

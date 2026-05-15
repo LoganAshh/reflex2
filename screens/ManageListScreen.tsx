@@ -7,17 +7,19 @@ import {
   FlatList,
   Alert,
   Keyboard,
+  Modal,
 } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import * as Haptics from "expo-haptics";
-import { useData } from "../data/DataContext";
+import { useData, type Habit, type Cue, type Place } from "../data/DataContext";
 
 type ManageRoute = RouteProp<RootStackParamList, "ManageList">;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Filter = "selected" | "preset" | "custom";
+type ManageItem = Habit | Cue | Place;
 
 export default function ManageListScreen() {
   const route = useRoute<ManageRoute>();
@@ -37,17 +39,26 @@ export default function ManageListScreen() {
     addCustomHabit,
     addCustomCue,
     addCustomLocation,
+    renameCustomHabit,
+    renameCustomCue,
+    renameCustomLocation,
+    deleteCustomHabit,
+    deleteCustomCue,
+    deleteCustomLocation,
   } = useData();
 
   const [text, setText] = useState("");
   const [filter, setFilter] = useState<Filter>("selected");
+  const [editingItem, setEditingItem] = useState<ManageItem | null>(null);
+  const [editText, setEditText] = useState("");
 
-  const { items, selectedIds, title } = useMemo(() => {
+  const { items, selectedIds, title, singularTitle } = useMemo(() => {
     if (type === "habits") {
       return {
         items: habits,
         selectedIds: new Set(selectedHabits.map((h) => h.id)),
         title: "Habits",
+        singularTitle: "habit",
       };
     }
     if (type === "cues") {
@@ -55,12 +66,14 @@ export default function ManageListScreen() {
         items: cues,
         selectedIds: new Set(selectedCues.map((c) => c.id)),
         title: "Cues",
+        singularTitle: "cue",
       };
     }
     return {
       items: locations,
       selectedIds: new Set(selectedLocations.map((l) => l.id)),
       title: "Locations",
+      singularTitle: "location",
     };
   }, [
     type,
@@ -117,6 +130,75 @@ export default function ManageListScreen() {
     }
   };
 
+  const openEdit = (item: ManageItem) => {
+    if (!item.isCustom) return;
+    setEditingItem(item);
+    setEditText(item.name);
+  };
+
+  const closeEdit = () => {
+    setEditingItem(null);
+    setEditText("");
+  };
+
+  const onRename = async () => {
+    if (!editingItem) return;
+    const name = editText.trim();
+    if (!name) return;
+
+    try {
+      if (type === "habits") await renameCustomHabit(editingItem.id, name);
+      else if (type === "cues") await renameCustomCue(editingItem.id, name);
+      else await renameCustomLocation(editingItem.id, name);
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      closeEdit();
+    } catch (e: any) {
+      Alert.alert(
+        "Could not rename",
+        e?.message ?? "That name is already used.",
+      );
+    }
+  };
+
+  const onDelete = () => {
+    if (!editingItem) return;
+
+    Alert.alert(
+      `Delete ${singularTitle}?`,
+      `This removes “${editingItem.name}” from future logging. If old logs use it, those logs will keep their saved text.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            if (!editingItem) return;
+
+            const result =
+              type === "habits"
+                ? await deleteCustomHabit(editingItem.id)
+                : type === "cues"
+                  ? await deleteCustomCue(editingItem.id)
+                  : await deleteCustomLocation(editingItem.id);
+
+            await Haptics.notificationAsync(
+              Haptics.NotificationFeedbackType.Success,
+            );
+            closeEdit();
+
+            if (result === "hidden") {
+              Alert.alert(
+                "Hidden from logging",
+                "This item was used in old logs, so it was hidden instead of fully deleted. Historical logs still keep the original text.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const onDone = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.goBack();
@@ -144,6 +226,55 @@ export default function ManageListScreen() {
 
   return (
     <View className="flex-1 bg-white px-6 pt-6">
+      <Modal visible={!!editingItem} transparent animationType="fade">
+        <View className="flex-1 justify-center bg-black/40 px-6">
+          <View className="rounded-3xl bg-white p-5">
+            <Text className="text-xl font-bold text-gray-900">
+              Edit custom {singularTitle}
+            </Text>
+            <Text className="mt-2 text-sm text-gray-600">
+              Rename it, or delete it from future logging.
+            </Text>
+
+            <TextInput
+              value={editText}
+              onChangeText={setEditText}
+              placeholder={`Custom ${singularTitle}`}
+              placeholderTextColor="#9CA3AF"
+              className="mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+              multiline={false}
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={onRename}
+            />
+
+            <Pressable
+              onPress={onRename}
+              className="mt-4 rounded-2xl bg-green-600 py-4 active:bg-green-700"
+            >
+              <Text className="text-center text-base font-semibold text-white">
+                Save Rename
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={onDelete}
+              className="mt-3 rounded-2xl border border-red-200 bg-red-50 py-4 active:bg-red-100"
+            >
+              <Text className="text-center text-base font-semibold text-red-600">
+                Delete Custom Item
+              </Text>
+            </Pressable>
+
+            <Pressable onPress={closeEdit} className="mt-3 rounded-2xl py-3">
+              <Text className="text-center text-base font-semibold text-gray-500">
+                Cancel
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       <Text className="text-2xl font-bold text-gray-900">{title}</Text>
       <Text className="mt-2 text-gray-600">
         Add new items and choose which ones appear in your Log screen.
@@ -175,7 +306,7 @@ export default function ManageListScreen() {
             <TextInput
               value={text}
               onChangeText={setText}
-              placeholder={`New ${type.slice(0, -1)}...`}
+              placeholder={`New ${singularTitle}...`}
               placeholderTextColor="#9CA3AF"
               className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
               multiline={false}
@@ -207,6 +338,7 @@ export default function ManageListScreen() {
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => {
           const isSelected = selectedIds.has(item.id);
+          const isCustom = item.isCustom === 1;
           return (
             <Pressable
               onPress={() => toggleSelected(item.id)}
@@ -217,14 +349,29 @@ export default function ManageListScreen() {
               }`}
             >
               <View className="flex-row items-center justify-between">
-                <View className="pr-3">
+                <View className="flex-1 pr-3">
                   <Text className="text-base font-semibold text-gray-900">
                     {item.name}
                   </Text>
                   <Text className="mt-1 text-xs text-gray-500">
-                    {item.isCustom ? "Custom" : "Preset"}
+                    {isCustom ? "Custom" : "Preset"}
+                    {isCustom ? " • Tap Edit to rename/delete" : ""}
                   </Text>
                 </View>
+
+                {isCustom ? (
+                  <Pressable
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      openEdit(item);
+                    }}
+                    className="mr-3 rounded-xl border border-gray-200 bg-white px-3 py-2 active:bg-gray-50"
+                  >
+                    <Text className="text-xs font-semibold text-gray-900">
+                      Edit
+                    </Text>
+                  </Pressable>
+                ) : null}
 
                 <View
                   className={`h-6 w-6 items-center justify-center rounded-full border ${
@@ -234,7 +381,7 @@ export default function ManageListScreen() {
                   }`}
                 >
                   {isSelected ? (
-                    <Text className="text-white text-xs font-bold">✓</Text>
+                    <Text className="text-xs font-bold text-white">✓</Text>
                   ) : null}
                 </View>
               </View>

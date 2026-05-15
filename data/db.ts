@@ -16,20 +16,53 @@ export function normalizeName(value: string) {
   return value.trim().toLowerCase();
 }
 
-export async function ensureLogsSelectedActionColumn() {
-  const columns = await db.getAllAsync<{ name: string }>(
-    `PRAGMA table_info(logs);`,
-  );
+export async function ensureLocalSchemaColumns() {
+  const tableColumns = async (table: string) =>
+    db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table});`);
 
-  const hasSelectedActionId = columns.some(
-    (col) => col.name === "selectedActionId",
-  );
+  const ensureColumn = async (table: string, column: string, sql: string) => {
+    const columns = await tableColumns(table);
+    const exists = columns.some((col) => col.name === column);
+    if (!exists) {
+      await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${sql};`);
+    }
+  };
 
-  if (!hasSelectedActionId) {
-    await db.execAsync(`
-      ALTER TABLE logs ADD COLUMN selectedActionId INTEGER REFERENCES actions(id) ON DELETE SET NULL;
-    `);
-  }
+  await ensureColumn("habits", "hidden", "hidden INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("cues", "hidden", "hidden INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(
+    "locations",
+    "hidden",
+    "hidden INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn("actions", "hidden", "hidden INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(
+    "logs",
+    "selectedActionId",
+    "selectedActionId INTEGER REFERENCES actions(id) ON DELETE SET NULL",
+  );
+  await ensureColumn("logs", "habitName", "habitName TEXT");
+  await ensureColumn("logs", "cueName", "cueName TEXT");
+  await ensureColumn("logs", "locationName", "locationName TEXT");
+  await ensureColumn("logs", "selectedActionTitle", "selectedActionTitle TEXT");
+
+  await db.execAsync(`
+    UPDATE logs
+    SET habitName = (SELECT name FROM habits WHERE habits.id = logs.habitId)
+    WHERE habitName IS NULL;
+
+    UPDATE logs
+    SET cueName = (SELECT name FROM cues WHERE cues.id = logs.cueId)
+    WHERE cueName IS NULL AND cueId IS NOT NULL;
+
+    UPDATE logs
+    SET locationName = (SELECT name FROM locations WHERE locations.id = logs.locationId)
+    WHERE locationName IS NULL AND locationId IS NOT NULL;
+
+    UPDATE logs
+    SET selectedActionTitle = (SELECT title FROM actions WHERE actions.id = logs.selectedActionId)
+    WHERE selectedActionTitle IS NULL AND selectedActionId IS NOT NULL;
+  `);
 }
 
 export async function initDb() {
@@ -39,7 +72,8 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS habits (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
-      isCustom INTEGER NOT NULL DEFAULT 0
+      isCustom INTEGER NOT NULL DEFAULT 0,
+      hidden INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS user_habits (
@@ -50,7 +84,8 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS cues (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
-      isCustom INTEGER NOT NULL DEFAULT 0
+      isCustom INTEGER NOT NULL DEFAULT 0,
+      hidden INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS user_cues (
@@ -61,7 +96,8 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS locations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
-      isCustom INTEGER NOT NULL DEFAULT 0
+      isCustom INTEGER NOT NULL DEFAULT 0,
+      hidden INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS user_locations (
@@ -80,6 +116,10 @@ export async function initDb() {
       notes TEXT,
       createdAt INTEGER NOT NULL,
       selectedActionId INTEGER,
+      habitName TEXT,
+      cueName TEXT,
+      locationName TEXT,
+      selectedActionTitle TEXT,
       FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE,
       FOREIGN KEY (cueId) REFERENCES cues(id) ON DELETE SET NULL,
       FOREIGN KEY (locationId) REFERENCES locations(id) ON DELETE SET NULL,
@@ -90,7 +130,8 @@ export async function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL UNIQUE,
       category TEXT,
-      isCustom INTEGER NOT NULL DEFAULT 0
+      isCustom INTEGER NOT NULL DEFAULT 0,
+      hidden INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS selected_actions (
@@ -100,7 +141,7 @@ export async function initDb() {
     );
   `);
 
-  await ensureLogsSelectedActionColumn();
+  await ensureLocalSchemaColumns();
 }
 
 export async function seedDefaultHabitsIfEmpty() {
@@ -234,19 +275,19 @@ export async function dropAllDataTables() {
 
 export async function loadHabits(): Promise<Habit[]> {
   return db.getAllAsync<Habit>(
-    "SELECT * FROM habits ORDER BY isCustom ASC, id ASC;",
+    "SELECT * FROM habits WHERE hidden = 0 ORDER BY isCustom ASC, id ASC;",
   );
 }
 
 export async function loadCues(): Promise<Cue[]> {
   return db.getAllAsync<Cue>(
-    "SELECT * FROM cues ORDER BY isCustom ASC, id ASC;",
+    "SELECT * FROM cues WHERE hidden = 0 ORDER BY isCustom ASC, id ASC;",
   );
 }
 
 export async function loadLocations(): Promise<Place[]> {
   return db.getAllAsync<Place>(
-    "SELECT * FROM locations ORDER BY isCustom ASC, id ASC;",
+    "SELECT * FROM locations WHERE hidden = 0 ORDER BY isCustom ASC, id ASC;",
   );
 }
 
@@ -255,6 +296,7 @@ export async function loadSelectedHabits(): Promise<SelectedHabit[]> {
     SELECT h.*
     FROM user_habits uh
     JOIN habits h ON h.id = uh.habitId
+    WHERE h.hidden = 0
     ORDER BY uh.rowid ASC;
   `);
 }
@@ -264,6 +306,7 @@ export async function loadSelectedCues(): Promise<SelectedCue[]> {
     SELECT c.*
     FROM user_cues uc
     JOIN cues c ON c.id = uc.cueId
+    WHERE c.hidden = 0
     ORDER BY uc.rowid ASC;
   `);
 }
@@ -273,6 +316,7 @@ export async function loadSelectedLocations(): Promise<SelectedPlace[]> {
     SELECT l.*
     FROM user_locations ul
     JOIN locations l ON l.id = ul.locationId
+    WHERE l.hidden = 0
     ORDER BY ul.rowid ASC;
   `);
 }
@@ -282,18 +326,18 @@ export async function loadLogs(): Promise<LogEntry[]> {
     SELECT
       l.id,
       l.habitId,
-      h.name AS habitName,
+      COALESCE(l.habitName, h.name) AS habitName,
       l.cueId,
-      c.name AS cueName,
+      COALESCE(l.cueName, c.name) AS cueName,
       l.locationId,
-      loc.name AS locationName,
+      COALESCE(l.locationName, loc.name) AS locationName,
       l.intensity,
       l.count,
       l.didResist,
       l.notes,
       l.createdAt,
       l.selectedActionId,
-      a.title AS selectedActionTitle
+      COALESCE(l.selectedActionTitle, a.title) AS selectedActionTitle
     FROM logs l
     JOIN habits h ON h.id = l.habitId
     LEFT JOIN cues c ON c.id = l.cueId
@@ -305,7 +349,7 @@ export async function loadLogs(): Promise<LogEntry[]> {
 
 export async function loadActions(): Promise<ReplacementAction[]> {
   return db.getAllAsync<ReplacementAction>(
-    "SELECT * FROM actions ORDER BY isCustom ASC, id ASC;",
+    "SELECT * FROM actions WHERE hidden = 0 ORDER BY isCustom ASC, id ASC;",
   );
 }
 
@@ -314,6 +358,7 @@ export async function loadSelectedActionIds(): Promise<number[]> {
     SELECT s.actionId
     FROM selected_actions s
     JOIN actions a ON a.id = s.actionId
+    WHERE a.hidden = 0
     ORDER BY s.createdAt DESC;
   `);
   return rows.map((r) => r.actionId).filter((n) => Number.isFinite(n));
@@ -396,6 +441,10 @@ export async function insertLog(params: {
   didResist: 0 | 1;
   notes: string | null;
   selectedActionId: number | null;
+  habitName: string;
+  cueName: string | null;
+  locationName: string | null;
+  selectedActionTitle: string | null;
 }) {
   const result = await db.runAsync(
     `
@@ -408,9 +457,13 @@ export async function insertLog(params: {
       didResist,
       notes,
       createdAt,
-      selectedActionId
+      selectedActionId,
+      habitName,
+      cueName,
+      locationName,
+      selectedActionTitle
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `,
     [
       params.habitId,
@@ -422,6 +475,10 @@ export async function insertLog(params: {
       params.notes,
       Date.now(),
       params.selectedActionId,
+      params.habitName,
+      params.cueName,
+      params.locationName,
+      params.selectedActionTitle,
     ],
   );
 
@@ -439,6 +496,10 @@ export async function updateLogInDb(params: {
   notes: string | null;
   createdAt: number;
   selectedActionId: number | null;
+  habitName: string;
+  cueName: string | null;
+  locationName: string | null;
+  selectedActionTitle: string | null;
 }) {
   await db.runAsync(
     `
@@ -452,7 +513,11 @@ export async function updateLogInDb(params: {
       didResist = ?,
       notes = ?,
       createdAt = ?,
-      selectedActionId = ?
+      selectedActionId = ?,
+      habitName = ?,
+      cueName = ?,
+      locationName = ?,
+      selectedActionTitle = ?
     WHERE id = ?;
     `,
     [
@@ -465,6 +530,10 @@ export async function updateLogInDb(params: {
       params.notes,
       params.createdAt,
       params.selectedActionId,
+      params.habitName,
+      params.cueName,
+      params.locationName,
+      params.selectedActionTitle,
       params.logId,
     ],
   );
@@ -477,11 +546,12 @@ export async function deleteLogInDb(logId: number) {
 export async function updateLogSelectedActionInDb(
   logId: number,
   selectedActionId: number | null,
+  selectedActionTitle: string | null,
 ) {
-  await db.runAsync(`UPDATE logs SET selectedActionId = ? WHERE id = ?;`, [
-    selectedActionId,
-    logId,
-  ]);
+  await db.runAsync(
+    `UPDATE logs SET selectedActionId = ?, selectedActionTitle = ? WHERE id = ?;`,
+    [selectedActionId, selectedActionTitle, logId],
+  );
 }
 
 export async function insertAction(params: {
@@ -493,6 +563,131 @@ export async function insertAction(params: {
     `INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES (?, ?, ?);`,
     [params.title, params.category, params.isCustom],
   );
+}
+
+export async function getHabitById(id: number) {
+  return db.getFirstAsync<Habit>(`SELECT * FROM habits WHERE id = ?;`, [id]);
+}
+
+export async function getCueById(id: number) {
+  return db.getFirstAsync<Cue>(`SELECT * FROM cues WHERE id = ?;`, [id]);
+}
+
+export async function getLocationById(id: number) {
+  return db.getFirstAsync<Place>(`SELECT * FROM locations WHERE id = ?;`, [id]);
+}
+
+export async function getActionById(id: number) {
+  return db.getFirstAsync<ReplacementAction>(
+    `SELECT * FROM actions WHERE id = ?;`,
+    [id],
+  );
+}
+
+export async function renameCustomHabitInDb(id: number, name: string) {
+  await db.runAsync(
+    `UPDATE habits SET name = ? WHERE id = ? AND isCustom = 1 AND hidden = 0;`,
+    [name, id],
+  );
+}
+
+export async function renameCustomCueInDb(id: number, name: string) {
+  await db.runAsync(
+    `UPDATE cues SET name = ? WHERE id = ? AND isCustom = 1 AND hidden = 0;`,
+    [name, id],
+  );
+}
+
+export async function renameCustomLocationInDb(id: number, name: string) {
+  await db.runAsync(
+    `UPDATE locations SET name = ? WHERE id = ? AND isCustom = 1 AND hidden = 0;`,
+    [name, id],
+  );
+}
+
+export async function renameCustomActionInDb(
+  id: number,
+  title: string,
+  category: string | null,
+) {
+  await db.runAsync(
+    `UPDATE actions SET title = ?, category = ? WHERE id = ? AND isCustom = 1 AND hidden = 0;`,
+    [title, category, id],
+  );
+}
+
+async function countLogsForColumn(column: string, id: number) {
+  const rows = await db.getAllAsync<{ c: number }>(
+    `SELECT COUNT(*) as c FROM logs WHERE ${column} = ?;`,
+    [id],
+  );
+  return rows?.[0]?.c ?? 0;
+}
+
+export async function deleteOrHideCustomHabitInDb(
+  id: number,
+): Promise<"deleted" | "hidden"> {
+  const usedCount = await countLogsForColumn("habitId", id);
+  await db.runAsync(`DELETE FROM user_habits WHERE habitId = ?;`, [id]);
+  if (usedCount > 0) {
+    await db.runAsync(
+      `UPDATE habits SET name = name || ' (hidden ' || id || ')', hidden = 1 WHERE id = ? AND isCustom = 1;`,
+      [id],
+    );
+    return "hidden";
+  }
+  await db.runAsync(`DELETE FROM habits WHERE id = ? AND isCustom = 1;`, [id]);
+  return "deleted";
+}
+
+export async function deleteOrHideCustomCueInDb(
+  id: number,
+): Promise<"deleted" | "hidden"> {
+  const usedCount = await countLogsForColumn("cueId", id);
+  await db.runAsync(`DELETE FROM user_cues WHERE cueId = ?;`, [id]);
+  if (usedCount > 0) {
+    await db.runAsync(
+      `UPDATE cues SET name = name || ' (hidden ' || id || ')', hidden = 1 WHERE id = ? AND isCustom = 1;`,
+      [id],
+    );
+    return "hidden";
+  }
+  await db.runAsync(`DELETE FROM cues WHERE id = ? AND isCustom = 1;`, [id]);
+  return "deleted";
+}
+
+export async function deleteOrHideCustomLocationInDb(
+  id: number,
+): Promise<"deleted" | "hidden"> {
+  const usedCount = await countLogsForColumn("locationId", id);
+  await db.runAsync(`DELETE FROM user_locations WHERE locationId = ?;`, [id]);
+  if (usedCount > 0) {
+    await db.runAsync(
+      `UPDATE locations SET name = name || ' (hidden ' || id || ')', hidden = 1 WHERE id = ? AND isCustom = 1;`,
+      [id],
+    );
+    return "hidden";
+  }
+  await db.runAsync(`DELETE FROM locations WHERE id = ? AND isCustom = 1;`, [
+    id,
+  ]);
+  return "deleted";
+}
+
+export async function deleteOrHideCustomActionInDb(
+  id: number,
+): Promise<"deleted" | "hidden"> {
+  const usedCount = await countLogsForColumn("selectedActionId", id);
+  await db.runAsync(`DELETE FROM selected_actions WHERE actionId = ?;`, [id]);
+  if (usedCount > 0) {
+    await db.runAsync(
+      `UPDATE actions SET title = title || ' (hidden ' || id || ')', hidden = 1 WHERE id = ? AND isCustom = 1;`,
+      [id],
+    );
+    return "hidden";
+  }
+  await db.runAsync(`DELETE FROM actions WHERE id = ? AND isCustom = 1;`, [id]);
+  return "deleted";
 }
 
 export async function selectedActionExists(actionId: number) {

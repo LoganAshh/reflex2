@@ -7,6 +7,7 @@ import {
   FlatList,
   Alert,
   ScrollView,
+  Modal,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useData, type ReplacementAction } from "../data/DataContext";
@@ -63,12 +64,23 @@ function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
 }
 
 export default function ShopScreen() {
-  const { actions, addAction, selectedActionIds, toggleSelectedAction } =
-    useData();
+  const {
+    actions,
+    addAction,
+    renameCustomAction,
+    deleteCustomAction,
+    selectedActionIds,
+    toggleSelectedAction,
+  } = useData();
 
   const [filter, setFilter] = useState<Filter>(ALL);
   const [text, setText] = useState("");
   const [newCategory, setNewCategory] = useState<PresetCategory>("Physical");
+  const [editingAction, setEditingAction] = useState<ReplacementAction | null>(
+    null,
+  );
+  const [editText, setEditText] = useState("");
+  const [editCategory, setEditCategory] = useState<PresetCategory>("Physical");
 
   const didSetInitialFilter = useRef(false);
   useEffect(() => {
@@ -119,7 +131,7 @@ export default function ShopScreen() {
 
       setText("");
       setNewCategory("Physical");
-      Alert.alert("Added ✅", `"${title}" is now in your actions list.`);
+      Alert.alert("Added ✅", `“${title}” is now in your actions list.`);
     } catch (e: any) {
       Alert.alert(
         "Already exists",
@@ -128,13 +140,79 @@ export default function ShopScreen() {
     }
   };
 
+  const openEdit = (action: ReplacementAction) => {
+    if (action.isCustom !== 1) return;
+    setEditingAction(action);
+    setEditText(action.title);
+    setEditCategory(
+      PRESET_CATEGORIES.includes((action.category ?? "") as PresetCategory)
+        ? ((action.category ?? "Physical") as PresetCategory)
+        : "Physical",
+    );
+  };
+
+  const closeEdit = () => {
+    setEditingAction(null);
+    setEditText("");
+    setEditCategory("Physical");
+  };
+
+  const onRename = async () => {
+    if (!editingAction) return;
+    const title = editText.trim();
+    if (!title) return;
+
+    try {
+      await renameCustomAction(editingAction.id, title, editCategory);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      closeEdit();
+    } catch (e: any) {
+      Alert.alert(
+        "Could not rename",
+        e?.message ?? "That action name is already used.",
+      );
+    }
+  };
+
+  const onDelete = () => {
+    if (!editingAction) return;
+
+    Alert.alert(
+      "Delete action?",
+      `This removes “${editingAction.title}” from future use. If old logs use it, those logs will keep their saved text.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            if (!editingAction) return;
+            const result = await deleteCustomAction(editingAction.id);
+
+            await Haptics.notificationAsync(
+              Haptics.NotificationFeedbackType.Success,
+            );
+            closeEdit();
+
+            if (result === "hidden") {
+              Alert.alert(
+                "Hidden from future use",
+                "This action was used in old logs, so it was hidden instead of fully deleted. Historical logs still keep the original text.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const FilterPill = ({ label, value }: { label: string; value: Filter }) => {
     const selected = filter === value;
     return (
       <Pressable
         onPress={() => setFilter(value)}
         className={`rounded-full border px-4 py-2 ${
-          selected ? "bg-gray-900 border-gray-900" : "bg-white border-gray-200"
+          selected ? "border-gray-900 bg-gray-900" : "border-gray-200 bg-white"
         }`}
       >
         <Text
@@ -146,23 +224,28 @@ export default function ShopScreen() {
     );
   };
 
-  const CategoryPill = ({ label }: { label: PresetCategory }) => {
-    const selected = newCategory === label;
-    return (
-      <Pressable
-        onPress={() => setNewCategory(label)}
-        className={`rounded-full border px-4 py-2 ${
-          selected ? "bg-gray-900 border-gray-900" : "bg-white border-gray-200"
-        }`}
+  const CategoryPill = ({
+    label,
+    selected,
+    onPress,
+  }: {
+    label: PresetCategory;
+    selected: boolean;
+    onPress: () => void;
+  }) => (
+    <Pressable
+      onPress={onPress}
+      className={`rounded-full border px-4 py-2 ${
+        selected ? "border-gray-900 bg-gray-900" : "border-gray-200 bg-white"
+      }`}
+    >
+      <Text
+        className={`${selected ? "text-white" : "text-gray-900"} font-semibold`}
       >
-        <Text
-          className={`${selected ? "text-white" : "text-gray-900"} font-semibold`}
-        >
-          {label}
-        </Text>
-      </Pressable>
-    );
-  };
+        {label}
+      </Text>
+    </Pressable>
+  );
 
   const renderItem = ({ item }: { item: ReplacementAction }) => {
     const isCustom = item.isCustom === 1;
@@ -181,12 +264,21 @@ export default function ShopScreen() {
             </Text>
           </View>
 
+          {isCustom ? (
+            <Pressable
+              onPress={() => openEdit(item)}
+              className="mr-2 rounded-xl border border-gray-200 bg-white px-3 py-2 active:bg-gray-50"
+            >
+              <Text className="font-semibold text-gray-900">Edit</Text>
+            </Pressable>
+          ) : null}
+
           <Pressable
             onPress={() => onToggleSelected(item.id)}
             className={`rounded-xl border px-4 py-2 ${
               isSelected
-                ? "bg-white border-gray-300"
-                : "bg-green-600 border-green-600"
+                ? "border-gray-300 bg-white"
+                : "border-green-600 bg-green-600"
             }`}
           >
             <Text
@@ -203,7 +295,7 @@ export default function ShopScreen() {
   };
 
   const EmptyState = () => (
-    <View className="mt-4 mx-6 rounded-2xl border border-gray-200 bg-white p-5">
+    <View className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white p-5">
       <Text className="text-gray-700">
         {filter === SELECTED
           ? "No selected actions yet."
@@ -216,6 +308,68 @@ export default function ShopScreen() {
 
   return (
     <View className="flex-1 bg-white pt-10">
+      <Modal visible={!!editingAction} transparent animationType="fade">
+        <View className="flex-1 justify-center bg-black/40 px-6">
+          <View className="rounded-3xl bg-white p-5">
+            <Text className="text-xl font-bold text-gray-900">
+              Edit custom action
+            </Text>
+            <Text className="mt-2 text-sm text-gray-600">
+              Rename it, change the category, or delete it from future use.
+            </Text>
+
+            <TextInput
+              value={editText}
+              onChangeText={setEditText}
+              placeholder="Custom action"
+              placeholderTextColor="#9CA3AF"
+              className="mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+              returnKeyType="done"
+              onSubmitEditing={onRename}
+              blurOnSubmit
+            />
+
+            <Text className="mt-4 text-xs font-semibold text-gray-600">
+              Category
+            </Text>
+            <View className="mt-2 flex-row flex-wrap gap-2">
+              {PRESET_CATEGORIES.map((cat) => (
+                <CategoryPill
+                  key={cat}
+                  label={cat}
+                  selected={editCategory === cat}
+                  onPress={() => setEditCategory(cat)}
+                />
+              ))}
+            </View>
+
+            <Pressable
+              onPress={onRename}
+              className="mt-4 rounded-2xl bg-green-600 py-4 active:bg-green-700"
+            >
+              <Text className="text-center text-base font-semibold text-white">
+                Save Rename
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={onDelete}
+              className="mt-3 rounded-2xl border border-red-200 bg-red-50 py-4 active:bg-red-100"
+            >
+              <Text className="text-center text-base font-semibold text-red-600">
+                Delete Custom Action
+              </Text>
+            </Pressable>
+
+            <Pressable onPress={closeEdit} className="mt-3 rounded-2xl py-3">
+              <Text className="text-center text-base font-semibold text-gray-500">
+                Cancel
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       <View className="px-6">
         <Text className="text-3xl font-bold text-gray-900">Shop</Text>
 
@@ -279,7 +433,12 @@ export default function ShopScreen() {
             </Text>
             <View className="mt-2 flex-row flex-wrap gap-2">
               {PRESET_CATEGORIES.map((cat) => (
-                <CategoryPill key={cat} label={cat} />
+                <CategoryPill
+                  key={cat}
+                  label={cat}
+                  selected={newCategory === cat}
+                  onPress={() => setNewCategory(cat)}
+                />
               ))}
             </View>
           </View>
@@ -287,7 +446,8 @@ export default function ShopScreen() {
           <View className="mt-6">
             <Text className="text-xl font-bold text-gray-900">Actions</Text>
             <Text className="mt-1 text-sm text-gray-500">
-              Tap “Select” to add or remove an action.
+              Tap “Select” to add or remove an action. Custom actions can also
+              be edited.
             </Text>
 
             {filtered.length === 0 ? (
@@ -311,7 +471,8 @@ export default function ShopScreen() {
               {filter === SELECTED ? "Selected actions" : "Actions"}
             </Text>
             <Text className="mt-1 text-sm text-gray-500">
-              Tap “Select” to add or remove an action.
+              Tap “Select” to add or remove an action. Custom actions can also
+              be edited.
             </Text>
           </View>
 

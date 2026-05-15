@@ -51,6 +51,18 @@ import {
   deleteLogInDb,
   updateLogSelectedActionInDb,
   insertAction,
+  getHabitById,
+  getCueById,
+  getLocationById,
+  getActionById,
+  renameCustomHabitInDb,
+  renameCustomCueInDb,
+  renameCustomLocationInDb,
+  renameCustomActionInDb,
+  deleteOrHideCustomHabitInDb,
+  deleteOrHideCustomCueInDb,
+  deleteOrHideCustomLocationInDb,
+  deleteOrHideCustomActionInDb,
   selectedActionExists,
   removeSelectedAction,
   addSelectedAction,
@@ -90,6 +102,7 @@ type BackupNamedEntity = {
   id: number;
   name: string;
   isCustom: 0 | 1;
+  hidden: 0 | 1;
 };
 
 type BackupActionEntity = {
@@ -97,6 +110,7 @@ type BackupActionEntity = {
   title: string;
   category: string | null;
   isCustom: 0 | 1;
+  hidden: 0 | 1;
 };
 
 type BackupLog = {
@@ -110,6 +124,10 @@ type BackupLog = {
   notes: string | null;
   createdAt: number;
   selectedActionId: number | null;
+  habitName: string | null;
+  cueName: string | null;
+  locationName: string | null;
+  selectedActionTitle: string | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -189,6 +207,7 @@ function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
       id,
       name,
       isCustom: cleanIsCustom(item.isCustom),
+      hidden: cleanIsCustom(item.hidden),
     });
   }
 
@@ -211,6 +230,7 @@ function sanitizeActions(items: unknown[]): BackupActionEntity[] {
       title,
       category: cleanNullableString(item.category),
       isCustom: cleanIsCustom(item.isCustom),
+      hidden: cleanIsCustom(item.hidden),
     });
   }
 
@@ -257,6 +277,10 @@ function sanitizeLogs(items: unknown[]): BackupLog[] {
       notes: cleanNullableString(item.notes),
       createdAt,
       selectedActionId: cleanOptionalInt(item.selectedActionId),
+      habitName: cleanNullableString(item.habitName),
+      cueName: cleanNullableString(item.cueName),
+      locationName: cleanNullableString(item.locationName),
+      selectedActionTitle: cleanNullableString(item.selectedActionTitle),
     });
   }
 
@@ -566,6 +590,121 @@ export function DataProvider({ children }: DataProviderProps) {
     await setSelectedLocations(nextIds);
   };
 
+  const assertUniqueName = <T extends { id: number; name: string }>(
+    items: T[],
+    id: number,
+    name: string,
+  ) => {
+    const duplicate = items.find(
+      (item) =>
+        item.id !== id && normalizeName(item.name) === normalizeName(name),
+    );
+    if (duplicate) {
+      throw new Error(`"${name}" already exists.`);
+    }
+  };
+
+  const assertUniqueActionTitle = (
+    items: ReplacementAction[],
+    id: number,
+    title: string,
+  ) => {
+    const duplicate = items.find(
+      (item) =>
+        item.id !== id && normalizeName(item.title) === normalizeName(title),
+    );
+    if (duplicate) {
+      throw new Error(`"${title}" already exists.`);
+    }
+  };
+
+  const renameCustomHabit: DataContextType["renameCustomHabit"] = async (
+    habitId,
+    name,
+  ) => {
+    const clean = name.trim();
+    if (!clean || !Number.isFinite(habitId)) return;
+    assertUniqueName(await loadHabits(), habitId, clean);
+    await renameCustomHabitInDb(habitId, clean);
+    await refresh();
+  };
+
+  const renameCustomCue: DataContextType["renameCustomCue"] = async (
+    cueId,
+    name,
+  ) => {
+    const clean = name.trim();
+    if (!clean || !Number.isFinite(cueId)) return;
+    assertUniqueName(await loadCues(), cueId, clean);
+    await renameCustomCueInDb(cueId, clean);
+    await refresh();
+  };
+
+  const renameCustomLocation: DataContextType["renameCustomLocation"] = async (
+    locationId,
+    name,
+  ) => {
+    const clean = name.trim();
+    if (!clean || !Number.isFinite(locationId)) return;
+    assertUniqueName(await loadLocations(), locationId, clean);
+    await renameCustomLocationInDb(locationId, clean);
+    await refresh();
+  };
+
+  const deleteCustomHabit: DataContextType["deleteCustomHabit"] = async (
+    habitId,
+  ) => {
+    if (!Number.isFinite(habitId)) return "deleted";
+    const result = await deleteOrHideCustomHabitInDb(habitId);
+    await refresh();
+    return result;
+  };
+
+  const deleteCustomCue: DataContextType["deleteCustomCue"] = async (cueId) => {
+    if (!Number.isFinite(cueId)) return "deleted";
+    const result = await deleteOrHideCustomCueInDb(cueId);
+    await refresh();
+    return result;
+  };
+
+  const deleteCustomLocation: DataContextType["deleteCustomLocation"] = async (
+    locationId,
+  ) => {
+    if (!Number.isFinite(locationId)) return "deleted";
+    const result = await deleteOrHideCustomLocationInDb(locationId);
+    await refresh();
+    return result;
+  };
+
+  const getLogNames = async (input: {
+    habitId: number;
+    cueId?: number | null;
+    locationId?: number | null;
+    selectedActionId?: number | null;
+  }) => {
+    const [habit, cue, location, action] = await Promise.all([
+      getHabitById(input.habitId),
+      input.cueId == null ? Promise.resolve(null) : getCueById(input.cueId),
+      input.locationId == null
+        ? Promise.resolve(null)
+        : getLocationById(input.locationId),
+      input.selectedActionId == null
+        ? Promise.resolve(null)
+        : getActionById(input.selectedActionId),
+    ]);
+
+    if (!habit) {
+      throw new Error("Selected habit was not found.");
+    }
+
+    return {
+      habitName: habit.name,
+      cueName: cue?.name ?? null,
+      locationName: location?.name ?? null,
+      selectedActionTitle: action?.title ?? null,
+    };
+  };
+
   const addLog: DataContextType["addLog"] = async (input) => {
     const habitId = input.habitId;
     if (!Number.isFinite(habitId)) return null;
@@ -586,6 +725,13 @@ export function DataProvider({ children }: DataProviderProps) {
         ? null
         : input.selectedActionId;
 
+    const names = await getLogNames({
+      habitId,
+      cueId: input.cueId ?? null,
+      locationId: input.locationId ?? null,
+      selectedActionId,
+    });
+
     const newLogId = await insertLog({
       habitId,
       cueId: input.cueId ?? null,
@@ -595,6 +741,10 @@ export function DataProvider({ children }: DataProviderProps) {
       didResist,
       notes: input.notes?.trim() ?? null,
       selectedActionId,
+      habitName: names.habitName,
+      cueName: names.cueName,
+      locationName: names.locationName,
+      selectedActionTitle: names.selectedActionTitle,
     });
 
     setLogs(await loadLogs());
@@ -620,6 +770,13 @@ export function DataProvider({ children }: DataProviderProps) {
         ? null
         : input.selectedActionId;
 
+    const names = await getLogNames({
+      habitId: input.habitId,
+      cueId: input.cueId ?? null,
+      locationId: input.locationId ?? null,
+      selectedActionId,
+    });
+
     await updateLogInDb({
       logId,
       habitId: input.habitId,
@@ -631,6 +788,10 @@ export function DataProvider({ children }: DataProviderProps) {
       notes: input.notes?.trim() ?? null,
       createdAt: Math.round(input.createdAt),
       selectedActionId,
+      habitName: names.habitName,
+      cueName: names.cueName,
+      locationName: names.locationName,
+      selectedActionTitle: names.selectedActionTitle,
     });
 
     setLogs(await loadLogs());
@@ -651,7 +812,16 @@ export function DataProvider({ children }: DataProviderProps) {
           ? null
           : selectedActionId;
 
-      await updateLogSelectedActionInDb(logId, cleanSelectedActionId);
+      const action =
+        cleanSelectedActionId == null
+          ? null
+          : await getActionById(cleanSelectedActionId);
+
+      await updateLogSelectedActionInDb(
+        logId,
+        cleanSelectedActionId,
+        action?.title ?? null,
+      );
       setLogs(await loadLogs());
     };
 
@@ -678,6 +848,31 @@ export function DataProvider({ children }: DataProviderProps) {
 
     setActions(await loadActions());
     setSelectedActionIds(await loadSelectedActionIds());
+  };
+
+  const renameCustomAction: DataContextType["renameCustomAction"] = async (
+    actionId,
+    title,
+    category,
+  ) => {
+    const cleanTitle = title.trim();
+    if (!cleanTitle || !Number.isFinite(actionId)) return;
+    assertUniqueActionTitle(await loadActions(), actionId, cleanTitle);
+    await renameCustomActionInDb(
+      actionId,
+      cleanTitle,
+      category?.trim() || null,
+    );
+    await refresh();
+  };
+
+  const deleteCustomAction: DataContextType["deleteCustomAction"] = async (
+    actionId,
+  ) => {
+    if (!Number.isFinite(actionId)) return "deleted";
+    const result = await deleteOrHideCustomActionInDb(actionId);
+    await refresh();
+    return result;
   };
 
   const toggleSelectedAction: DataContextType["toggleSelectedAction"] = async (
@@ -802,29 +997,35 @@ export function DataProvider({ children }: DataProviderProps) {
 
     for (const habit of importedHabits) {
       await db.runAsync(
-        `INSERT OR IGNORE INTO habits (id, name, isCustom) VALUES (?, ?, ?);`,
-        [habit.id, habit.name, habit.isCustom],
+        `INSERT OR IGNORE INTO habits (id, name, isCustom, hidden) VALUES (?, ?, ?, ?);`,
+        [habit.id, habit.name, habit.isCustom, habit.hidden],
       );
     }
 
     for (const cue of importedCues) {
       await db.runAsync(
-        `INSERT OR IGNORE INTO cues (id, name, isCustom) VALUES (?, ?, ?);`,
-        [cue.id, cue.name, cue.isCustom],
+        `INSERT OR IGNORE INTO cues (id, name, isCustom, hidden) VALUES (?, ?, ?, ?);`,
+        [cue.id, cue.name, cue.isCustom, cue.hidden],
       );
     }
 
     for (const location of importedLocations) {
       await db.runAsync(
-        `INSERT OR IGNORE INTO locations (id, name, isCustom) VALUES (?, ?, ?);`,
-        [location.id, location.name, location.isCustom],
+        `INSERT OR IGNORE INTO locations (id, name, isCustom, hidden) VALUES (?, ?, ?, ?);`,
+        [location.id, location.name, location.isCustom, location.hidden],
       );
     }
 
     for (const action of importedActions) {
       await db.runAsync(
-        `INSERT OR IGNORE INTO actions (id, title, category, isCustom) VALUES (?, ?, ?, ?);`,
-        [action.id, action.title, action.category, action.isCustom],
+        `INSERT OR IGNORE INTO actions (id, title, category, isCustom, hidden) VALUES (?, ?, ?, ?, ?);`,
+        [
+          action.id,
+          action.title,
+          action.category,
+          action.isCustom,
+          action.hidden,
+        ],
       );
     }
 
@@ -869,9 +1070,13 @@ export function DataProvider({ children }: DataProviderProps) {
           didResist,
           notes,
           createdAt,
-          selectedActionId
+          selectedActionId,
+          habitName,
+          cueName,
+          locationName,
+          selectedActionTitle
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         `,
         [
           log.id,
@@ -886,6 +1091,10 @@ export function DataProvider({ children }: DataProviderProps) {
           log.notes,
           log.createdAt,
           selectedActionId,
+          log.habitName,
+          log.cueName,
+          log.locationName,
+          log.selectedActionTitle,
         ],
       );
     }
@@ -968,6 +1177,12 @@ export function DataProvider({ children }: DataProviderProps) {
       addCustomHabit,
       addCustomCue,
       addCustomLocation,
+      renameCustomHabit,
+      renameCustomCue,
+      renameCustomLocation,
+      deleteCustomHabit,
+      deleteCustomCue,
+      deleteCustomLocation,
       logs,
       addLog,
       updateLog,
@@ -975,6 +1190,8 @@ export function DataProvider({ children }: DataProviderProps) {
       updateLogSelectedAction,
       actions,
       addAction,
+      renameCustomAction,
+      deleteCustomAction,
       selectedActionIds,
       toggleSelectedAction,
       clearSelectedActions,
