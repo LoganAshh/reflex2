@@ -38,15 +38,19 @@ export type ManageListSelection = {
   token: number;
 };
 
+export type TabResetParams = {
+  resetToken?: number;
+};
+
 export type RootTabParamList = {
-  Home: undefined;
-  Shop: undefined;
+  Home: TabResetParams | undefined;
+  Shop: TabResetParams | undefined;
   Log:
-    | {
+    | (TabResetParams & {
         manageListSelection?: ManageListSelection;
-      }
+      })
     | undefined;
-  Analytics: undefined;
+  Analytics: TabResetParams | undefined;
 };
 
 export type RootStackParamList = {
@@ -222,6 +226,14 @@ function Tabs() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const onTabPress = (navigation: any) => {
+    tabHaptic();
+
+    if (navigation.isFocused()) {
+      navigation.setParams({ resetToken: Date.now() });
+    }
+  };
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -274,7 +286,9 @@ function Tabs() {
       <Tab.Screen
         name="Home"
         component={HomeScreen}
-        listeners={{ tabPress: () => tabHaptic() }}
+        listeners={({ navigation }) => ({
+          tabPress: () => onTabPress(navigation),
+        })}
         options={({ navigation }) => ({
           headerRight: () => (
             <Pressable
@@ -305,19 +319,25 @@ function Tabs() {
       <Tab.Screen
         name="Shop"
         component={ShopScreen}
-        listeners={{ tabPress: () => tabHaptic() }}
+        listeners={({ navigation }) => ({
+          tabPress: () => onTabPress(navigation),
+        })}
       />
 
       <Tab.Screen
         name="Log"
         component={LogScreen}
-        listeners={{ tabPress: () => tabHaptic() }}
+        listeners={({ navigation }) => ({
+          tabPress: () => onTabPress(navigation),
+        })}
       />
 
       <Tab.Screen
         name="Analytics"
         component={AnalyticsScreen}
-        listeners={{ tabPress: () => tabHaptic() }}
+        listeners={({ navigation }) => ({
+          tabPress: () => onTabPress(navigation),
+        })}
       />
     </Tab.Navigator>
   );

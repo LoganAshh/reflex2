@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Keyboard,
@@ -8,6 +8,9 @@ import {
   View,
 } from "react-native";
 import * as Haptics from "expo-haptics";
+import { useRoute } from "@react-navigation/native";
+import type { RouteProp } from "@react-navigation/native";
+import type { RootTabParamList } from "../App";
 import { useData, type LogEntry } from "../data/DataContext";
 import {
   AnalyticsCalendar,
@@ -158,6 +161,7 @@ async function successHaptic() {
 }
 
 type TabKey = "Overall" | string;
+type AnalyticsRoute = RouteProp<RootTabParamList, "Analytics">;
 
 type BaseItem = { id: number; name: string };
 
@@ -215,6 +219,7 @@ function ListBlock({
 }
 
 export default function AnalyticsScreen() {
+  const route = useRoute<AnalyticsRoute>();
   const {
     logs,
     habits,
@@ -249,6 +254,37 @@ export default function AnalyticsScreen() {
   const [editError, setEditError] = useState("");
   const [showIntensityPicker, setShowIntensityPicker] = useState(false);
   const [showCountPicker, setShowCountPicker] = useState(false);
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const habitTabsScrollRef = useRef<ScrollView | null>(null);
+  const handledResetTokenRef = useRef<number | null>(null);
+
+  const closeEditModalWithoutHaptic = () => {
+    setEditModalOpen(false);
+    setEditingLog(null);
+    setEditError("");
+    setShowIntensityPicker(false);
+    setShowCountPicker(false);
+    Keyboard.dismiss();
+  };
+
+  useEffect(() => {
+    const resetToken = route.params?.resetToken;
+    if (!resetToken) return;
+    if (handledResetTokenRef.current === resetToken) return;
+
+    handledResetTokenRef.current = resetToken;
+    setActiveTab("Overall");
+    setMonthOffset(0);
+    setDayModalOpen(false);
+    setSelectedDayMs(null);
+    closeEditModalWithoutHaptic();
+    Keyboard.dismiss();
+
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      habitTabsScrollRef.current?.scrollTo({ x: 0, animated: true });
+    });
+  }, [route.params?.resetToken]);
 
   const todayStartMs = useMemo(() => startOfDayMs(Date.now()), []);
   const hasAnyLogs = logs.length > 0;
@@ -453,15 +489,6 @@ export default function AnalyticsScreen() {
       setEditError("");
       setEditModalOpen(true);
     }, 150);
-  };
-
-  const closeEditModalWithoutHaptic = () => {
-    setEditModalOpen(false);
-    setEditingLog(null);
-    setEditError("");
-    setShowIntensityPicker(false);
-    setShowCountPicker(false);
-    Keyboard.dismiss();
   };
 
   const closeEditModal = async () => {
@@ -716,6 +743,7 @@ export default function AnalyticsScreen() {
   return (
     <>
       <ScrollView
+        ref={scrollViewRef}
         className="flex-1 bg-white px-6 pt-10"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 24 }}
@@ -726,6 +754,7 @@ export default function AnalyticsScreen() {
         </Text>
 
         <ScrollView
+          ref={habitTabsScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           className="mt-4"

@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, Image } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import type { RouteProp } from "@react-navigation/native";
 import type { RootTabParamList } from "../App";
 import { useData } from "../data/DataContext";
 import * as Haptics from "expo-haptics";
@@ -91,13 +92,34 @@ function getBestCleanStreakDays(
   return best;
 }
 
+type Nav = BottomTabNavigationProp<RootTabParamList, "Home">;
+type HomeRoute = RouteProp<RootTabParamList, "Home">;
+
 export default function HomeScreen() {
-  const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
+  const navigation = useNavigation<Nav>();
+  const route = useRoute<HomeRoute>();
   const { logs, profileName, profilePhotoUri } = useData();
 
   const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const habitChipsScrollRef = useRef<ScrollView | null>(null);
+  const handledResetTokenRef = useRef<number | null>(null);
 
   const displayName = useMemo(() => getFirstName(profileName), [profileName]);
+
+  useEffect(() => {
+    const resetToken = route.params?.resetToken;
+    if (!resetToken) return;
+    if (handledResetTokenRef.current === resetToken) return;
+
+    handledResetTokenRef.current = resetToken;
+    setSelectedHabit(null);
+
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      habitChipsScrollRef.current?.scrollTo({ x: 0, animated: true });
+    });
+  }, [route.params?.resetToken]);
 
   const habitOptions = useMemo(() => {
     const set = new Set<string>();
@@ -286,7 +308,16 @@ export default function HomeScreen() {
   );
 
   return (
-    <View className="flex-1 bg-white px-6 pt-10">
+    <ScrollView
+      ref={scrollViewRef}
+      className="flex-1 bg-white"
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{
+        paddingHorizontal: 24,
+        paddingTop: 40,
+        paddingBottom: 24,
+      }}
+    >
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-4">
           <Text className="mt-1 text-3xl font-bold text-gray-900">
@@ -337,6 +368,7 @@ export default function HomeScreen() {
         <Text className="text-base font-semibold text-gray-900">Dashboard</Text>
 
         <ScrollView
+          ref={habitChipsScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           className="mt-4"
@@ -349,6 +381,7 @@ export default function HomeScreen() {
               setSelectedHabit(null);
             }}
           />
+
           {habitOptions.map((h) => (
             <Chip
               key={h}
@@ -446,6 +479,6 @@ export default function HomeScreen() {
             : "Nice! Keep the momentum going."}
         </Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
