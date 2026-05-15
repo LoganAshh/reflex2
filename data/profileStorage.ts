@@ -142,7 +142,7 @@ function cleanReminderSettings(value: string): DailyReminderSettings {
     const minute = Number(parsed?.minute);
 
     if (!["off", "morning", "evening", "custom"].includes(option)) {
-      return { option: "evening", hour: 20, minute: 0 };
+      return { option: "off", hour: 20, minute: 0 };
     }
 
     const safeHour = Number.isFinite(hour)
@@ -156,7 +156,7 @@ function cleanReminderSettings(value: string): DailyReminderSettings {
 
     return { option, hour: safeHour, minute: safeMinute };
   } catch {
-    return { option: "evening", hour: 20, minute: 0 };
+    return { option: "off", hour: 20, minute: 0 };
   }
 }
 

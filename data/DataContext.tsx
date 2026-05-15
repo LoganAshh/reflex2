@@ -298,7 +298,7 @@ function sanitizeLogs(items: unknown[]): BackupLog[] {
 const DataContext = createContext<DataContextType | null>(null);
 
 const DEFAULT_DAILY_REMINDER: DailyReminderSettings = {
-  option: "evening",
+  option: "off",
   hour: 20,
   minute: 0,
 };
@@ -331,8 +331,8 @@ async function scheduleDailyReminderNotification(
 
   const notificationId = await Notifications.scheduleNotificationAsync({
     content: {
-      title: "Time for a quick check-in?",
-      body: "Take a minute to reflect and log anything worth noticing.",
+      title: "Check in with Reflex?",
+      body: "Take a minute to reflect on your urges and wins today.",
       sound: false,
     },
     trigger: {
@@ -590,15 +590,19 @@ export function DataProvider({ children }: DataProviderProps) {
       throw new Error(`"${clean}" already exists.`);
     }
 
-    const id = await insertCustomHabit(clean);
+    await insertCustomHabit(clean);
     const updatedHabits = await loadHabits();
     setHabits(updatedHabits);
 
-    if (!autoSelect || id <= 0) return;
+    if (!autoSelect) return;
 
-    const nextIds = Array.from(
-      new Set([...selectedHabits.map((habit) => habit.id), id]),
+    const match = updatedHabits.find(
+      (h) => h.name.toLowerCase() === clean.toLowerCase(),
     );
+    if (!match) return;
+
+    const currentSelected = await loadSelectedHabits();
+    const nextIds = [...currentSelected.map((h) => h.id), match.id];
     await setSelectedHabits(nextIds);
   };
 
@@ -617,15 +621,19 @@ export function DataProvider({ children }: DataProviderProps) {
       throw new Error(`"${clean}" already exists.`);
     }
 
-    const id = await insertCustomCue(clean);
+    await insertCustomCue(clean);
     const updatedCues = await loadCues();
     setCues(updatedCues);
 
-    if (!autoSelect || id <= 0) return;
+    if (!autoSelect) return;
 
-    const nextIds = Array.from(
-      new Set([...selectedCues.map((cue) => cue.id), id]),
+    const match = updatedCues.find(
+      (c) => c.name.toLowerCase() === clean.toLowerCase(),
     );
+    if (!match) return;
+
+    const currentSelected = await loadSelectedCues();
+    const nextIds = [...currentSelected.map((c) => c.id), match.id];
     await setSelectedCues(nextIds);
   };
 
@@ -644,15 +652,19 @@ export function DataProvider({ children }: DataProviderProps) {
       throw new Error(`"${clean}" already exists.`);
     }
 
-    const id = await insertCustomLocation(clean);
+    await insertCustomLocation(clean);
     const updatedLocations = await loadLocations();
     setLocations(updatedLocations);
 
-    if (!autoSelect || id <= 0) return;
+    if (!autoSelect) return;
 
-    const nextIds = Array.from(
-      new Set([...selectedLocations.map((location) => location.id), id]),
+    const match = updatedLocations.find(
+      (l) => l.name.toLowerCase() === clean.toLowerCase(),
     );
+    if (!match) return;
+
+    const currentSelected = await loadSelectedLocations();
+    const nextIds = [...currentSelected.map((l) => l.id), match.id];
     await setSelectedLocations(nextIds);
   };
 
@@ -831,8 +843,6 @@ export function DataProvider({ children }: DataProviderProps) {
     const countIn = input.count ?? 1;
     const count = Math.min(10, Math.max(0, Math.round(countIn)));
 
-    const didResist: 0 | 1 = input.didResist ? 1 : 0;
-
     const selectedActionId =
       input.selectedActionId == null || !Number.isFinite(input.selectedActionId)
         ? null
@@ -852,7 +862,7 @@ export function DataProvider({ children }: DataProviderProps) {
       locationId: input.locationId ?? null,
       intensity,
       count,
-      didResist,
+      didResist: input.didResist ? 1 : 0,
       notes: input.notes?.trim() ?? null,
       createdAt: Math.round(input.createdAt),
       selectedActionId,
@@ -905,7 +915,7 @@ export function DataProvider({ children }: DataProviderProps) {
       throw new Error(`"${title}" already exists.`);
     }
 
-    const category = input.category?.trim() || null;
+    const category = input.category?.trim() ?? null;
     const isCustom: 0 | 1 = (input.isCustom ?? true) ? 1 : 0;
 
     await insertAction({
@@ -1060,7 +1070,7 @@ export function DataProvider({ children }: DataProviderProps) {
             settings.dailyReminder.option as string,
           )
             ? (settings.dailyReminder.option as DailyReminderSettings["option"])
-            : "evening",
+            : "off",
           hour: Math.min(
             23,
             Math.max(0, cleanInt(settings.dailyReminder.hour, 20)),
