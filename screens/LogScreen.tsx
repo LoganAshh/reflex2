@@ -42,29 +42,51 @@ type ChipItem = {
 
 type BaseItem = { id: number; name: string };
 
-function applyRecentOrdering<T extends { id: number }>(
+function applyFrequencyOrdering<T extends { id: number }>(
   items: T[],
-  recentIds: number[],
+  frequencyCounts: Map<number, number>,
 ) {
   if (items.length === 0) return items;
 
-  const byId = new Map(items.map((x) => [x.id, x] as const));
-  const used = new Set<number>();
-  const ordered: T[] = [];
+  const originalRank = new Map<number, number>();
+  items.forEach((item, index) => {
+    originalRank.set(item.id, index);
+  });
 
-  for (const id of recentIds) {
-    const it = byId.get(id);
-    if (it && !used.has(id)) {
-      ordered.push(it);
-      used.add(id);
+  return [...items].sort((a, b) => {
+    const aCount = frequencyCounts.get(a.id) ?? 0;
+    const bCount = frequencyCounts.get(b.id) ?? 0;
+
+    if (aCount !== bCount) {
+      return bCount - aCount;
     }
-  }
 
-  for (const it of items) {
-    if (!used.has(it.id)) ordered.push(it);
-  }
+    return (originalRank.get(a.id) ?? 0) - (originalRank.get(b.id) ?? 0);
+  });
+}
 
-  return ordered;
+function scrollChipToId<T extends { id: number }>(
+  listRef: React.RefObject<FlatList<ChipItem> | null>,
+  items: T[],
+  id: number | null,
+  allowNone?: boolean,
+) {
+  const index =
+    id == null
+      ? allowNone
+        ? 0
+        : -1
+      : items.findIndex((item) => item.id === id) + (allowNone ? 1 : 0);
+
+  if (index < 0) return;
+
+  requestAnimationFrame(() => {
+    listRef.current?.scrollToIndex({
+      index,
+      animated: true,
+      viewPosition: 0.5,
+    });
+  });
 }
 
 function ChipRow<T extends BaseItem>({
@@ -117,6 +139,7 @@ function ChipRow<T extends BaseItem>({
             onAdd();
             return;
           }
+
           onSelect(item.id);
         }}
         className={`${base} ${
@@ -153,6 +176,14 @@ function ChipRow<T extends BaseItem>({
         renderItem={renderItem}
         extraData={selectedId}
         keyboardShouldPersistTaps="handled"
+        onScrollToIndexFailed={(info) => {
+          setTimeout(() => {
+            listRef.current?.scrollToOffset({
+              offset: Math.max(0, info.averageItemLength * info.index),
+              animated: true,
+            });
+          }, 80);
+        }}
       />
     </View>
   );
@@ -199,6 +230,7 @@ function IntensityPickerModal({
           <View className="mt-4 flex-row flex-wrap">
             {options.map((n) => {
               const selected = value === n;
+
               return (
                 <Pressable
                   key={n}
@@ -287,6 +319,7 @@ function CountPickerModal({
           <View className="mt-4 flex-row flex-wrap">
             {options.map((n) => {
               const selected = value === n;
+
               return (
                 <Pressable
                   key={n}
@@ -326,7 +359,9 @@ function CountPickerModal({
 export default function LogScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<LogRoute>();
-  const { selectedHabits, selectedCues, selectedLocations, addLog } = useData();
+
+  const { selectedHabits, selectedCues, selectedLocations, logs, addLog } =
+    useData();
 
   const [habitId, setHabitId] = useState<number | null>(null);
   const [cueId, setCueId] = useState<number | null>(null);
@@ -340,9 +375,6 @@ export default function LogScreen() {
   const [showCountPicker, setShowCountPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [recentHabitIds, setRecentHabitIds] = useState<number[]>([]);
-  const [recentCueIds, setRecentCueIds] = useState<number[]>([]);
-  const [recentLocationIds, setRecentLocationIds] = useState<number[]>([]);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const keyboardLiftAnim = useRef(new Animated.Value(0)).current;
@@ -354,29 +386,60 @@ export default function LogScreen() {
   const scrollViewRef = useRef<ScrollView | null>(null);
   const handledManageListTokenRef = useRef<number | null>(null);
 
+  const habitFrequencyCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+
+    for (const log of logs) {
+      counts.set(log.habitId, (counts.get(log.habitId) ?? 0) + 1);
+    }
+
+    return counts;
+  }, [logs]);
+
+  const cueAssociationCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+
+    if (habitId == null) return counts;
+
+    for (const log of logs) {
+      if (log.habitId !== habitId) continue;
+      if (log.cueId == null) continue;
+
+      counts.set(log.cueId, (counts.get(log.cueId) ?? 0) + 1);
+    }
+
+    return counts;
+  }, [logs, habitId]);
+
+  const locationAssociationCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+
+    if (habitId == null) return counts;
+
+    for (const log of logs) {
+      if (log.habitId !== habitId) continue;
+      if (log.locationId == null) continue;
+
+      counts.set(log.locationId, (counts.get(log.locationId) ?? 0) + 1);
+    }
+
+    return counts;
+  }, [logs, habitId]);
+
   const orderedHabits = useMemo(
-    () => applyRecentOrdering(selectedHabits, recentHabitIds),
-    [selectedHabits, recentHabitIds],
+    () => applyFrequencyOrdering(selectedHabits, habitFrequencyCounts),
+    [selectedHabits, habitFrequencyCounts],
   );
+
   const orderedCues = useMemo(
-    () => applyRecentOrdering(selectedCues, recentCueIds),
-    [selectedCues, recentCueIds],
+    () => applyFrequencyOrdering(selectedCues, cueAssociationCounts),
+    [selectedCues, cueAssociationCounts],
   );
+
   const orderedLocations = useMemo(
-    () => applyRecentOrdering(selectedLocations, recentLocationIds),
-    [selectedLocations, recentLocationIds],
+    () => applyFrequencyOrdering(selectedLocations, locationAssociationCounts),
+    [selectedLocations, locationAssociationCounts],
   );
-
-  const bumpRecent = (prev: number[], id: number, max = 25) => {
-    const next = [id, ...prev.filter((x) => x !== id)];
-    return next.slice(0, max);
-  };
-
-  const scrollAllToStart = () => {
-    habitListRef.current?.scrollToOffset({ offset: 0, animated: true });
-    cueListRef.current?.scrollToOffset({ offset: 0, animated: true });
-    locationListRef.current?.scrollToOffset({ offset: 0, animated: true });
-  };
 
   const scrollNotesIntoView = () => {
     requestAnimationFrame(() => {
@@ -407,6 +470,18 @@ export default function LogScreen() {
   }, [orderedHabits, habitId]);
 
   useEffect(() => {
+    scrollChipToId(habitListRef, orderedHabits, habitId);
+  }, [orderedHabits, habitId]);
+
+  useEffect(() => {
+    scrollChipToId(cueListRef, orderedCues, cueId, true);
+  }, [orderedCues, cueId]);
+
+  useEffect(() => {
+    scrollChipToId(locationListRef, orderedLocations, locationId, true);
+  }, [orderedLocations, locationId]);
+
+  useEffect(() => {
     const selection = route.params?.manageListSelection;
     if (!selection) return;
     if (handledManageListTokenRef.current === selection.token) return;
@@ -416,13 +491,12 @@ export default function LogScreen() {
       if (!exists) return;
 
       setHabitId(selection.id);
-      setRecentHabitIds((prev) => bumpRecent(prev, selection.id));
       setErrorMsg(null);
       handledManageListTokenRef.current = selection.token;
 
-      requestAnimationFrame(() => {
-        habitListRef.current?.scrollToOffset({ offset: 0, animated: true });
-      });
+      setTimeout(() => {
+        scrollChipToId(habitListRef, orderedHabits, selection.id);
+      }, 120);
 
       return;
     }
@@ -432,12 +506,11 @@ export default function LogScreen() {
       if (!exists) return;
 
       setCueId(selection.id);
-      setRecentCueIds((prev) => bumpRecent(prev, selection.id));
       handledManageListTokenRef.current = selection.token;
 
-      requestAnimationFrame(() => {
-        cueListRef.current?.scrollToOffset({ offset: 0, animated: true });
-      });
+      setTimeout(() => {
+        scrollChipToId(cueListRef, orderedCues, selection.id, true);
+      }, 120);
 
       return;
     }
@@ -445,15 +518,15 @@ export default function LogScreen() {
     const exists = selectedLocations.some(
       (location) => location.id === selection.id,
     );
+
     if (!exists) return;
 
     setLocationId(selection.id);
-    setRecentLocationIds((prev) => bumpRecent(prev, selection.id));
     handledManageListTokenRef.current = selection.token;
 
-    requestAnimationFrame(() => {
-      locationListRef.current?.scrollToOffset({ offset: 0, animated: true });
-    });
+    setTimeout(() => {
+      scrollChipToId(locationListRef, orderedLocations, selection.id, true);
+    }, 120);
   }, [
     route.params?.manageListSelection?.type,
     route.params?.manageListSelection?.id,
@@ -461,6 +534,9 @@ export default function LogScreen() {
     selectedHabits,
     selectedCues,
     selectedLocations,
+    orderedHabits,
+    orderedCues,
+    orderedLocations,
   ]);
 
   useEffect(() => {
@@ -490,8 +566,7 @@ export default function LogScreen() {
     };
   }, [keyboardLiftAnim]);
 
-  const getDefaultHabitId = () =>
-    recentHabitIds[0] ?? orderedHabits[0]?.id ?? selectedHabits[0]?.id ?? null;
+  const getDefaultHabitId = () => orderedHabits[0]?.id ?? null;
 
   const resetToDefaults = (habitOverrideId?: number) => {
     setErrorMsg(null);
@@ -507,7 +582,6 @@ export default function LogScreen() {
     setShowCountPicker(false);
 
     requestAnimationFrame(() => {
-      scrollAllToStart();
       Keyboard.dismiss();
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     });
@@ -517,8 +591,9 @@ export default function LogScreen() {
     const unsub = navigation.addListener("tabPress", () => {
       if (navigation.isFocused?.()) resetToDefaults();
     });
+
     return unsub;
-  }, [navigation, orderedHabits, selectedHabits, recentHabitIds]);
+  }, [navigation, orderedHabits]);
 
   const onSave = async () => {
     if (saving) return;
@@ -550,16 +625,6 @@ export default function LogScreen() {
         didResist,
         notes: notes.trim() || undefined,
       });
-
-      setRecentHabitIds((prev) => bumpRecent(prev, submittedHabitId));
-
-      if (submittedCueId != null) {
-        setRecentCueIds((prev) => bumpRecent(prev, submittedCueId));
-      }
-
-      if (submittedLocationId != null) {
-        setRecentLocationIds((prev) => bumpRecent(prev, submittedLocationId));
-      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
         () => {},
@@ -700,6 +765,7 @@ export default function LogScreen() {
             <Text className="mr-4 flex-1 text-sm font-semibold text-gray-900">
               Did you resist?
             </Text>
+
             <Switch
               value={didResist}
               onValueChange={setDidResistAndMaybeCount}
