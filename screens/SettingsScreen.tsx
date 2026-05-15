@@ -13,10 +13,13 @@ import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as DocumentPicker from "expo-document-picker";
+import * as Notifications from "expo-notifications";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { useData } from "../data/DataContext";
+import type { DailyReminderOption } from "../data/types";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -85,6 +88,23 @@ function Row({
   );
 }
 
+function formatReminderTime(hour: number, minute: number) {
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+
+  return date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getReminderLabel(option: DailyReminderOption) {
+  if (option === "morning") return "Morning";
+  if (option === "evening") return "Evening";
+  if (option === "custom") return "Custom time";
+  return "Off";
+}
+
 function getBiometricName(types: LocalAuthentication.AuthenticationType[]) {
   if (
     types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)
@@ -110,6 +130,8 @@ export default function SettingsScreen() {
     clearLocalProfile,
     appLockEnabled,
     setAppLockEnabled,
+    dailyReminder,
+    setDailyReminder,
   } = useData();
 
   const version = useMemo(() => {
@@ -128,7 +150,7 @@ export default function SettingsScreen() {
   }, []);
 
   const [busy, setBusy] = useState<
-    null | "export" | "import" | "reset" | "profile" | "lock"
+    null | "export" | "import" | "reset" | "profile" | "lock" | "reminder"
   >(null);
 
   async function onImport() {
@@ -261,6 +283,79 @@ export default function SettingsScreen() {
     } finally {
       setBusy(null);
     }
+  }
+
+  async function ensureNotificationPermission() {
+    const existing = await Notifications.getPermissionsAsync();
+    let status = existing.status;
+
+    if (status !== "granted") {
+      const requested = await Notifications.requestPermissionsAsync();
+      status = requested.status;
+    }
+
+    if (status !== "granted") {
+      Alert.alert(
+        "Notifications are off",
+        "Turn on notifications for Reflex in Settings to use daily reminders.",
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  async function saveReminder(
+    option: DailyReminderOption,
+    hour: number,
+    minute: number,
+    shouldHaptic = true,
+  ) {
+    try {
+      setBusy("reminder");
+
+      if (option !== "off") {
+        const allowed = await ensureNotificationPermission();
+        if (!allowed) return;
+      }
+
+      await setDailyReminder({ option, hour, minute });
+
+      if (shouldHaptic) {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    } catch (e: any) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        "Could not update reminder",
+        e?.message ?? "Something went wrong.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onChooseReminder(option: DailyReminderOption) {
+    if (option === "off") {
+      await saveReminder("off", dailyReminder.hour, dailyReminder.minute);
+      return;
+    }
+
+    if (option === "morning") {
+      await saveReminder("morning", 9, 0);
+      return;
+    }
+
+    if (option === "evening") {
+      await saveReminder("evening", 20, 0);
+      return;
+    }
+
+    await saveReminder("custom", dailyReminder.hour, dailyReminder.minute);
+  }
+
+  async function onCustomTimeChange(date: Date) {
+    await saveReminder("custom", date.getHours(), date.getMinutes(), false);
   }
 
   async function onToggleAppLock(nextValue: boolean) {
@@ -396,6 +491,104 @@ export default function SettingsScreen() {
         />
 
         <Text className="mt-6 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          Reminders
+        </Text>
+
+        <View className="rounded-2xl border border-zinc-200 bg-white p-4">
+          <View className="flex-row items-start justify-between">
+            <View className="flex-1 pr-4">
+              <Text className="text-base font-semibold text-zinc-900">
+                Daily reflection reminder
+              </Text>
+              <Text className="mt-2 text-sm font-semibold text-green-700">
+                {dailyReminder.option === "off"
+                  ? "Currently off"
+                  : `${getReminderLabel(dailyReminder.option)} · ${formatReminderTime(
+                      dailyReminder.hour,
+                      dailyReminder.minute,
+                    )}`}
+              </Text>
+            </View>
+            {busy === "reminder" ? <ActivityIndicator /> : null}
+          </View>
+
+          <View className="mt-4 flex-row flex-wrap gap-2">
+            {(
+              ["off", "morning", "evening", "custom"] as DailyReminderOption[]
+            ).map((option) => {
+              const selected = dailyReminder.option === option;
+
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => onChooseReminder(option)}
+                  disabled={!!busy}
+                  className={[
+                    "rounded-full border px-4 py-2",
+                    selected
+                      ? "border-green-600 bg-green-600"
+                      : "border-zinc-200 bg-zinc-50",
+                    busy ? "opacity-50" : "",
+                  ].join(" ")}
+                >
+                  <Text
+                    className={[
+                      "text-sm font-semibold",
+                      selected ? "text-white" : "text-zinc-700",
+                    ].join(" ")}
+                  >
+                    {getReminderLabel(option)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {dailyReminder.option === "custom" && (
+            <View className="mt-4 rounded-2xl bg-zinc-50 p-2">
+              <DateTimePicker
+                value={
+                  new Date(2000, 0, 1, dailyReminder.hour, dailyReminder.minute)
+                }
+                mode="time"
+                display="spinner"
+                onChange={(_, selectedDate) => {
+                  if (!selectedDate) return;
+                  onCustomTimeChange(selectedDate);
+                }}
+              />
+            </View>
+          )}
+        </View>
+
+        <Text className="mt-6 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          Security
+        </Text>
+
+        <Row
+          title="App Lock"
+          subtitle={
+            appLockEnabled
+              ? "Require Face ID or your device passcode when opening Reflex."
+              : "Protect your local Reflex data with Face ID or your device passcode."
+          }
+          disabled={busy === "lock"}
+          right={
+            busy === "lock" ? (
+              <ActivityIndicator />
+            ) : (
+              <Switch
+                value={appLockEnabled}
+                onValueChange={onToggleAppLock}
+                disabled={!!busy}
+                trackColor={{ false: "#D4D4D8", true: "#BBF7D0" }}
+                thumbColor={appLockEnabled ? "#16A34A" : "#F4F4F5"}
+              />
+            )
+          }
+        />
+
+        <Text className="mt-6 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
           Data
         </Text>
 
@@ -438,33 +631,6 @@ export default function SettingsScreen() {
               <ActivityIndicator />
             ) : (
               <Text className="text-red-700">Reset</Text>
-            )
-          }
-        />
-
-        <Text className="mt-6 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Security
-        </Text>
-
-        <Row
-          title="App Lock"
-          subtitle={
-            appLockEnabled
-              ? "Require Face ID or your device passcode when opening Reflex."
-              : "Protect your local Reflex data with Face ID or your device passcode."
-          }
-          disabled={busy === "lock"}
-          right={
-            busy === "lock" ? (
-              <ActivityIndicator />
-            ) : (
-              <Switch
-                value={appLockEnabled}
-                onValueChange={onToggleAppLock}
-                disabled={!!busy}
-                trackColor={{ false: "#D4D4D8", true: "#BBF7D0" }}
-                thumbColor={appLockEnabled ? "#16A34A" : "#F4F4F5"}
-              />
             )
           }
         />

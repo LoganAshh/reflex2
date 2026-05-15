@@ -72,6 +72,14 @@ export type AddActionInput = {
   isCustom?: boolean;
 };
 
+export type DailyReminderOption = "off" | "morning" | "evening" | "custom";
+
+export type DailyReminderSettings = {
+  option: DailyReminderOption;
+  hour: number;
+  minute: number;
+};
+
 export type DataContextType = {
   initializing: boolean;
 
@@ -86,6 +94,9 @@ export type DataContextType = {
 
   appLockEnabled: boolean;
   setAppLockEnabled: (value: boolean) => Promise<void>;
+
+  dailyReminder: DailyReminderSettings;
+  setDailyReminder: (settings: DailyReminderSettings) => Promise<void>;
 
   habits: Habit[];
   cues: Cue[];

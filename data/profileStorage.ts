@@ -1,11 +1,14 @@
 import * as SecureStore from "expo-secure-store";
 import * as FileSystem from "expo-file-system/legacy";
+import type { DailyReminderSettings } from "./types";
 
 const ONBOARD_KEY = "hasOnboarded";
 const PROFILE_NAME_KEY = "profileName";
 const PROFILE_PHOTO_KEY = "profilePhotoUri";
 const PROFILE_DONE_KEY = "hasCompletedLocalProfile";
 const APP_LOCK_ENABLED_KEY = "appLockEnabled";
+const DAILY_REMINDER_KEY = "dailyReminderSettings";
+const DAILY_REMINDER_NOTIFICATION_ID_KEY = "dailyReminderNotificationId";
 const PROFILE_PHOTOS_DIR_NAME = "profile-photos";
 
 const profilePhotoPrefix = `${PROFILE_PHOTOS_DIR_NAME}/`;
@@ -131,6 +134,32 @@ export async function normalizeStoredProfilePhotoUri(uri: string) {
   return storageValue;
 }
 
+function cleanReminderSettings(value: string): DailyReminderSettings {
+  try {
+    const parsed = JSON.parse(value);
+    const option = parsed?.option;
+    const hour = Number(parsed?.hour);
+    const minute = Number(parsed?.minute);
+
+    if (!["off", "morning", "evening", "custom"].includes(option)) {
+      return { option: "evening", hour: 20, minute: 0 };
+    }
+
+    const safeHour = Number.isFinite(hour)
+      ? Math.min(23, Math.max(0, Math.round(hour)))
+      : option === "morning"
+        ? 9
+        : 20;
+    const safeMinute = Number.isFinite(minute)
+      ? Math.min(59, Math.max(0, Math.round(minute)))
+      : 0;
+
+    return { option, hour: safeHour, minute: safeMinute };
+  } catch {
+    return { option: "evening", hour: 20, minute: 0 };
+  }
+}
+
 async function loadBoolean(key: string): Promise<boolean> {
   try {
     const v = await SecureStore.getItemAsync(key);
@@ -200,4 +229,25 @@ export async function loadAppLockEnabledFlag(): Promise<boolean> {
 
 export async function saveAppLockEnabledFlag(value: boolean): Promise<void> {
   await saveBoolean(APP_LOCK_ENABLED_KEY, value);
+}
+
+export async function loadDailyReminderSettings(): Promise<DailyReminderSettings> {
+  const value = await loadString(DAILY_REMINDER_KEY);
+  return cleanReminderSettings(value);
+}
+
+export async function saveDailyReminderSettings(
+  value: DailyReminderSettings,
+): Promise<void> {
+  await saveString(DAILY_REMINDER_KEY, JSON.stringify(value));
+}
+
+export async function loadDailyReminderNotificationId(): Promise<string> {
+  return loadString(DAILY_REMINDER_NOTIFICATION_ID_KEY);
+}
+
+export async function saveDailyReminderNotificationId(
+  value: string,
+): Promise<void> {
+  await saveString(DAILY_REMINDER_NOTIFICATION_ID_KEY, value);
 }

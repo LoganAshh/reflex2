@@ -5,8 +5,10 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import * as Notifications from "expo-notifications";
 import type {
   Habit,
   Cue,
@@ -19,6 +21,7 @@ import type {
   AddLogInput,
   AddActionInput,
   UpdateLogInput,
+  DailyReminderSettings,
   DataContextType,
   DataProviderProps,
 } from "./types";
@@ -79,6 +82,10 @@ import {
   saveProfileDoneFlag,
   loadAppLockEnabledFlag,
   saveAppLockEnabledFlag,
+  loadDailyReminderSettings,
+  saveDailyReminderSettings,
+  loadDailyReminderNotificationId,
+  saveDailyReminderNotificationId,
   deleteManagedProfilePhoto,
   normalizeStoredProfilePhotoUri,
 } from "./profileStorage";
@@ -95,6 +102,7 @@ export type {
   AddLogInput,
   AddActionInput,
   UpdateLogInput,
+  DailyReminderSettings,
   DataContextType,
 } from "./types";
 
@@ -289,6 +297,55 @@ function sanitizeLogs(items: unknown[]): BackupLog[] {
 
 const DataContext = createContext<DataContextType | null>(null);
 
+const DEFAULT_DAILY_REMINDER: DailyReminderSettings = {
+  option: "evening",
+  hour: 20,
+  minute: 0,
+};
+
+async function cancelDailyReminderNotification() {
+  const notificationId = await loadDailyReminderNotificationId();
+
+  if (notificationId) {
+    await Notifications.cancelScheduledNotificationAsync(notificationId).catch(
+      () => {},
+    );
+  }
+
+  await saveDailyReminderNotificationId("");
+}
+
+async function scheduleDailyReminderNotification(
+  settings: DailyReminderSettings,
+) {
+  await cancelDailyReminderNotification();
+
+  if (settings.option === "off") return;
+
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("daily-reflection", {
+      name: "Daily reflection",
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
+  }
+
+  const notificationId = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Time for a quick check-in?",
+      body: "Take a minute to reflect and log anything worth noticing.",
+      sound: false,
+    },
+    trigger: {
+      hour: settings.hour,
+      minute: settings.minute,
+      repeats: true,
+      channelId: "daily-reflection",
+    } as any,
+  });
+
+  await saveDailyReminderNotificationId(notificationId);
+}
+
 async function resetDbForDev() {
   const savedPhoto = await loadProfilePhotoUri();
   await deleteManagedProfilePhoto(savedPhoto ?? "");
@@ -304,6 +361,8 @@ async function resetDbForDev() {
   await saveProfilePhotoUri("");
   await saveProfileDoneFlag(false);
   await saveAppLockEnabledFlag(false);
+  await saveDailyReminderSettings(DEFAULT_DAILY_REMINDER);
+  await cancelDailyReminderNotification();
 }
 
 export function DataProvider({ children }: DataProviderProps) {
@@ -314,6 +373,8 @@ export function DataProvider({ children }: DataProviderProps) {
   const [hasCompletedLocalProfile, setHasCompletedLocalProfile] =
     useState(false);
   const [appLockEnabled, setAppLockEnabledState] = useState(false);
+  const [dailyReminder, setDailyReminderState] =
+    useState<DailyReminderSettings>(DEFAULT_DAILY_REMINDER);
 
   const [habits, setHabits] = useState<Habit[]>([]);
   const [cues, setCues] = useState<Cue[]>([]);
@@ -373,12 +434,14 @@ export function DataProvider({ children }: DataProviderProps) {
           savedProfilePhoto,
           profileDone,
           savedAppLockEnabled,
+          savedDailyReminder,
         ] = await Promise.all([
           loadOnboardedFlag(),
           loadProfileName(),
           loadProfilePhotoUri(),
           loadProfileDoneFlag(),
           loadAppLockEnabledFlag(),
+          loadDailyReminderSettings(),
         ]);
 
         await saveProfilePhotoUri(savedProfilePhoto);
@@ -393,6 +456,7 @@ export function DataProvider({ children }: DataProviderProps) {
           setProfilePhotoUri(cleanPhoto || null);
           setHasCompletedLocalProfile(normalizedProfileDone);
           setAppLockEnabledState(savedAppLockEnabled);
+          setDailyReminderState(savedDailyReminder);
         }
 
         await refresh();
@@ -427,6 +491,20 @@ export function DataProvider({ children }: DataProviderProps) {
   ) => {
     await saveAppLockEnabledFlag(value);
     setAppLockEnabledState(value);
+  };
+
+  const setDailyReminder: DataContextType["setDailyReminder"] = async (
+    settings,
+  ) => {
+    const cleanSettings: DailyReminderSettings = {
+      option: settings.option,
+      hour: Math.min(23, Math.max(0, Math.round(settings.hour))),
+      minute: Math.min(59, Math.max(0, Math.round(settings.minute))),
+    };
+
+    await saveDailyReminderSettings(cleanSettings);
+    await scheduleDailyReminderNotification(cleanSettings);
+    setDailyReminderState(cleanSettings);
   };
 
   const completeLocalProfile: DataContextType["completeLocalProfile"] = async (
@@ -512,19 +590,15 @@ export function DataProvider({ children }: DataProviderProps) {
       throw new Error(`"${clean}" already exists.`);
     }
 
-    await insertCustomHabit(clean);
+    const id = await insertCustomHabit(clean);
     const updatedHabits = await loadHabits();
     setHabits(updatedHabits);
 
-    if (!autoSelect) return;
+    if (!autoSelect || id <= 0) return;
 
-    const match = updatedHabits.find(
-      (h) => h.name.toLowerCase() === clean.toLowerCase(),
+    const nextIds = Array.from(
+      new Set([...selectedHabits.map((habit) => habit.id), id]),
     );
-    if (!match) return;
-
-    const currentSelected = await loadSelectedHabits();
-    const nextIds = [...currentSelected.map((h) => h.id), match.id];
     await setSelectedHabits(nextIds);
   };
 
@@ -543,19 +617,15 @@ export function DataProvider({ children }: DataProviderProps) {
       throw new Error(`"${clean}" already exists.`);
     }
 
-    await insertCustomCue(clean);
+    const id = await insertCustomCue(clean);
     const updatedCues = await loadCues();
     setCues(updatedCues);
 
-    if (!autoSelect) return;
+    if (!autoSelect || id <= 0) return;
 
-    const match = updatedCues.find(
-      (c) => c.name.toLowerCase() === clean.toLowerCase(),
+    const nextIds = Array.from(
+      new Set([...selectedCues.map((cue) => cue.id), id]),
     );
-    if (!match) return;
-
-    const currentSelected = await loadSelectedCues();
-    const nextIds = [...currentSelected.map((c) => c.id), match.id];
     await setSelectedCues(nextIds);
   };
 
@@ -574,19 +644,15 @@ export function DataProvider({ children }: DataProviderProps) {
       throw new Error(`"${clean}" already exists.`);
     }
 
-    await insertCustomLocation(clean);
+    const id = await insertCustomLocation(clean);
     const updatedLocations = await loadLocations();
     setLocations(updatedLocations);
 
-    if (!autoSelect) return;
+    if (!autoSelect || id <= 0) return;
 
-    const match = updatedLocations.find(
-      (l) => l.name.toLowerCase() === clean.toLowerCase(),
+    const nextIds = Array.from(
+      new Set([...selectedLocations.map((location) => location.id), id]),
     );
-    if (!match) return;
-
-    const currentSelected = await loadSelectedLocations();
-    const nextIds = [...currentSelected.map((l) => l.id), match.id];
     await setSelectedLocations(nextIds);
   };
 
@@ -765,6 +831,8 @@ export function DataProvider({ children }: DataProviderProps) {
     const countIn = input.count ?? 1;
     const count = Math.min(10, Math.max(0, Math.round(countIn)));
 
+    const didResist: 0 | 1 = input.didResist ? 1 : 0;
+
     const selectedActionId =
       input.selectedActionId == null || !Number.isFinite(input.selectedActionId)
         ? null
@@ -784,7 +852,7 @@ export function DataProvider({ children }: DataProviderProps) {
       locationId: input.locationId ?? null,
       intensity,
       count,
-      didResist: input.didResist ? 1 : 0,
+      didResist,
       notes: input.notes?.trim() ?? null,
       createdAt: Math.round(input.createdAt),
       selectedActionId,
@@ -837,7 +905,7 @@ export function DataProvider({ children }: DataProviderProps) {
       throw new Error(`"${title}" already exists.`);
     }
 
-    const category = input.category?.trim() ?? null;
+    const category = input.category?.trim() || null;
     const isCustom: 0 | 1 = (input.isCustom ?? true) ? 1 : 0;
 
     await insertAction({
@@ -913,6 +981,7 @@ export function DataProvider({ children }: DataProviderProps) {
       },
       settings: {
         appLockEnabled,
+        dailyReminder,
       },
       hasOnboarded,
       habits,
@@ -985,6 +1054,23 @@ export function DataProvider({ children }: DataProviderProps) {
     const restoredProfileDone =
       cleanBoolean(profile.isComplete) && restoredProfileName.length > 0;
     const restoredAppLockEnabled = cleanBoolean(settings.appLockEnabled);
+    const restoredDailyReminder = isRecord(settings.dailyReminder)
+      ? {
+          option: ["off", "morning", "evening", "custom"].includes(
+            settings.dailyReminder.option as string,
+          )
+            ? (settings.dailyReminder.option as DailyReminderSettings["option"])
+            : "evening",
+          hour: Math.min(
+            23,
+            Math.max(0, cleanInt(settings.dailyReminder.hour, 20)),
+          ),
+          minute: Math.min(
+            59,
+            Math.max(0, cleanInt(settings.dailyReminder.minute, 0)),
+          ),
+        }
+      : DEFAULT_DAILY_REMINDER;
     const restoredHasOnboarded = cleanBoolean(parsed.hasOnboarded);
     const previousPhoto = (profilePhotoUri ?? "").trim();
 
@@ -1112,13 +1198,17 @@ export function DataProvider({ children }: DataProviderProps) {
       saveProfilePhotoUri(""),
       saveProfileDoneFlag(restoredProfileDone),
       saveAppLockEnabledFlag(restoredAppLockEnabled),
+      saveDailyReminderSettings(restoredDailyReminder),
     ]);
+
+    await scheduleDailyReminderNotification(restoredDailyReminder);
 
     setHasOnboarded(restoredHasOnboarded);
     setProfileName(restoredProfileName);
     setProfilePhotoUri(null);
     setHasCompletedLocalProfile(restoredProfileDone);
     setAppLockEnabledState(restoredAppLockEnabled);
+    setDailyReminderState(restoredDailyReminder);
 
     await refresh();
   };
@@ -1141,13 +1231,17 @@ export function DataProvider({ children }: DataProviderProps) {
       saveProfilePhotoUri(""),
       saveProfileDoneFlag(false),
       saveAppLockEnabledFlag(false),
+      saveDailyReminderSettings(DEFAULT_DAILY_REMINDER),
     ]);
+
+    await cancelDailyReminderNotification();
 
     setHasOnboarded(false);
     setProfileName("");
     setProfilePhotoUri(null);
     setHasCompletedLocalProfile(false);
     setAppLockEnabledState(false);
+    setDailyReminderState(DEFAULT_DAILY_REMINDER);
 
     await refresh();
   };
@@ -1162,6 +1256,8 @@ export function DataProvider({ children }: DataProviderProps) {
       clearLocalProfile,
       appLockEnabled,
       setAppLockEnabled,
+      dailyReminder,
+      setDailyReminder,
       habits,
       cues,
       locations,
@@ -1207,6 +1303,7 @@ export function DataProvider({ children }: DataProviderProps) {
       profilePhotoUri,
       hasCompletedLocalProfile,
       appLockEnabled,
+      dailyReminder,
       habits,
       cues,
       locations,
