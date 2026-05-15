@@ -7,7 +7,10 @@ import {
   Pressable,
   AppState,
 } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import {
+  NavigationContainer,
+  type NavigatorScreenParams,
+} from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -27,16 +30,28 @@ import UrgeHelpScreen from "./screens/UrgeHelpScreen";
 
 import { DataProvider, useData } from "./data/DataContext";
 
+export type ManageListType = "habits" | "cues" | "locations";
+
+export type ManageListSelection = {
+  type: ManageListType;
+  id: number;
+  token: number;
+};
+
 export type RootTabParamList = {
   Home: undefined;
   Shop: undefined;
-  Log: undefined;
+  Log:
+    | {
+        manageListSelection?: ManageListSelection;
+      }
+    | undefined;
   Analytics: undefined;
 };
 
 export type RootStackParamList = {
-  Main: undefined;
-  ManageList: { type: "habits" | "cues" | "locations" };
+  Main: NavigatorScreenParams<RootTabParamList> | undefined;
+  ManageList: { type: ManageListType };
   ProfileSetup: undefined;
   Settings: undefined;
   UrgeHelp: { logId: number };

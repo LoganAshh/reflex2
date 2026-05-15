@@ -16,7 +16,8 @@ import {
   findNodeHandle,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import type { RouteProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList, RootTabParamList } from "../App";
@@ -30,6 +31,7 @@ import {
 type StackNav = NativeStackNavigationProp<RootStackParamList>;
 type TabNav = BottomTabNavigationProp<RootTabParamList>;
 type Nav = StackNav & TabNav;
+type LogRoute = RouteProp<RootTabParamList, "Log">;
 
 type ChipItem = {
   key: string;
@@ -323,6 +325,7 @@ function CountPickerModal({
 
 export default function LogScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<LogRoute>();
   const { selectedHabits, selectedCues, selectedLocations, addLog } = useData();
 
   const [habitId, setHabitId] = useState<number | null>(null);
@@ -349,6 +352,7 @@ export default function LogScreen() {
   const notesInputRef = useRef<TextInput | null>(null);
   const notesAnchorRef = useRef<View | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const handledManageListTokenRef = useRef<number | null>(null);
 
   const orderedHabits = useMemo(
     () => applyRecentOrdering(selectedHabits, recentHabitIds),
@@ -362,39 +366,6 @@ export default function LogScreen() {
     () => applyRecentOrdering(selectedLocations, recentLocationIds),
     [selectedLocations, recentLocationIds],
   );
-
-  useEffect(() => {
-    if (habitId == null && orderedHabits.length > 0) {
-      setHabitId(orderedHabits[0].id);
-    }
-  }, [orderedHabits, habitId]);
-
-  useEffect(() => {
-    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
-      setKeyboardHeight(event.endCoordinates.height);
-
-      Animated.timing(keyboardLiftAnim, {
-        toValue: -160,
-        duration: 240,
-        useNativeDriver: true,
-      }).start();
-    });
-
-    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
-      setKeyboardHeight(0);
-
-      Animated.timing(keyboardLiftAnim, {
-        toValue: 0,
-        duration: 220,
-        useNativeDriver: true,
-      }).start();
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [keyboardLiftAnim]);
 
   const bumpRecent = (prev: number[], id: number, max = 25) => {
     const next = [id, ...prev.filter((x) => x !== id)];
@@ -428,6 +399,96 @@ export default function LogScreen() {
       );
     });
   };
+
+  useEffect(() => {
+    if (habitId == null && orderedHabits.length > 0) {
+      setHabitId(orderedHabits[0].id);
+    }
+  }, [orderedHabits, habitId]);
+
+  useEffect(() => {
+    const selection = route.params?.manageListSelection;
+    if (!selection) return;
+    if (handledManageListTokenRef.current === selection.token) return;
+
+    if (selection.type === "habits") {
+      const exists = selectedHabits.some((habit) => habit.id === selection.id);
+      if (!exists) return;
+
+      setHabitId(selection.id);
+      setRecentHabitIds((prev) => bumpRecent(prev, selection.id));
+      setErrorMsg(null);
+      handledManageListTokenRef.current = selection.token;
+
+      requestAnimationFrame(() => {
+        habitListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      });
+
+      return;
+    }
+
+    if (selection.type === "cues") {
+      const exists = selectedCues.some((cue) => cue.id === selection.id);
+      if (!exists) return;
+
+      setCueId(selection.id);
+      setRecentCueIds((prev) => bumpRecent(prev, selection.id));
+      handledManageListTokenRef.current = selection.token;
+
+      requestAnimationFrame(() => {
+        cueListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      });
+
+      return;
+    }
+
+    const exists = selectedLocations.some(
+      (location) => location.id === selection.id,
+    );
+    if (!exists) return;
+
+    setLocationId(selection.id);
+    setRecentLocationIds((prev) => bumpRecent(prev, selection.id));
+    handledManageListTokenRef.current = selection.token;
+
+    requestAnimationFrame(() => {
+      locationListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+  }, [
+    route.params?.manageListSelection?.type,
+    route.params?.manageListSelection?.id,
+    route.params?.manageListSelection?.token,
+    selectedHabits,
+    selectedCues,
+    selectedLocations,
+  ]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+
+      Animated.timing(keyboardLiftAnim, {
+        toValue: -160,
+        duration: 240,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardHeight(0);
+
+      Animated.timing(keyboardLiftAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [keyboardLiftAnim]);
 
   const getDefaultHabitId = () =>
     recentHabitIds[0] ?? orderedHabits[0]?.id ?? selectedHabits[0]?.id ?? null;

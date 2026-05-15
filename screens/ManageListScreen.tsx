@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -9,10 +9,18 @@ import {
   Keyboard,
   Modal,
 } from "react-native";
-import { useRoute, useNavigation } from "@react-navigation/native";
+import {
+  CommonActions,
+  useRoute,
+  useNavigation,
+} from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../App";
+import type {
+  ManageListSelection,
+  ManageListType,
+  RootStackParamList,
+} from "../App";
 import * as Haptics from "expo-haptics";
 import { useData, type Habit, type Cue, type Place } from "../data/DataContext";
 
@@ -20,6 +28,7 @@ type ManageRoute = RouteProp<RootStackParamList, "ManageList">;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Filter = "selected" | "preset" | "custom";
 type ManageItem = Habit | Cue | Place;
+type PendingAddedItem = { type: ManageListType; name: string };
 
 export default function ManageListScreen() {
   const route = useRoute<ManageRoute>();
@@ -51,6 +60,10 @@ export default function ManageListScreen() {
   const [filter, setFilter] = useState<Filter>("selected");
   const [editingItem, setEditingItem] = useState<ManageItem | null>(null);
   const [editText, setEditText] = useState("");
+  const [returnSelection, setReturnSelection] =
+    useState<ManageListSelection | null>(null);
+  const [pendingAddedItem, setPendingAddedItem] =
+    useState<PendingAddedItem | null>(null);
 
   const { items, selectedIds, title, singularTitle } = useMemo(() => {
     if (type === "habits") {
@@ -61,6 +74,7 @@ export default function ManageListScreen() {
         singularTitle: "habit",
       };
     }
+
     if (type === "cues") {
       return {
         items: cues,
@@ -69,6 +83,7 @@ export default function ManageListScreen() {
         singularTitle: "cue",
       };
     }
+
     return {
       items: locations,
       selectedIds: new Set(selectedLocations.map((l) => l.id)),
@@ -85,30 +100,85 @@ export default function ManageListScreen() {
     selectedLocations,
   ]);
 
+  useEffect(() => {
+    if (!pendingAddedItem) return;
+    if (pendingAddedItem.type !== type) return;
+
+    const match = items.find(
+      (item) =>
+        item.name.trim().toLowerCase() ===
+        pendingAddedItem.name.trim().toLowerCase(),
+    );
+
+    if (!match) return;
+
+    setReturnSelection({
+      type,
+      id: match.id,
+      token: Date.now(),
+    });
+    setPendingAddedItem(null);
+  }, [items, pendingAddedItem, type]);
+
   const filteredItems = useMemo(() => {
     if (filter === "selected") {
       return items.filter((it) => selectedIds.has(it.id));
     }
+
     if (filter === "preset") {
       return items.filter((it) => !it.isCustom);
     }
+
     return items.filter((it) => !!it.isCustom);
   }, [items, selectedIds, filter]);
 
+  const setLogReturnSelectionParam = (selection: ManageListSelection) => {
+    const rootState = navigation.getState();
+    const mainRoute = rootState.routes.find((r) => r.name === "Main");
+    const tabState = mainRoute?.state as
+      | {
+          key?: string;
+          routes?: Array<{ key: string; name: string }>;
+        }
+      | undefined;
+
+    const logRoute = tabState?.routes?.find((r) => r.name === "Log");
+
+    if (!tabState?.key || !logRoute?.key) return false;
+
+    navigation.dispatch({
+      ...CommonActions.setParams({
+        manageListSelection: selection,
+      }),
+      source: logRoute.key,
+      target: tabState.key,
+    });
+
+    return true;
+  };
+
   const toggleSelected = async (id: number) => {
-    if (type === "habits" && selectedIds.has(id) && selectedIds.size === 1) {
+    const wasSelected = selectedIds.has(id);
+
+    if (type === "habits" && wasSelected && selectedIds.size === 1) {
       Alert.alert("Keep one habit", "You need at least one habit selected.");
       return;
     }
 
     const ids = Array.from(selectedIds);
-    const next = selectedIds.has(id)
-      ? ids.filter((x) => x !== id)
-      : [...ids, id];
+    const next = wasSelected ? ids.filter((x) => x !== id) : [...ids, id];
 
     if (type === "habits") await setSelectedHabits(next);
     else if (type === "cues") await setSelectedCues(next);
     else await setSelectedLocations(next);
+
+    if (!wasSelected) {
+      setReturnSelection({
+        type,
+        id,
+        token: Date.now(),
+      });
+    }
   };
 
   const onAdd = async () => {
@@ -123,6 +193,7 @@ export default function ManageListScreen() {
       else if (type === "cues") await addCustomCue(name, true);
       else await addCustomLocation(name, true);
 
+      setPendingAddedItem({ type, name });
       setText("");
       setFilter("custom");
     } catch (e: any) {
@@ -143,6 +214,7 @@ export default function ManageListScreen() {
 
   const onRename = async () => {
     if (!editingItem) return;
+
     const name = editText.trim();
     if (!name) return;
 
@@ -185,6 +257,11 @@ export default function ManageListScreen() {
             await Haptics.notificationAsync(
               Haptics.NotificationFeedbackType.Success,
             );
+
+            if (returnSelection?.id === editingItem.id) {
+              setReturnSelection(null);
+            }
+
             closeEdit();
 
             if (result === "hidden") {
@@ -201,11 +278,17 @@ export default function ManageListScreen() {
 
   const onDone = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (returnSelection) {
+      setLogReturnSelectionParam(returnSelection);
+    }
+
     navigation.goBack();
   };
 
   const Chip = ({ label, value }: { label: string; value: Filter }) => {
     const active = filter === value;
+
     return (
       <Pressable
         onPress={() => setFilter(value)}
@@ -232,6 +315,7 @@ export default function ManageListScreen() {
             <Text className="text-xl font-bold text-gray-900">
               Edit custom {singularTitle}
             </Text>
+
             <Text className="mt-2 text-sm text-gray-600">
               Rename it, or delete it from future logging.
             </Text>
@@ -276,6 +360,7 @@ export default function ManageListScreen() {
       </Modal>
 
       <Text className="text-2xl font-bold text-gray-900">{title}</Text>
+
       <Text className="mt-2 text-gray-600">
         Add new items and choose which ones appear in your Log screen.
       </Text>
@@ -285,6 +370,7 @@ export default function ManageListScreen() {
           <Text className="text-sm font-semibold text-gray-900">
             Tip: Start Small
           </Text>
+
           <Text className="mt-1 text-xs text-gray-600">
             It’s usually easier to focus on one or two habits at first. You can
             always add more later.
@@ -314,6 +400,7 @@ export default function ManageListScreen() {
               blurOnSubmit
               onSubmitEditing={onAdd}
             />
+
             <Pressable
               onPress={onAdd}
               className="rounded-xl bg-gray-900 px-4 py-3 active:bg-gray-800"
@@ -339,6 +426,7 @@ export default function ManageListScreen() {
         renderItem={({ item }) => {
           const isSelected = selectedIds.has(item.id);
           const isCustom = item.isCustom === 1;
+
           return (
             <Pressable
               onPress={() => toggleSelected(item.id)}
@@ -353,6 +441,7 @@ export default function ManageListScreen() {
                   <Text className="text-base font-semibold text-gray-900">
                     {item.name}
                   </Text>
+
                   <Text className="mt-1 text-xs text-gray-500">
                     {isCustom ? "Custom" : "Preset"}
                     {isCustom ? " • Tap Edit to rename/delete" : ""}
@@ -395,6 +484,7 @@ export default function ManageListScreen() {
             <Text className="text-sm font-semibold text-gray-900">
               Nothing here yet
             </Text>
+
             <Text className="mt-1 text-xs text-gray-600">
               {filter === "selected"
                 ? "Select items from Preset or Custom to see them here."
