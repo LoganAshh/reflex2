@@ -233,56 +233,65 @@ export default function UrgeHelpScreen() {
             </Text>
           </>
         ) : (
-          <View className="mt-3 flex-row flex-wrap gap-2">
-            <Pressable
-              onPress={() => onChooseAction(null)}
-              disabled={savingAction}
-              className={`rounded-full border px-4 py-2 ${
-                selectedActionId == null
-                  ? "border-green-600 bg-green-600"
-                  : "border-gray-200 bg-white"
-              }`}
-            >
-              <Text
-                className={`text-sm font-semibold ${
-                  selectedActionId == null ? "text-white" : "text-gray-900"
+          <ScrollView
+            className="mt-3"
+            style={{ maxHeight: 132 }}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator
+          >
+            <View className="flex-row flex-wrap gap-2 pb-1">
+              <Pressable
+                onPress={() => onChooseAction(null)}
+                disabled={savingAction}
+                className={`rounded-full border px-4 py-2 ${
+                  selectedActionId == null
+                    ? "border-green-600 bg-green-600"
+                    : "border-gray-200 bg-white"
                 }`}
               >
-                None
-              </Text>
-            </Pressable>
-
-            {selectedActions.map((action) => {
-              const isSelected = selectedActionId === action.id;
-              return (
-                <Pressable
-                  key={action.id}
-                  onPress={() => onChooseAction(action.id)}
-                  disabled={savingAction}
-                  className={`rounded-full border px-4 py-2 ${
-                    isSelected
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-200 bg-white"
+                <Text
+                  className={`text-sm font-semibold ${
+                    selectedActionId == null ? "text-white" : "text-gray-900"
                   }`}
                 >
-                  <Text
-                    className={`text-sm font-semibold ${
-                      isSelected ? "text-white" : "text-gray-900"
+                  None
+                </Text>
+              </Pressable>
+
+              {selectedActions.map((action) => {
+                const isSelected = selectedActionId === action.id;
+                return (
+                  <Pressable
+                    key={action.id}
+                    onPress={() => onChooseAction(action.id)}
+                    disabled={savingAction}
+                    className={`rounded-full border px-4 py-2 ${
+                      isSelected
+                        ? "border-green-600 bg-green-600"
+                        : "border-gray-200 bg-white"
                     }`}
                   >
-                    {action.title}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                    <Text
+                      className={`text-sm font-semibold ${
+                        isSelected ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {action.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
 
-            <Pressable
-              onPress={goToShop}
-              className="rounded-full border border-gray-200 bg-white px-4 py-2"
-            >
-              <Text className="text-sm font-semibold text-gray-900">+ Add</Text>
-            </Pressable>
-          </View>
+              <Pressable
+                onPress={goToShop}
+                className="rounded-full border border-gray-200 bg-white px-4 py-2"
+              >
+                <Text className="text-sm font-semibold text-gray-900">
+                  + Add
+                </Text>
+              </Pressable>
+            </View>
+          </ScrollView>
         )}
 
         <View className="mt-4 rounded-xl bg-gray-50 p-3">
