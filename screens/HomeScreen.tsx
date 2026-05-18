@@ -4,7 +4,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { RouteProp } from "@react-navigation/native";
 import type { RootTabParamList } from "../App";
-import { useData } from "../data/DataContext";
+import { useData, type Habit } from "../data/DataContext";
 import * as Haptics from "expo-haptics";
 
 function startOfDayMs(d: Date) {
@@ -32,6 +32,29 @@ function getFirstName(name: string) {
   const trimmed = name.trim();
   if (!trimmed) return "";
   return trimmed.split(/\s+/)[0];
+}
+
+function applyFrequencyOrdering<T extends { id: number }>(
+  items: T[],
+  frequencyCounts: Map<number, number>,
+) {
+  if (items.length === 0) return items;
+
+  const originalRank = new Map<number, number>();
+  items.forEach((item, index) => {
+    originalRank.set(item.id, index);
+  });
+
+  return [...items].sort((a, b) => {
+    const aCount = frequencyCounts.get(a.id) ?? 0;
+    const bCount = frequencyCounts.get(b.id) ?? 0;
+
+    if (aCount !== bCount) {
+      return bCount - aCount;
+    }
+
+    return (originalRank.get(a.id) ?? 0) - (originalRank.get(b.id) ?? 0);
+  });
 }
 
 function getDaysSinceGiveIn(
@@ -98,9 +121,9 @@ type HomeRoute = RouteProp<RootTabParamList, "Home">;
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<HomeRoute>();
-  const { logs, profileName, profilePhotoUri } = useData();
+  const { logs, habits, profileName, profilePhotoUri } = useData();
 
-  const [selectedHabit, setSelectedHabit] = useState<string | null>(null);
+  const [selectedHabitId, setSelectedHabitId] = useState<number | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
   const habitChipsScrollRef = useRef<ScrollView | null>(null);
   const handledResetTokenRef = useRef<number | null>(null);
@@ -113,7 +136,7 @@ export default function HomeScreen() {
     if (handledResetTokenRef.current === resetToken) return;
 
     handledResetTokenRef.current = resetToken;
-    setSelectedHabit(null);
+    setSelectedHabitId(null);
 
     requestAnimationFrame(() => {
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -121,32 +144,42 @@ export default function HomeScreen() {
     });
   }, [route.params?.resetToken]);
 
-  const habitOptions = useMemo(() => {
-    const counts = new Map<string, number>();
+  const habitFrequencyCounts = useMemo(() => {
+    const activeHabitIds = new Set(habits.map((h) => h.id));
+    const counts = new Map<number, number>();
 
     for (const log of logs) {
-      const name = (log.habitName ?? "").trim();
-      if (!name) continue;
-      counts.set(name, (counts.get(name) ?? 0) + 1);
+      if (!activeHabitIds.has(log.habitId)) continue;
+      counts.set(log.habitId, (counts.get(log.habitId) ?? 0) + 1);
     }
 
-    return Array.from(counts.keys()).sort((a, b) => {
-      const aCount = counts.get(a) ?? 0;
-      const bCount = counts.get(b) ?? 0;
+    return counts;
+  }, [logs, habits]);
 
-      if (aCount !== bCount) {
-        return bCount - aCount;
-      }
+  const habitOptions = useMemo(() => {
+    const loggedHabits = habits.filter(
+      (habit) => (habitFrequencyCounts.get(habit.id) ?? 0) > 0,
+    );
 
-      return a.localeCompare(b);
-    });
-  }, [logs]);
+    return applyFrequencyOrdering(loggedHabits, habitFrequencyCounts);
+  }, [habits, habitFrequencyCounts]);
+
+  useEffect(() => {
+    if (selectedHabitId == null) return;
+
+    const stillExists = habitOptions.some(
+      (habit) => habit.id === selectedHabitId,
+    );
+    if (!stillExists) {
+      setSelectedHabitId(null);
+    }
+  }, [habitOptions, selectedHabitId]);
 
   const stats = useMemo(() => {
     const logsForStats =
-      selectedHabit == null
+      selectedHabitId == null
         ? logs
-        : logs.filter((l) => (l.habitName ?? "").trim() === selectedHabit);
+        : logs.filter((l) => l.habitId === selectedHabitId);
 
     const now = new Date();
     const todayStart = startOfDayMs(now);
@@ -258,7 +291,7 @@ export default function HomeScreen() {
       bestCleanStreakDays,
       previousBestCleanStreakDays,
     };
-  }, [logs, selectedHabit]);
+  }, [logs, selectedHabitId]);
 
   const Card = ({
     label,
@@ -387,21 +420,21 @@ export default function HomeScreen() {
         >
           <Chip
             label="Overall"
-            selected={selectedHabit === null}
+            selected={selectedHabitId === null}
             onPress={() => {
               Haptics.selectionAsync();
-              setSelectedHabit(null);
+              setSelectedHabitId(null);
             }}
           />
 
-          {habitOptions.map((h) => (
+          {habitOptions.map((habit: Habit) => (
             <Chip
-              key={h}
-              label={h}
-              selected={selectedHabit === h}
+              key={habit.id}
+              label={habit.name}
+              selected={selectedHabitId === habit.id}
               onPress={() => {
                 Haptics.selectionAsync();
-                setSelectedHabit(h);
+                setSelectedHabitId(habit.id);
               }}
             />
           ))}
@@ -445,7 +478,7 @@ export default function HomeScreen() {
           />
         </View>
 
-        {selectedHabit === null ? (
+        {selectedHabitId === null ? (
           <View className="mt-3 flex-row gap-3">
             <Card
               label="Resist rate today"
