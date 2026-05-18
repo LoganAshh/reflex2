@@ -165,6 +165,8 @@ export default function ManageListScreen() {
       return;
     }
 
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     const ids = Array.from(selectedIds);
     const next = wasSelected ? ids.filter((x) => x !== id) : [...ids, id];
 
@@ -428,8 +430,7 @@ export default function ManageListScreen() {
           const isCustom = item.isCustom === 1;
 
           return (
-            <Pressable
-              onPress={() => toggleSelected(item.id)}
+            <View
               className={`mb-3 rounded-2xl border p-4 ${
                 isSelected
                   ? "border-green-600 bg-green-50"
@@ -450,10 +451,7 @@ export default function ManageListScreen() {
 
                 {isCustom ? (
                   <Pressable
-                    onPress={(event) => {
-                      event.stopPropagation();
-                      openEdit(item);
-                    }}
+                    onPress={() => openEdit(item)}
                     className="mr-3 rounded-xl border border-gray-200 bg-white px-3 py-2 active:bg-gray-50"
                   >
                     <Text className="text-xs font-semibold text-gray-900">
@@ -462,19 +460,24 @@ export default function ManageListScreen() {
                   </Pressable>
                 ) : null}
 
-                <View
-                  className={`h-6 w-6 items-center justify-center rounded-full border ${
+                <Pressable
+                  onPress={() => toggleSelected(item.id)}
+                  className={`rounded-xl border px-4 py-2 ${
                     isSelected
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-300 bg-white"
+                      ? "border-gray-300 bg-white"
+                      : "border-green-600 bg-green-600"
                   }`}
                 >
-                  {isSelected ? (
-                    <Text className="text-xs font-bold text-white">✓</Text>
-                  ) : null}
-                </View>
+                  <Text
+                    className={`font-semibold ${
+                      isSelected ? "text-gray-900" : "text-white"
+                    }`}
+                  >
+                    {isSelected ? "Selected" : "Select"}
+                  </Text>
+                </Pressable>
               </View>
-            </Pressable>
+            </View>
           );
         }}
         showsVerticalScrollIndicator={false}
