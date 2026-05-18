@@ -122,19 +122,31 @@ export default function HomeScreen() {
   }, [route.params?.resetToken]);
 
   const habitOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const l of logs) {
-      const name = (l.habitName ?? "").trim();
-      if (name) set.add(name);
+    const counts = new Map<string, number>();
+
+    for (const log of logs) {
+      const name = (log.habitName ?? "").trim();
+      if (!name) continue;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+
+    return Array.from(counts.keys()).sort((a, b) => {
+      const aCount = counts.get(a) ?? 0;
+      const bCount = counts.get(b) ?? 0;
+
+      if (aCount !== bCount) {
+        return bCount - aCount;
+      }
+
+      return a.localeCompare(b);
+    });
   }, [logs]);
 
   const stats = useMemo(() => {
     const logsForStats =
       selectedHabit == null
         ? logs
-        : logs.filter((l) => l.habitName === selectedHabit);
+        : logs.filter((l) => (l.habitName ?? "").trim() === selectedHabit);
 
     const now = new Date();
     const todayStart = startOfDayMs(now);
