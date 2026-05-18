@@ -46,63 +46,44 @@ type Step =
 const helpSteps: Step[] = [
   {
     kind: "info",
-    title: "Catch it fast",
-    body: "The moment you notice the urge, say to yourself: “This is an urge, not a command.”",
-    icon: "eye",
+    title: "Name the Urge",
+    body: 'Say to yourself (out loud if possible): \n"I\'m having an urge to ___."',
+    tip: "Just labeling it creates psychological distance between you and the feeling.",
+    icon: "chatbubble-ellipses",
   },
   {
     kind: "info",
-    title: "Pause for 60 seconds",
-    body: "Do not immediately act. Buy a little space first.",
+    title: "Pause for 2 Minutes",
+    body: "Look at a clock or set a timer for 2 minutes.",
+    tip: "Urges behave a lot like ocean waves: they build up, reach a peak intensity, and then naturally crash and fade away.",
     icon: "pause-circle",
   },
   {
     kind: "info",
-    title: "Change your environment",
-    body: "Put distance between yourself and the habit.",
-    tip: "Stand up, leave the room, put your phone away, move the object out of reach, or go where other people are.",
+    title: "Change your Environment",
+    body: "If you are sitting, stand up. Enter a different room or step outside for a breath of fresh air.",
+    tip: "Urges are heavily tied to environmental cues. If you stay in the exact same spot where the urge hit, your brain will keep screaming at you to do the habit.",
     icon: "walk",
   },
   {
     kind: "info",
-    title: "Take 10 slow breaths",
-    body: "In through your nose, out slowly.",
-    tip: "The goal is to lower the intensity, not make it vanish instantly.",
+    title: "Take 10 Slow Breaths",
+    body: "Breathe in through your nose. Breathe out slower than you breathed in.",
+    tip: "Breathing deeply activates the parasympathetic nervous system, which helps calm you down.",
     icon: "leaf",
   },
   {
-    kind: "info",
-    title: "Delay the habit",
-    body: "Tell yourself: “I can do it later, but not for the next 10 minutes.”",
-    tip: "Urges usually rise and fall like a wave.",
-    icon: "time",
-  },
-  {
-    kind: "info",
-    title: "Name what triggered it",
-    body: "Ask yourself what happened right before this.",
-    tip: "Am I stressed, bored, lonely, tired, or anxious? What am I actually wanting right now?",
-    icon: "search",
-  },
-  {
     kind: "action",
-    title: "Do a replacement action immediately",
-    body: "Pick one action that is easy and short.",
+    title: "Do a Replacement Action",
+    body: "Pick one action that is easy and enjoyable.",
     icon: "flash",
   },
   {
     kind: "info",
-    title: "Make the bad habit harder",
-    body: "Add friction before you act.",
-    tip: "Log out, block the app or site, put it in another room, give the item to someone else, or turn off Wi-Fi or data for a bit.",
-    icon: "lock-closed",
-  },
-  {
-    kind: "info",
-    title: "Wait for the urge to pass",
-    body: "Don’t fight it dramatically. Just observe it.",
-    tip: "Think: “This will peak, then drop.”",
-    icon: "water",
+    title: "Reward Yourself",
+    body: "Give yourself immediate positive feedback.",
+    tip: "Acknowledging the win releases a small hit of dopamine, which helps rewire your brain to associate resisting the urge with a feeling of success.",
+    icon: "trophy",
   },
 ];
 
@@ -160,9 +141,9 @@ export default function UrgeHelpScreen() {
 
     const doneStep: Step = {
       kind: "done",
-      title: "You made space",
-      body: "The goal was not to feel perfect. The goal was to slow down, create distance, and give yourself a better next move.",
-      icon: "shield-checkmark",
+      title: "Great work!",
+      body: "You practiced resisting that urge. This is how you build your self-control muscle.",
+      icon: "star",
     };
 
     if (stepIndex < helpSteps.length) return helpSteps[stepIndex];
