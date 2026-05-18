@@ -472,7 +472,14 @@ export default function LogScreen() {
 
   const getDefaultHabitId = () => orderedHabits[0]?.id ?? null;
 
-  const resetToDefaults = (habitOverrideId?: number) => {
+  const getDefaultHabitIdAfterLog = (submittedHabitId: number) => {
+    const nextCounts = new Map(habitFrequencyCounts);
+    nextCounts.set(submittedHabitId, (nextCounts.get(submittedHabitId) ?? 0) + 1);
+
+    return applyFrequencyOrdering(selectedHabits, nextCounts)[0]?.id ?? null;
+  };
+
+  const resetToDefaults = (habitOverrideId?: number | null) => {
     setErrorMsg(null);
     setHabitId(habitOverrideId ?? getDefaultHabitId());
     setCueId(null);
@@ -627,7 +634,7 @@ export default function LogScreen() {
         () => {},
       );
 
-      resetToDefaults(submittedHabitId);
+      resetToDefaults(getDefaultHabitIdAfterLog(submittedHabitId));
 
       if (newLogId != null) {
         navigation.navigate("UrgeHelp", { logId: newLogId });
