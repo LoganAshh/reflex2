@@ -40,6 +40,7 @@ type Step =
       kind: "done";
       title: string;
       body: string;
+      tip?: string;
       icon: keyof typeof Ionicons.glyphMap;
     };
 
@@ -143,6 +144,7 @@ export default function UrgeHelpScreen() {
       kind: "done",
       title: "Great work!",
       body: "You practiced resisting that urge. This is how you build your self-control muscle.",
+      tip: "Every time you resist an urge, you're physically rewiring your brain to make the old habit weaker and the new habit stronger.",
       icon: "star",
     };
 
