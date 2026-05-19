@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ type ChipListProps<T extends { id: number; name: string; isCustom: 0 | 1 }> = {
 
   onAddCustom: (type: "habits" | "cues" | "locations") => void;
   onInputFocus: () => void;
+  onInputBlur: () => void;
 };
 
 function getTypeIcon(
@@ -58,6 +59,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
   setCustomLocation,
   onAddCustom,
   onInputFocus,
+  onInputBlur,
 }: ChipListProps<T>) {
   const value =
     type === "habits"
@@ -83,23 +85,23 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
   const canAdd = value.trim().length > 0;
 
   return (
-    <View className="mt-5 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+    <View className="mt-3 w-full rounded-[26px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
       <View className="flex-row items-center">
-        <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-          <Ionicons name={getTypeIcon(type)} size={23} color="#000000" />
+        <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+          <Ionicons name={getTypeIcon(type)} size={21} color="#000000" />
         </View>
 
         <View className="ml-3 flex-1">
           <Text className="text-base font-black text-black">
             {getTypeTitle(type)}
           </Text>
-          <Text className="mt-1 text-sm font-semibold text-gray-500">
+          <Text className="mt-0.5 text-xs font-semibold text-gray-500">
             Tap any item to add it to your Log screen.
           </Text>
         </View>
       </View>
 
-      <View className="mt-4 flex-row flex-wrap gap-2">
+      <View className="mt-3 flex-row flex-wrap gap-2">
         {data.map((item) => {
           const isSelected = selected.has(item.id);
 
@@ -107,14 +109,14 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
             <Pressable
               key={item.id}
               onPress={() => toggle(item.id, type)}
-              className={`rounded-full border px-4 py-2.5 ${
+              className={`rounded-full border px-3 py-2 ${
                 isSelected
                   ? "border-green-600 bg-green-600"
                   : "border-gray-200 bg-white"
               }`}
             >
               <Text
-                className={`text-sm font-black ${
+                className={`text-xs font-black ${
                   isSelected ? "text-white" : "text-black"
                 }`}
               >
@@ -125,10 +127,10 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
         })}
       </View>
 
-      <View className="mt-5 rounded-[24px] border border-gray-200 bg-white p-4">
+      <View className="mt-3 rounded-[22px] border border-gray-200 bg-white p-3">
         <View className="flex-row items-center">
-          <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-            <Ionicons name="add-circle" size={22} color="#000000" />
+          <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+            <Ionicons name="add-circle" size={20} color="#000000" />
           </View>
 
           <View className="ml-3 flex-1">
@@ -139,15 +141,16 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
           </View>
         </View>
 
-        <View className="mt-3 flex-row items-center gap-3">
+        <View className="mt-3 flex-row items-center gap-2">
           <TextInput
             value={value}
             onChangeText={onChangeText}
             placeholder={placeholder}
             placeholderTextColor="#9CA3AF"
-            className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-black"
+            className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-black"
             returnKeyType="done"
             onFocus={onInputFocus}
+            onBlur={onInputBlur}
             onSubmitEditing={() => {
               if (canAdd) onAddCustom(type);
             }}
@@ -160,7 +163,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
               onAddCustom(type);
             }}
             disabled={!canAdd}
-            className={`rounded-2xl px-4 py-3 ${
+            className={`rounded-2xl px-4 py-2.5 ${
               canAdd ? "bg-green-600" : "bg-gray-300"
             }`}
             style={({ pressed }) => ({
@@ -172,7 +175,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
               transform: [{ translateY: canAdd && pressed ? 1 : 0 }],
             })}
           >
-            <Text className="text-base font-black text-white">Add</Text>
+            <Text className="text-sm font-black text-white">Add</Text>
           </Pressable>
         </View>
       </View>
@@ -212,18 +215,25 @@ export default function OnboardingScreen() {
   const [pendingLocationName, setPendingLocationName] = useState<string | null>(
     null,
   );
+  const [customInputFocused, setCustomInputFocused] = useState(false);
 
   const buzz = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const scrollCustomInputIntoView = () => {
+    setCustomInputFocused(true);
+
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({
-        y: 430,
+        y: 360,
         animated: true,
       });
     }, 250);
+  };
+
+  const stopCustomInputScroll = () => {
+    setCustomInputFocused(false);
   };
 
   const infoSteps = useMemo(
@@ -265,6 +275,16 @@ export default function OnboardingScreen() {
   const setupStartIndex = infoSteps.length;
   const totalSteps = infoSteps.length + 3;
   const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setCustomInputFocused(false);
+    });
+
+    return () => {
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     setHabitIds(selectedHabits.map((h) => h.id));
@@ -372,29 +392,31 @@ export default function OnboardingScreen() {
     return true;
   };
 
-  const goNext = () => {
-    if (!validateBeforeNext()) return;
-    setStep((s) => Math.min(totalSteps - 1, s + 1));
+  const resetScrollPosition = () => {
+    setCustomInputFocused(false);
 
     requestAnimationFrame(() => {
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
     });
+  };
+
+  const goNext = () => {
+    if (!validateBeforeNext()) return;
+    Keyboard.dismiss();
+    setStep((s) => Math.min(totalSteps - 1, s + 1));
+    resetScrollPosition();
   };
 
   const goBack = () => {
+    Keyboard.dismiss();
     setStep((s) => Math.max(0, s - 1));
-
-    requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
-    });
+    resetScrollPosition();
   };
 
   const skipToSetup = () => {
+    Keyboard.dismiss();
     setStep(setupStartIndex);
-
-    requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
-    });
+    resetScrollPosition();
   };
 
   const onFinish = async () => {
@@ -470,7 +492,7 @@ export default function OnboardingScreen() {
         : goNext;
 
     return (
-      <View className="pb-8 pt-4">
+      <View className="pb-8 pt-3">
         <View className="flex-row items-center gap-3">
           {!isFirst ? (
             <Pressable
@@ -478,7 +500,7 @@ export default function OnboardingScreen() {
                 buzz();
                 goBack();
               }}
-              className="flex-1 rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+              className="flex-1 rounded-3xl border border-gray-200 bg-white px-5 py-3.5 shadow-sm"
               style={({ pressed }) => ({
                 shadowColor: "#000",
                 shadowOffset: { width: 0, height: pressed ? 1 : 4 },
@@ -488,7 +510,7 @@ export default function OnboardingScreen() {
                 transform: [{ translateY: pressed ? 1 : 0 }],
               })}
             >
-              <Text className="text-center text-lg font-black text-black">
+              <Text className="text-center text-base font-black text-black">
                 Back
               </Text>
             </Pressable>
@@ -505,7 +527,7 @@ export default function OnboardingScreen() {
               }
               onPrimary();
             }}
-            className={`rounded-3xl bg-green-600 px-5 py-4 ${
+            className={`rounded-3xl bg-green-600 px-5 py-3.5 ${
               !isFirst ? "flex-1" : "w-full"
             }`}
             style={({ pressed }) => ({
@@ -520,11 +542,11 @@ export default function OnboardingScreen() {
             <View className="flex-row items-center justify-center">
               <Ionicons
                 name={isLast ? "checkmark-circle" : "arrow-forward-circle"}
-                size={22}
+                size={21}
                 color="#FFFFFF"
               />
 
-              <Text className="ml-2 text-center text-lg font-black text-white">
+              <Text className="ml-2 text-center text-base font-black text-white">
                 {primaryText}
               </Text>
             </View>
@@ -568,15 +590,15 @@ export default function OnboardingScreen() {
     icon: keyof typeof Ionicons.glyphMap;
   }) => (
     <View className="items-center">
-      <View className="rounded-full border-4 border-green-600 bg-white p-5 shadow-sm">
-        <Ionicons name={icon} size={54} color="#000000" />
+      <View className="rounded-full border-4 border-green-600 bg-white p-4 shadow-sm">
+        <Ionicons name={icon} size={42} color="#000000" />
       </View>
 
-      <Text className="mt-8 text-center text-4xl font-black leading-[44px] text-black">
+      <Text className="mt-4 text-center text-3xl font-black leading-[36px] text-black">
         {title}
       </Text>
 
-      <Text className="mt-5 text-center text-lg font-semibold leading-7 text-gray-500">
+      <Text className="mt-2 text-center text-base font-semibold leading-6 text-gray-500">
         {body}
       </Text>
     </View>
@@ -608,19 +630,19 @@ export default function OnboardingScreen() {
             icon="list"
           />
 
-          <View className="mt-6 rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+          <View className="mt-3 rounded-[24px] border border-gray-200 bg-gray-50 p-3 shadow-sm">
             <View className="flex-row items-center">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                <Ionicons name="bulb" size={24} color="#000000" />
+              <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                <Ionicons name="bulb" size={21} color="#000000" />
               </View>
 
               <View className="ml-3 flex-1">
-                <Text className="text-base font-black text-black">
+                <Text className="text-sm font-black text-black">
                   Tip: Start small
                 </Text>
 
-                <Text className="mt-1 text-sm leading-5 text-gray-500">
-                  It’s usually easier to focus on one or two habits at first.
+                <Text className="mt-0.5 text-xs leading-4 text-gray-500">
+                  It’s easier to focus on one or two habits at first.
                 </Text>
               </View>
             </View>
@@ -639,6 +661,7 @@ export default function OnboardingScreen() {
             setCustomLocation={setCustomLocation}
             onAddCustom={onAddCustom}
             onInputFocus={scrollCustomInputIntoView}
+            onInputBlur={stopCustomInputScroll}
           />
         </View>
       );
@@ -666,6 +689,7 @@ export default function OnboardingScreen() {
             setCustomLocation={setCustomLocation}
             onAddCustom={onAddCustom}
             onInputFocus={scrollCustomInputIntoView}
+            onInputBlur={stopCustomInputScroll}
           />
         </View>
       );
@@ -692,6 +716,7 @@ export default function OnboardingScreen() {
           setCustomLocation={setCustomLocation}
           onAddCustom={onAddCustom}
           onInputFocus={scrollCustomInputIntoView}
+          onInputBlur={stopCustomInputScroll}
         />
       </View>
     );
@@ -712,10 +737,11 @@ export default function OnboardingScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
+          scrollEnabled={customInputFocused}
           contentContainerStyle={{
             flexGrow: 1,
-            paddingTop: 12,
-            paddingBottom: 160,
+            paddingTop: 8,
+            paddingBottom: customInputFocused ? 160 : 8,
           }}
         >
           {renderContent()}
