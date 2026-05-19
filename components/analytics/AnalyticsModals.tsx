@@ -525,6 +525,14 @@ export function EditLogModal({
     [hourText, minuteText, ampm],
   );
 
+  const countOptions = useMemo(
+    () =>
+      didResist === 1
+        ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    [didResist],
+  );
+
   const selectedPreset = TIME_PRESETS.find(
     (preset) =>
       preset.hourText === hourText &&
@@ -575,12 +583,16 @@ export function EditLogModal({
 
   const chooseCount = async (value: number) => {
     await lightHaptic();
-    setCount(value);
 
-    if (value > 0) {
-      setDidResist(0);
+    if (value === 0) {
+      setDidResist(1);
+      setCount(0);
+      setShowCountPicker(false);
+      return;
     }
 
+    setCount(value);
+    setDidResist(0);
     setShowCountPicker(false);
   };
 
@@ -803,7 +815,7 @@ export function EditLogModal({
                 </View>
 
                 <View className="mt-3 flex-row flex-wrap">
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => {
+                  {countOptions.map((value) => {
                     const selected = count === value;
 
                     return (
