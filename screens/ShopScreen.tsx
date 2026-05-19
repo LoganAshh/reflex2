@@ -95,19 +95,6 @@ function getActionIcon(
   return "flash";
 }
 
-function getActionIconBg(action: ReplacementAction) {
-  if (action.isCustom === 1) return "bg-green-100";
-
-  const category = action.category ?? "";
-
-  if (category === "Physical") return "bg-orange-100";
-  if (category === "Mental") return "bg-blue-100";
-  if (category === "Social") return "bg-purple-100";
-  if (category === "Creative") return "bg-yellow-100";
-
-  return "bg-gray-100";
-}
-
 export default function ShopScreen() {
   const route = useRoute<ShopRoute>();
   const { actions, addAction, selectedActionIds, toggleSelectedAction } =
@@ -116,7 +103,6 @@ export default function ShopScreen() {
   const [filter, setFilter] = useState<Filter>(ALL);
   const [text, setText] = useState("");
   const [newCategory, setNewCategory] = useState<PresetCategory>("Physical");
-  const scrollViewRef = useRef<ScrollView | null>(null);
   const actionListRef = useRef<FlatList<ReplacementAction> | null>(null);
   const handledResetTokenRef = useRef<number | null>(null);
 
@@ -139,7 +125,6 @@ export default function ShopScreen() {
     setText("");
     setNewCategory("Physical");
     Keyboard.dismiss();
-    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     actionListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, [route.params?.resetToken, selectedActionIds.length]);
 
@@ -232,12 +217,12 @@ export default function ShopScreen() {
         <Ionicons
           name={getFilterIcon(value)}
           size={16}
-          color={selected ? "#FFFFFF" : "#111827"}
+          color={selected ? "#FFFFFF" : "#374151"}
         />
 
         <Text
           className={`ml-1.5 text-sm font-black ${
-            selected ? "text-white" : "text-gray-900"
+            selected ? "text-white" : "text-gray-700"
           }`}
         >
           {label}
@@ -264,12 +249,12 @@ export default function ShopScreen() {
         <Ionicons
           name={getFilterIcon(label)}
           size={16}
-          color={selected ? "#FFFFFF" : "#111827"}
+          color={selected ? "#FFFFFF" : "#374151"}
         />
 
         <Text
           className={`ml-1.5 text-sm font-black ${
-            selected ? "text-white" : "text-gray-900"
+            selected ? "text-white" : "text-gray-700"
           }`}
         >
           {label}
@@ -286,26 +271,26 @@ export default function ShopScreen() {
       <View
         className={`mb-3 rounded-3xl border p-4 shadow-sm ${
           isSelected
-            ? "border-green-200 bg-green-50"
-            : "border-gray-100 bg-white"
+            ? "border-gray-300 bg-gray-100"
+            : "border-gray-200 bg-white"
         }`}
       >
         <View className="flex-row items-center justify-between">
-          <View className="flex-row flex-1 items-center pr-3">
+          <View className="flex-1 flex-row items-center pr-3">
             <View
-              className={`h-12 w-12 items-center justify-center rounded-2xl ${getActionIconBg(
-                item,
-              )}`}
+              className={`h-12 w-12 items-center justify-center rounded-2xl ${
+                isSelected ? "bg-green-600" : "bg-green-100"
+              }`}
             >
               <Ionicons
                 name={getActionIcon(item)}
                 size={24}
-                color={isSelected ? "#16A34A" : "#111827"}
+                color={isSelected ? "#FFFFFF" : "#16A34A"}
               />
             </View>
 
             <View className="ml-3 flex-1">
-              <Text className="text-base font-black text-gray-900">
+              <Text className="text-base font-black text-gray-950">
                 {item.title}
               </Text>
 
@@ -320,13 +305,13 @@ export default function ShopScreen() {
             onPress={() => onToggleSelected(item.id)}
             className={`rounded-2xl border px-4 py-2.5 ${
               isSelected
-                ? "border-gray-200 bg-white"
+                ? "border-gray-300 bg-white"
                 : "border-green-600 bg-green-600"
             }`}
           >
             <Text
               className={`font-black ${
-                isSelected ? "text-gray-900" : "text-white"
+                isSelected ? "text-gray-950" : "text-white"
               }`}
             >
               {isSelected ? "Selected" : "Select"}
@@ -342,16 +327,16 @@ export default function ShopScreen() {
   );
 
   const EmptyState = () => (
-    <View className="mt-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+    <View className="mt-4 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
       <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
         <Ionicons name="leaf" size={24} color="#16A34A" />
       </View>
 
-      <Text className="mt-4 text-lg font-black text-gray-900">
+      <Text className="mt-4 text-lg font-black text-gray-950">
         Nothing here yet
       </Text>
 
-      <Text className="mt-2 text-sm leading-5 text-gray-600">
+      <Text className="mt-2 text-sm leading-5 text-gray-500">
         {filter === SELECTED
           ? "No selected actions yet. Choose a few easy actions from All."
           : filter === CUSTOM
@@ -365,32 +350,32 @@ export default function ShopScreen() {
     <View className="px-5 pt-10">
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-4">
-          <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+          <Text className="text-sm font-black uppercase tracking-widest text-green-600">
             Action shop
           </Text>
 
-          <Text className="mt-1 text-3xl font-black text-gray-900">
+          <Text className="mt-1 text-3xl font-black text-gray-950">
             Pick your backups
           </Text>
         </View>
 
-        <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
-          <Ionicons name="bag-handle" size={29} color="#15803D" />
+        <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-500 bg-gray-100 shadow-sm">
+          <Ionicons name="bag-handle" size={29} color="#16A34A" />
         </View>
       </View>
 
-      <View className="mt-4 rounded-3xl border border-green-100 bg-white p-3 shadow-sm">
+      <View className="mt-5 rounded-3xl border border-green-200 bg-white p-4 shadow-sm">
         <View className="flex-row items-center">
-          <View className="h-9 w-9 items-center justify-center rounded-2xl bg-yellow-100">
-            <Ionicons name="bulb" size={19} color="#854D0E" />
+          <View className="h-10 w-10 items-center justify-center rounded-2xl bg-green-100">
+            <Ionicons name="bulb" size={21} color="#16A34A" />
           </View>
 
-          <View className="ml-2 flex-1">
-            <Text className="text-sm font-black text-gray-900">
+          <View className="ml-3 flex-1">
+            <Text className="text-sm font-black text-gray-950">
               Tip: make it easy
             </Text>
 
-            <Text className="mt-0.5 text-xs leading-4 text-gray-600">
+            <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
               Pick something enjoyable, then choose the easiest version.
             </Text>
           </View>
@@ -418,10 +403,10 @@ export default function ShopScreen() {
     if (filter !== CUSTOM) return null;
 
     return (
-      <View className="mx-5 mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+      <View className="mx-5 mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
         <View className="flex-row items-center justify-between">
-          <View>
-            <Text className="text-xl font-black text-gray-900">
+          <View className="flex-1 pr-4">
+            <Text className="text-xl font-black text-gray-950">
               Create your own
             </Text>
 
@@ -430,7 +415,7 @@ export default function ShopScreen() {
             </Text>
           </View>
 
-          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
+          <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
             <Ionicons name="add-circle" size={25} color="#16A34A" />
           </View>
         </View>
@@ -441,7 +426,7 @@ export default function ShopScreen() {
             onChangeText={setText}
             placeholder="e.g., 10 push-ups, call a friend"
             placeholderTextColor="#9CA3AF"
-            className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900"
+            className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-950"
             returnKeyType="done"
             onSubmitEditing={() => {
               if (text.trim()) onAdd();
@@ -452,7 +437,7 @@ export default function ShopScreen() {
           <Pressable
             onPress={onAdd}
             className={`rounded-2xl px-4 py-3 ${
-              text.trim() ? "bg-gray-900" : "bg-gray-300"
+              text.trim() ? "bg-green-600" : "bg-gray-300"
             }`}
             disabled={!text.trim()}
           >
@@ -478,9 +463,9 @@ export default function ShopScreen() {
       <Header />
       <CustomForm />
 
-      <View className="mx-5 mt-6 mb-4 flex-row items-center justify-between">
+      <View className="mx-5 mb-4 mt-6 flex-row items-center justify-between">
         <View>
-          <Text className="text-2xl font-black text-gray-900">
+          <Text className="text-2xl font-black text-gray-950">
             {currentFilterLabel}
           </Text>
 
@@ -489,8 +474,8 @@ export default function ShopScreen() {
           </Text>
         </View>
 
-        <View className="rounded-full bg-white px-3 py-2 shadow-sm">
-          <Text className="text-sm font-black text-green-700">
+        <View className="rounded-full border border-gray-200 bg-white px-3 py-2 shadow-sm">
+          <Text className="text-sm font-black text-green-600">
             {filtered.length}
           </Text>
         </View>
@@ -499,7 +484,7 @@ export default function ShopScreen() {
   );
 
   return (
-    <View className="flex-1 bg-green-50">
+    <View className="flex-1 bg-white">
       <FlatList
         ref={actionListRef}
         data={filtered}

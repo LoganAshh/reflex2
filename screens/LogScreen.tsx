@@ -167,9 +167,9 @@ function ChipRow<T extends BaseItem>({
   };
 
   return (
-    <View className="mt-2 w-full rounded-3xl border border-gray-100 bg-white p-3 shadow-sm">
+    <View className="mt-2 w-full rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
       <View className="flex-row items-center">
-        <View className="h-9 w-9 items-center justify-center rounded-2xl bg-green-100">
+        <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
           <Ionicons name={icon} size={19} color="#16A34A" />
         </View>
 
@@ -238,8 +238,8 @@ function IntensityPickerModal({
           onPress={() => {}}
         >
           <View className="flex-row items-center">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-orange-100">
-              <Ionicons name="pulse" size={24} color="#111827" />
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
+              <Ionicons name="pulse" size={24} color="#16A34A" />
             </View>
 
             <View className="ml-3 flex-1">
@@ -288,7 +288,7 @@ function IntensityPickerModal({
 
             <Pressable
               onPress={onClose}
-              className="rounded-2xl bg-gray-900 px-4 py-3"
+              className="rounded-2xl bg-green-600 px-4 py-3"
             >
               <Text className="text-sm font-black text-white">Done</Text>
             </Pressable>
@@ -333,8 +333,8 @@ function CountPickerModal({
           onPress={() => {}}
         >
           <View className="flex-row items-center">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
-              <Ionicons name="repeat" size={24} color="#111827" />
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
+              <Ionicons name="repeat" size={24} color="#16A34A" />
             </View>
 
             <View className="ml-3 flex-1">
@@ -376,7 +376,7 @@ function CountPickerModal({
           <View className="mt-3 flex-row justify-end">
             <Pressable
               onPress={onClose}
-              className="rounded-2xl bg-gray-900 px-4 py-3"
+              className="rounded-2xl bg-green-600 px-4 py-3"
             >
               <Text className="text-sm font-black text-white">Done</Text>
             </Pressable>
@@ -719,31 +719,27 @@ export default function LogScreen() {
     label,
     value,
     icon,
-    iconBg,
     onPress,
     disabled,
   }: {
     label: string;
     value: string;
     icon: keyof typeof Ionicons.glyphMap;
-    iconBg: string;
     onPress?: () => void;
     disabled?: boolean;
   }) => (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      className="flex-1 rounded-3xl border border-gray-100 bg-white p-3 shadow-sm"
+      className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm"
     >
       <View className="flex-row items-center justify-between">
-        <View
-          className={`h-9 w-9 items-center justify-center rounded-2xl ${iconBg}`}
-        >
-          <Ionicons name={icon} size={19} color="#111827" />
+        <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+          <Ionicons name={icon} size={19} color="#16A34A" />
         </View>
 
         {onPress ? (
-          <View className="rounded-full bg-gray-100 px-2 py-0.5">
+          <View className="rounded-full bg-white px-2 py-0.5">
             <Text className="text-[10px] font-black text-gray-700">Change</Text>
           </View>
         ) : null}
@@ -759,7 +755,7 @@ export default function LogScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-green-50"
+      className="flex-1 bg-white"
       keyboardVerticalOffset={0}
     >
       <IntensityPickerModal
@@ -806,17 +802,17 @@ export default function LogScreen() {
         >
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-4">
-              <Text className="text-xs font-black uppercase tracking-widest text-green-700">
+              <Text className="text-xs font-black uppercase tracking-widest text-green-600">
                 Check-in
               </Text>
 
-              <Text className="mt-0.5 text-2xl font-black text-gray-900">
+              <Text className="mt-0.5 text-2xl font-black text-gray-950">
                 Log the moment
               </Text>
             </View>
 
-            <View className="h-12 w-12 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
-              <Ionicons name="create" size={23} color="#15803D" />
+            <View className="h-12 w-12 items-center justify-center rounded-full border-4 border-green-500 bg-gray-100 shadow-sm">
+              <Ionicons name="create" size={23} color="#16A34A" />
             </View>
           </View>
 
@@ -860,10 +856,10 @@ export default function LogScreen() {
             listRef={locationListRef}
           />
 
-          <View className="mt-2 rounded-3xl border border-gray-100 bg-white p-3 shadow-sm">
+          <View className="mt-2 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
             <View className="flex-row items-center justify-between">
               <View className="flex-row flex-1 items-center pr-4">
-                <View className="h-10 w-10 items-center justify-center rounded-2xl bg-green-100">
+                <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
                   <Ionicons
                     name={didResist ? "shield-checkmark" : "shield-outline"}
                     size={21}
@@ -884,6 +880,8 @@ export default function LogScreen() {
               <Switch
                 value={didResist}
                 onValueChange={setDidResistAndMaybeCount}
+                trackColor={{ false: "#E5E7EB", true: "#86EFAC" }}
+                thumbColor={didResist ? "#16A34A" : "#F9FAFB"}
               />
             </View>
           </View>
@@ -893,7 +891,6 @@ export default function LogScreen() {
               label="Times"
               value={countLabel}
               icon="repeat"
-              iconBg="bg-yellow-100"
               onPress={() => {
                 if (!didResist) setShowCountPicker(true);
               }}
@@ -904,16 +901,15 @@ export default function LogScreen() {
               label="Intensity"
               value={intensityLabel}
               icon="pulse"
-              iconBg="bg-orange-100"
               onPress={() => setShowIntensityPicker(true)}
             />
           </View>
 
-          <View className="mt-2 rounded-3xl border border-gray-100 bg-white p-3 shadow-sm">
+          <View className="mt-2 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
             <View className="flex-row items-center justify-between">
               <View className="flex-row flex-1 items-center pr-3">
-                <View className="h-9 w-9 items-center justify-center rounded-2xl bg-blue-100">
-                  <Ionicons name="document-text" size={19} color="#111827" />
+                <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                  <Ionicons name="document-text" size={19} color="#16A34A" />
                 </View>
 
                 <View className="ml-2 flex-1">
@@ -944,7 +940,7 @@ export default function LogScreen() {
                   onChangeText={setNotes}
                   placeholder="Anything useful to remember..."
                   placeholderTextColor="#9CA3AF"
-                  className="mt-2 min-h-[38px] w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900"
+                  className="mt-2 min-h-[38px] w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
                   returnKeyType="done"
                   blurOnSubmit
                   onSubmitEditing={() => Keyboard.dismiss()}

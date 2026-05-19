@@ -170,23 +170,17 @@ function StatCard({
   value,
   sub,
   icon,
-  bg,
-  iconBg,
 }: {
   label: string;
   value: string;
   sub?: string;
   icon: keyof typeof Ionicons.glyphMap;
-  bg: string;
-  iconBg: string;
 }) {
   return (
-    <View className={`flex-1 rounded-3xl border border-gray-100 p-4 ${bg}`}>
+    <View className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 p-4 shadow-sm">
       <View className="flex-row items-start justify-between">
-        <View
-          className={`h-10 w-10 items-center justify-center rounded-2xl ${iconBg}`}
-        >
-          <Ionicons name={icon} size={21} color="#111827" />
+        <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+          <Ionicons name={icon} size={21} color="#16A34A" />
         </View>
       </View>
 
@@ -205,17 +199,15 @@ function MiniStat({
   label,
   value,
   icon,
-  bg,
 }: {
   label: string;
   value: string;
   icon: keyof typeof Ionicons.glyphMap;
-  bg: string;
 }) {
   return (
-    <View className={`flex-1 rounded-2xl p-3 ${bg}`}>
-      <View className="h-9 w-9 items-center justify-center rounded-xl bg-white/80">
-        <Ionicons name={icon} size={19} color="#111827" />
+    <View className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+      <View className="h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white">
+        <Ionicons name={icon} size={19} color="#16A34A" />
       </View>
 
       <Text className="mt-3 text-xl font-black text-gray-900">{value}</Text>
@@ -229,21 +221,17 @@ function ListBlock({
   items,
   empty,
   icon,
-  iconBg,
 }: {
   title: string;
   items: { name: string; count: number }[];
   empty: string;
   icon: keyof typeof Ionicons.glyphMap;
-  iconBg: string;
 }) {
   return (
-    <View className="mt-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+    <View className="mt-4 rounded-[28px] border border-gray-200 bg-white p-4 shadow-sm">
       <View className="flex-row items-center">
-        <View
-          className={`h-11 w-11 items-center justify-center rounded-2xl ${iconBg}`}
-        >
-          <Ionicons name={icon} size={23} color="#111827" />
+        <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+          <Ionicons name={icon} size={23} color="#16A34A" />
         </View>
 
         <Text className="ml-3 flex-1 text-base font-black text-gray-900">
@@ -258,14 +246,14 @@ function ListBlock({
           {items.map((x, idx) => (
             <View
               key={`${x.name}-${idx}`}
-              className="mb-2 flex-row items-center justify-between rounded-2xl bg-gray-50 px-3 py-3"
+              className="mb-2 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3"
             >
               <Text className="flex-1 pr-3 text-sm font-bold text-gray-900">
                 {x.name}
               </Text>
 
               <View className="rounded-full bg-white px-3 py-1">
-                <Text className="text-sm font-black text-green-700">
+                <Text className="text-sm font-black text-green-600">
                   {x.count}
                 </Text>
               </View>
@@ -803,7 +791,7 @@ export default function AnalyticsScreen() {
     <>
       <ScrollView
         ref={scrollViewRef}
-        className="flex-1 bg-green-50"
+        className="flex-1 bg-white"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: 20,
@@ -813,7 +801,7 @@ export default function AnalyticsScreen() {
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-4">
-            <Text className="text-xs font-black uppercase tracking-widest text-green-700">
+            <Text className="text-xs font-black uppercase tracking-widest text-green-600">
               Analytics
             </Text>
 
@@ -822,15 +810,15 @@ export default function AnalyticsScreen() {
             </Text>
           </View>
 
-          <View className="h-12 w-12 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
-            <Ionicons name="stats-chart" size={23} color="#15803D" />
+          <View className="h-12 w-12 items-center justify-center rounded-full border-4 border-green-500 bg-gray-100 shadow-sm">
+            <Ionicons name="stats-chart" size={23} color="#16A34A" />
           </View>
         </View>
 
-        <View className="mt-3 rounded-3xl border border-green-100 bg-white p-3 shadow-sm">
+        <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
           <View className="flex-row items-center">
-            <View className="h-9 w-9 items-center justify-center rounded-2xl bg-yellow-100">
-              <Ionicons name="bulb" size={19} color="#854D0E" />
+            <View className="h-9 w-9 items-center justify-center rounded-2xl bg-green-100">
+              <Ionicons name="bulb" size={19} color="#16A34A" />
             </View>
 
             <View className="ml-2 flex-1">
@@ -876,7 +864,7 @@ export default function AnalyticsScreen() {
           ))}
         </ScrollView>
 
-        <View className="mt-3 rounded-3xl border border-green-100 bg-white p-3 shadow-sm">
+        <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
           <View className="mb-2 flex-row items-center justify-between">
             <View>
               <Text className="text-base font-black text-gray-900">
@@ -887,8 +875,8 @@ export default function AnalyticsScreen() {
               </Text>
             </View>
 
-            <View className="h-9 w-9 items-center justify-center rounded-2xl bg-blue-100">
-              <Ionicons name="calendar" size={19} color="#111827" />
+            <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="calendar" size={19} color="#16A34A" />
             </View>
           </View>
 
@@ -907,7 +895,7 @@ export default function AnalyticsScreen() {
           />
         </View>
 
-        <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+        <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="flex-row items-center justify-between">
             <View>
               <Text className="text-xl font-black text-gray-900">
@@ -919,8 +907,8 @@ export default function AnalyticsScreen() {
               </Text>
             </View>
 
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-purple-100">
-              <Ionicons name="search" size={24} color="#111827" />
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="search" size={24} color="#16A34A" />
             </View>
           </View>
 
@@ -929,7 +917,6 @@ export default function AnalyticsScreen() {
             items={data.topCues}
             empty="Add cues in your logs to see patterns."
             icon="alert-circle"
-            iconBg="bg-orange-100"
           />
 
           <ListBlock
@@ -937,7 +924,6 @@ export default function AnalyticsScreen() {
             items={data.topLocations}
             empty="Add locations in your logs to see patterns."
             icon="location"
-            iconBg="bg-blue-100"
           />
 
           <ListBlock
@@ -945,11 +931,10 @@ export default function AnalyticsScreen() {
             items={data.topTimes}
             empty="Log a few check-ins and this will populate."
             icon="time"
-            iconBg="bg-yellow-100"
           />
         </View>
 
-        <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+        <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="flex-row items-center justify-between">
             <View>
               <Text className="text-xl font-black text-gray-900">
@@ -971,8 +956,6 @@ export default function AnalyticsScreen() {
               label="Logs this week"
               value={`${extraAnalytics.weeklyTotal}`}
               icon="create"
-              bg="bg-green-100"
-              iconBg="bg-white/80"
             />
 
             <StatCard
@@ -980,8 +963,6 @@ export default function AnalyticsScreen() {
               value={`${extraAnalytics.weeklyResistRate}%`}
               sub="This week"
               icon="shield-checkmark"
-              bg="bg-blue-100"
-              iconBg="bg-white/80"
             />
           </View>
 
@@ -991,8 +972,6 @@ export default function AnalyticsScreen() {
               value={`${extraAnalytics.weeklyGaveIn}`}
               sub="This week"
               icon="trending-down"
-              bg="bg-yellow-100"
-              iconBg="bg-white/80"
             />
 
             <StatCard
@@ -1000,8 +979,6 @@ export default function AnalyticsScreen() {
               value={`${extraAnalytics.activeDays30}`}
               sub="Last 30 days"
               icon="flame"
-              bg="bg-purple-100"
-              iconBg="bg-white/80"
             />
           </View>
 
@@ -1021,29 +998,26 @@ export default function AnalyticsScreen() {
                 label="Resisted"
                 value={`${extraAnalytics.allResisted}`}
                 icon="shield-checkmark"
-                bg="bg-green-100"
               />
 
               <MiniStat
                 label="Gave in"
                 value={`${extraAnalytics.allGiveIn}`}
                 icon="close-circle"
-                bg="bg-red-100"
               />
 
               <MiniStat
                 label="Rate"
                 value={`${extraAnalytics.overallResistRate}%`}
                 icon="pulse"
-                bg="bg-blue-100"
               />
             </View>
           </View>
 
           <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
             <View className="flex-row items-center">
-              <View className="h-11 w-11 items-center justify-center rounded-2xl bg-orange-100">
-                <Ionicons name="pulse" size={23} color="#111827" />
+              <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                <Ionicons name="pulse" size={23} color="#16A34A" />
               </View>
 
               <Text className="ml-3 flex-1 text-base font-black text-gray-900">
@@ -1056,21 +1030,18 @@ export default function AnalyticsScreen() {
                 label="Average"
                 value={formatAvg(extraAnalytics.avgIntensity)}
                 icon="analytics"
-                bg="bg-gray-100"
               />
 
               <MiniStat
                 label="Resisted"
                 value={formatAvg(extraAnalytics.avgResistedIntensity)}
                 icon="shield-checkmark"
-                bg="bg-green-100"
               />
 
               <MiniStat
                 label="Gave in"
                 value={formatAvg(extraAnalytics.avgGaveInIntensity)}
                 icon="alert"
-                bg="bg-yellow-100"
               />
             </View>
           </View>
