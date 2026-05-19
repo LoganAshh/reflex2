@@ -307,8 +307,8 @@ export default function HomeScreen() {
   }) => (
     <View className="flex-1 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
       <View className="flex-row items-start justify-between">
-        <View className="h-10 w-10 items-center justify-center rounded-2xl bg-green-100">
-          <Ionicons name={icon} size={21} color="#16A34A" />
+        <View className="h-10 w-10 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+          <Ionicons name={icon} size={21} color="#000000" />
         </View>
 
         {percentIncrease != null ? (
@@ -320,7 +320,7 @@ export default function HomeScreen() {
         ) : null}
       </View>
 
-      <Text className="mt-4 text-3xl font-black text-gray-950">{value}</Text>
+      <Text className="mt-4 text-3xl font-black text-black">{value}</Text>
       <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-500">
         {label}
       </Text>
@@ -342,8 +342,8 @@ export default function HomeScreen() {
   }) => (
     <View className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 p-4">
       <View className="flex-row items-center justify-between">
-        <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-600">
-          <Ionicons name={icon} size={23} color="#FFFFFF" />
+        <View className="h-11 w-11 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+          <Ionicons name={icon} size={23} color="#000000" />
         </View>
 
         {percentIncrease != null ? (
@@ -355,8 +355,8 @@ export default function HomeScreen() {
         ) : null}
       </View>
 
-      <Text className="mt-4 text-3xl font-black text-gray-950">{value}</Text>
-      <Text className="mt-1 text-sm font-black text-gray-950">{label}</Text>
+      <Text className="mt-4 text-3xl font-black text-black">{value}</Text>
+      <Text className="mt-1 text-sm font-black text-black">{label}</Text>
       <Text className="mt-1 text-xs font-semibold text-gray-500">{sub}</Text>
     </View>
   );
@@ -374,15 +374,13 @@ export default function HomeScreen() {
       onPress={onPress}
       className={[
         "mr-2 rounded-full border px-4 py-2.5",
-        selected
-          ? "border-green-600 bg-green-600"
-          : "border-gray-200 bg-white",
+        selected ? "border-green-600 bg-green-600" : "border-gray-200 bg-white",
       ].join(" ")}
     >
       <Text
         className={[
           "text-sm font-black",
-          selected ? "text-white" : "text-gray-700",
+          selected ? "text-white" : "text-black",
         ].join(" ")}
         numberOfLines={1}
       >
@@ -408,7 +406,7 @@ export default function HomeScreen() {
             Reflex
           </Text>
 
-          <Text className="mt-1 text-3xl font-black text-gray-950">
+          <Text className="mt-1 text-3xl font-black text-black">
             {logs.length === 0
               ? `Welcome, ${displayName}`
               : `Welcome back, ${displayName}`}
@@ -416,7 +414,7 @@ export default function HomeScreen() {
         </View>
 
         {profilePhotoUri ? (
-          <View className="rounded-full border-4 border-green-500 bg-white shadow-sm">
+          <View className="rounded-full border-4 border-green-600 bg-white shadow-sm">
             <Image
               source={{ uri: profilePhotoUri }}
               className="h-16 w-16 rounded-full"
@@ -424,8 +422,8 @@ export default function HomeScreen() {
             />
           </View>
         ) : (
-          <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-500 bg-gray-100 shadow-sm">
-            <Ionicons name="person" size={27} color="#16A34A" />
+          <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
+            <Ionicons name="person" size={27} color="#000000" />
           </View>
         )}
       </View>
@@ -451,23 +449,23 @@ export default function HomeScreen() {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
             navigation.navigate("Shop");
           }}
-          className="rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+          className="rounded-3xl border border-gray-200 bg-gray-50 px-5 py-4 shadow-sm"
         >
-          <Ionicons name="bag-handle" size={24} color="#16A34A" />
+          <Ionicons name="bag-handle" size={24} color="#000000" />
         </Pressable>
       </View>
 
       <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
         <View className="flex-row items-center justify-between">
           <View>
-            <Text className="text-xl font-black text-gray-950">Dashboard</Text>
+            <Text className="text-xl font-black text-black">Dashboard</Text>
             <Text className="mt-1 text-sm font-bold text-gray-500">
               Pick a habit to focus the stats.
             </Text>
           </View>
 
-          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white border border-gray-200">
-            <Ionicons name="stats-chart" size={24} color="#16A34A" />
+          <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+            <Ionicons name="stats-chart" size={24} color="#000000" />
           </View>
         </View>
 
@@ -593,14 +591,14 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <View className="mt-5 rounded-3xl border border-green-200 bg-white p-4">
+        <View className="mt-5 rounded-3xl border border-gray-200 bg-white p-4">
           <View className="flex-row items-center">
-            <View className="h-10 w-10 items-center justify-center rounded-2xl bg-green-100">
-              <Ionicons name="bulb" size={22} color="#16A34A" />
+            <View className="h-10 w-10 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+              <Ionicons name="bulb" size={22} color="#000000" />
             </View>
 
             <View className="ml-3 flex-1">
-              <Text className="text-sm font-black text-gray-950">
+              <Text className="text-sm font-black text-black">
                 {stats.todayLogs === 0 ? "Your next move" : "Momentum"}
               </Text>
 
