@@ -700,6 +700,75 @@ export function EditLogModal({
               listRef={actionListRef}
             />
 
+            <View className="mt-3 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
+              <View className="flex-row items-center">
+                <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                  <Ionicons
+                    name={
+                      didResist === 1 ? "shield-checkmark" : "shield-outline"
+                    }
+                    size={20}
+                    color="#000000"
+                  />
+                </View>
+
+                <View className="ml-3 flex-1">
+                  <Text className="text-base font-black text-black">
+                    Did you resist?
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold text-gray-500">
+                    Update the result for this check-in.
+                  </Text>
+                </View>
+              </View>
+
+              <View className="mt-3 flex-row gap-2">
+                <Pressable
+                  onPress={async () => {
+                    await lightHaptic();
+                    setDidResist(1);
+                    setCount(0);
+                  }}
+                  className={`flex-1 rounded-full border px-4 py-2.5 ${
+                    didResist === 1
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <Text
+                    className={`text-center text-sm font-black ${
+                      didResist === 1 ? "text-white" : "text-black"
+                    }`}
+                  >
+                    Yes
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={async () => {
+                    await lightHaptic();
+                    setDidResist(0);
+                    if (count === 0) {
+                      setCount(1);
+                    }
+                  }}
+                  className={`flex-1 rounded-full border px-4 py-2.5 ${
+                    didResist === 0
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <Text
+                    className={`text-center text-sm font-black ${
+                      didResist === 0 ? "text-white" : "text-black"
+                    }`}
+                  >
+                    No
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
             <View className="mt-3 flex-row gap-3">
               <StatCard
                 label="Count"
@@ -822,75 +891,6 @@ export function EditLogModal({
                 </View>
               </View>
             ) : null}
-
-            <View className="mt-3 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
-              <View className="flex-row items-center">
-                <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                  <Ionicons
-                    name={
-                      didResist === 1 ? "shield-checkmark" : "shield-outline"
-                    }
-                    size={20}
-                    color="#000000"
-                  />
-                </View>
-
-                <View className="ml-3 flex-1">
-                  <Text className="text-base font-black text-black">
-                    Did you resist?
-                  </Text>
-                  <Text className="mt-0.5 text-xs font-semibold text-gray-500">
-                    Update the result for this check-in.
-                  </Text>
-                </View>
-              </View>
-
-              <View className="mt-3 flex-row gap-2">
-                <Pressable
-                  onPress={async () => {
-                    await lightHaptic();
-                    setDidResist(1);
-                    setCount(0);
-                  }}
-                  className={`flex-1 rounded-full border px-4 py-2.5 ${
-                    didResist === 1
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <Text
-                    className={`text-center text-sm font-black ${
-                      didResist === 1 ? "text-white" : "text-black"
-                    }`}
-                  >
-                    Yes
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={async () => {
-                    await lightHaptic();
-                    setDidResist(0);
-                    if (count === 0) {
-                      setCount(1);
-                    }
-                  }}
-                  className={`flex-1 rounded-full border px-4 py-2.5 ${
-                    didResist === 0
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <Text
-                    className={`text-center text-sm font-black ${
-                      didResist === 0 ? "text-white" : "text-black"
-                    }`}
-                  >
-                    No
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
 
             <View className="mt-3 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
               <View className="flex-row items-center">
