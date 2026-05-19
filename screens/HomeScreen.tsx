@@ -294,6 +294,37 @@ export default function HomeScreen() {
     };
   }, [logs, selectedHabitId]);
 
+  const positiveFeedbackTitle = useMemo(() => {
+    if (stats.todayLogs === 0) return "What you’re doing well";
+    if (stats.todayResists > 0) return "You’re building control";
+    if (stats.weekResists > 0) return "You’re staying aware";
+    return "You’re showing up";
+  }, [stats.todayLogs, stats.todayResists, stats.weekResists]);
+
+  const positiveFeedbackText = useMemo(() => {
+    if (stats.todayLogs === 0 && stats.weekLogs === 0) {
+      return "You’re here and checking your progress. That already means you’re paying attention instead of ignoring the habit.";
+    }
+
+    if (stats.todayLogs === 0) {
+      return "You’ve logged this week, which means you’re building awareness. One quick check-in today keeps that pattern going.";
+    }
+
+    if (stats.todayResists > 0) {
+      return `You resisted ${stats.todayResists} ${
+        stats.todayResists === 1 ? "urge" : "urges"
+      } today. That means you paused, noticed the urge, and chose not to automatically give in.`;
+    }
+
+    if (stats.weekResists > 0) {
+      return `You’ve resisted ${stats.weekResists} ${
+        stats.weekResists === 1 ? "urge" : "urges"
+      } this week. Even when today is hard, you’ve already proven you can interrupt the pattern.`;
+    }
+
+    return "You checked in today. That means you caught the moment and recorded it instead of letting it pass unnoticed.";
+  }, [stats.todayLogs, stats.todayResists, stats.weekLogs, stats.weekResists]);
+
   const StatTile = ({
     label,
     value,
@@ -599,13 +630,11 @@ export default function HomeScreen() {
 
             <View className="ml-3 flex-1">
               <Text className="text-sm font-black text-black">
-                {stats.todayLogs === 0 ? "Your next move" : "Momentum"}
+                {positiveFeedbackTitle}
               </Text>
 
               <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
-                {stats.todayLogs === 0
-                  ? "Do one quick check-in today. Small reps are what make the app useful."
-                  : "Nice. You already checked in today, so the streak is alive."}
+                {positiveFeedbackText}
               </Text>
             </View>
           </View>
