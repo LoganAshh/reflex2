@@ -491,8 +491,11 @@ export default function ManageListScreen() {
               </Text>
             </Pressable>
 
-            <Pressable onPress={closeEdit} className="mt-3 rounded-3xl py-3">
-              <Text className="text-center text-base font-black text-gray-500">
+            <Pressable
+              onPress={closeEdit}
+              className="mt-3 rounded-3xl border border-gray-200 bg-white py-4 active:bg-gray-50"
+            >
+              <Text className="text-center text-base font-black text-black">
                 Cancel
               </Text>
             </Pressable>
