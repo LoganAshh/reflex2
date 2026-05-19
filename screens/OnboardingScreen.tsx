@@ -219,6 +219,7 @@ export default function OnboardingScreen() {
   } = useData();
 
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const didLoadInitialSelectionsRef = useRef(false);
 
   const [habitIds, setHabitIds] = useState<number[]>([]);
   const [cueIds, setCueIds] = useState<number[]>([]);
@@ -305,9 +306,12 @@ export default function OnboardingScreen() {
   }, []);
 
   useEffect(() => {
+    if (didLoadInitialSelectionsRef.current) return;
+
     setHabitIds(selectedHabits.map((h) => h.id));
     setCueIds(selectedCues.map((c) => c.id));
     setLocationIds(selectedLocations.map((l) => l.id));
+    didLoadInitialSelectionsRef.current = true;
   }, [selectedHabits, selectedCues, selectedLocations]);
 
   useEffect(() => {
