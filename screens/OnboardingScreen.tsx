@@ -83,6 +83,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
         : "e.g., Office parking lot";
 
   const canAdd = value.trim().length > 0;
+  const hasManyOptions = data.length > 8;
 
   return (
     <View className="mt-3 w-full rounded-[26px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
@@ -134,6 +135,15 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
           </View>
         </ScrollView>
       </View>
+
+      {hasManyOptions ? (
+        <View className="mt-2 flex-row items-center justify-center">
+          <Ionicons name="chevron-down" size={14} color="#6B7280" />
+          <Text className="ml-1 text-xs font-bold text-gray-500">
+            Scroll inside the box to see more options
+          </Text>
+        </View>
+      ) : null}
 
       <View className="mt-3 rounded-[22px] border border-gray-200 bg-white p-3">
         <View className="flex-row items-center">
@@ -649,7 +659,7 @@ export default function OnboardingScreen() {
                   Tip: Start small
                 </Text>
 
-                <Text className="mt-0.5 text-xs leading-4 text-gray-500">
+                <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-500">
                   It’s easier to focus on one or two habits at first.
                 </Text>
               </View>
