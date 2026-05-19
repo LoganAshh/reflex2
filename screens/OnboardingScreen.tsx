@@ -82,8 +82,28 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
         ? "e.g., After coffee"
         : "e.g., Office parking lot";
 
+  const visibleData = useMemo(() => {
+    const originalRank = new Map<number, number>();
+
+    data.forEach((item, index) => {
+      originalRank.set(item.id, index);
+    });
+
+    return [...data].sort((a, b) => {
+      if (a.isCustom !== b.isCustom) {
+        return b.isCustom - a.isCustom;
+      }
+
+      if (a.isCustom === 1 && b.isCustom === 1) {
+        return b.id - a.id;
+      }
+
+      return (originalRank.get(a.id) ?? 0) - (originalRank.get(b.id) ?? 0);
+    });
+  }, [data]);
+
   const canAdd = value.trim().length > 0;
-  const hasManyOptions = data.length > 8;
+  const hasManyOptions = visibleData.length > 8;
 
   return (
     <View className="mt-3 w-full rounded-[26px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
@@ -109,7 +129,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
           keyboardShouldPersistTaps="handled"
         >
           <View className="flex-row flex-wrap gap-2 pb-1">
-            {data.map((item) => {
+            {visibleData.map((item) => {
               const isSelected = selected.has(item.id);
 
               return (
@@ -243,9 +263,12 @@ export default function OnboardingScreen() {
   const scrollCustomInputIntoView = () => {
     setCustomInputFocused(true);
 
+    const setupIndex = step - setupStartIndex;
+    const scrollY = setupIndex === 0 ? 250 : 180;
+
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({
-        y: 250,
+        y: scrollY,
         animated: true,
       });
     }, 250);
