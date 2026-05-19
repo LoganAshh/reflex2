@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,8 +7,6 @@ import {
   Alert,
   Image,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,9 +29,12 @@ export default function ProfileSetupScreen() {
     completeLocalProfile,
   } = useData();
 
+  const scrollViewRef = useRef<ScrollView | null>(null);
+
   const [name, setName] = useState(profileName);
   const [photoUri, setPhotoUri] = useState<string | null>(profilePhotoUri);
   const [saving, setSaving] = useState(false);
+  const [nameFocused, setNameFocused] = useState(false);
 
   const isEditing = hasCompletedLocalProfile;
 
@@ -41,6 +42,21 @@ export default function ProfileSetupScreen() {
     () => name.trim().length > 0 && !!photoUri && !saving,
     [name, photoUri, saving],
   );
+
+  const scrollNameInputIntoView = () => {
+    setNameFocused(true);
+
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: 150,
+        animated: true,
+      });
+    }, 250);
+  };
+
+  const stopNameInputScroll = () => {
+    setNameFocused(false);
+  };
 
   async function pickPhoto() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -103,21 +119,20 @@ export default function ProfileSetupScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-white"
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 20}
-    >
+    <View className="flex-1 bg-white">
       <ScrollView
+        ref={scrollViewRef}
         className="flex-1 bg-white"
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        scrollEnabled={nameFocused}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           flexGrow: 1,
           justifyContent: "center",
           paddingHorizontal: 20,
           paddingTop: 42,
-          paddingBottom: 32,
+          paddingBottom: nameFocused ? 110 : 32,
         }}
       >
         <View>
@@ -206,6 +221,8 @@ export default function ProfileSetupScreen() {
               returnKeyType="done"
               submitBehavior="blurAndSubmit"
               className="mt-5 rounded-2xl border border-gray-200 bg-white px-4 py-4 text-black"
+              onFocus={scrollNameInputIntoView}
+              onBlur={stopNameInputScroll}
               onSubmitEditing={() => Keyboard.dismiss()}
             />
           </View>
@@ -257,6 +274,6 @@ export default function ProfileSetupScreen() {
           </Pressable>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
