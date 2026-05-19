@@ -88,32 +88,16 @@ const helpSteps: Step[] = [
   },
 ];
 
-function StepBadge({
-  mode,
-  currentStepNumber,
-  totalSteps,
-}: {
-  mode: "decision" | "guided";
-  currentStepNumber: number;
-  totalSteps: number;
-}) {
-  return (
-    <View className="mt-5 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 shadow-sm">
-      <Text className="text-xs font-black uppercase tracking-wide text-green-600">
-        {mode === "decision"
-          ? "Check-in saved"
-          : `Step ${currentStepNumber} of ${totalSteps}`}
-      </Text>
-    </View>
-  );
-}
-
 function ProgressBar({
   visible,
   progressPct,
+  currentStepNumber,
+  totalSteps,
 }: {
   visible: boolean;
   progressPct: number;
+  currentStepNumber: number;
+  totalSteps: number;
 }) {
   if (!visible) return null;
 
@@ -126,7 +110,7 @@ function ProgressBar({
 
         <View className="rounded-full border border-gray-200 bg-gray-50 px-4 py-2 shadow-sm">
           <Text className="text-sm font-black text-green-600">
-            {Math.round(progressPct)}%
+            Step {currentStepNumber} of {totalSteps}
           </Text>
         </View>
       </View>
@@ -395,7 +379,12 @@ export default function UrgeHelpScreen() {
 
   return (
     <View className="flex-1 bg-white px-5">
-      <ProgressBar visible={mode === "guided"} progressPct={progressPct} />
+      <ProgressBar
+        visible={mode === "guided"}
+        progressPct={progressPct}
+        currentStepNumber={currentStepNumber}
+        totalSteps={totalSteps}
+      />
 
       <ScrollView
         className="flex-1"
@@ -412,13 +401,7 @@ export default function UrgeHelpScreen() {
             <Ionicons name={currentStep.icon} size={54} color="#000000" />
           </View>
 
-          <StepBadge
-            mode={mode}
-            currentStepNumber={currentStepNumber}
-            totalSteps={totalSteps}
-          />
-
-          <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-black">
+          <Text className="mt-8 text-center text-4xl font-black leading-[44px] text-black">
             {currentStep.title}
           </Text>
 
