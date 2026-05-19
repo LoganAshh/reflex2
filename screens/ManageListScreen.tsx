@@ -332,12 +332,12 @@ export default function ManageListScreen() {
         <Ionicons
           name={getFilterIcon(value)}
           size={16}
-          color={active ? "#FFFFFF" : "#111827"}
+          color={active ? "#FFFFFF" : "#000000"}
         />
 
         <Text
           className={`ml-1.5 text-sm font-black ${
-            active ? "text-white" : "text-gray-900"
+            active ? "text-white" : "text-black"
           }`}
         >
           {label}
@@ -350,52 +350,50 @@ export default function ManageListScreen() {
     <View className="px-5 pt-10">
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-4">
-          <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+          <Text className="text-sm font-black uppercase tracking-widest text-green-600">
             Manage list
           </Text>
 
-          <Text className="mt-1 text-3xl font-black text-gray-900">
-            {title}
-          </Text>
+          <Text className="mt-1 text-3xl font-black text-black">{title}</Text>
         </View>
 
-        <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
-          <Ionicons name={getScreenIcon(type)} size={29} color="#15803D" />
+        <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
+          <Ionicons name={getScreenIcon(type)} size={29} color="#000000" />
         </View>
       </View>
 
-      <View className="mt-6 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+      <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
         <View className="flex-row items-center">
-          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
-            <Ionicons name="list" size={24} color="#16A34A" />
+          <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+            <Ionicons name="list" size={24} color="#000000" />
           </View>
 
           <View className="ml-3 flex-1">
-            <Text className="text-base font-black text-gray-900">
+            <Text className="text-base font-black text-black">
               Customize your Log screen
             </Text>
 
-            <Text className="mt-1 text-sm leading-5 text-gray-600">
+            <Text className="mt-1 text-sm leading-5 text-gray-500">
               {getScreenSubtitle(type)}
             </Text>
           </View>
         </View>
 
         <View className="mt-5 flex-row gap-3">
-          <View className="flex-1 rounded-3xl bg-green-100 p-4">
-            <Text className="text-3xl font-black text-gray-900">
+          <View className="flex-1 rounded-3xl border border-gray-200 bg-white p-4">
+            <Text className="text-3xl font-black text-black">
               {selectedCount}
             </Text>
-            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-600">
+            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-500">
               Selected
             </Text>
           </View>
 
-          <View className="flex-1 rounded-3xl bg-blue-100 p-4">
-            <Text className="text-3xl font-black text-gray-900">
+          <View className="flex-1 rounded-3xl border border-gray-200 bg-white p-4">
+            <Text className="text-3xl font-black text-black">
               {customCount}
             </Text>
-            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-600">
+            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-500">
               Custom
             </Text>
           </View>
@@ -403,18 +401,18 @@ export default function ManageListScreen() {
       </View>
 
       {type === "habits" ? (
-        <View className="mt-5 rounded-[28px] border border-green-100 bg-white p-4 shadow-sm">
+        <View className="mt-5 rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
           <View className="flex-row items-center">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
-              <Ionicons name="bulb" size={24} color="#854D0E" />
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="bulb" size={24} color="#000000" />
             </View>
 
             <View className="ml-3 flex-1">
-              <Text className="text-base font-black text-gray-900">
+              <Text className="text-base font-black text-black">
                 Tip: Start small
               </Text>
 
-              <Text className="mt-1 text-sm leading-5 text-gray-600">
+              <Text className="mt-1 text-sm leading-5 text-gray-500">
                 It’s usually easier to focus on one or two habits at first. You
                 can always add more later.
               </Text>
@@ -430,18 +428,18 @@ export default function ManageListScreen() {
       </View>
 
       {filter === "custom" ? (
-        <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+        <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-3">
-              <Text className="text-xl font-black text-gray-900">Add new</Text>
+              <Text className="text-xl font-black text-black">Add new</Text>
 
               <Text className="mt-1 text-sm font-semibold text-gray-500">
                 Create a custom {singularTitle} that fits your life.
               </Text>
             </View>
 
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
-              <Ionicons name="add-circle" size={25} color="#854D0E" />
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="add-circle" size={25} color="#000000" />
             </View>
           </View>
 
@@ -451,7 +449,7 @@ export default function ManageListScreen() {
               onChangeText={setText}
               placeholder={`New ${singularTitle}...`}
               placeholderTextColor="#9CA3AF"
-              className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900"
+              className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-black"
               multiline={false}
               returnKeyType="done"
               blurOnSubmit
@@ -462,7 +460,7 @@ export default function ManageListScreen() {
               onPress={onAdd}
               disabled={!text.trim()}
               className={`rounded-2xl px-4 py-3 ${
-                text.trim() ? "bg-gray-900" : "bg-gray-300"
+                text.trim() ? "bg-green-600" : "bg-gray-300"
               }`}
             >
               <Text className="font-black text-white">Add</Text>
@@ -471,9 +469,9 @@ export default function ManageListScreen() {
         </View>
       ) : null}
 
-      <View className="mt-6 mb-4 flex-row items-center justify-between">
+      <View className="mb-4 mt-6 flex-row items-center justify-between">
         <View>
-          <Text className="text-2xl font-black text-gray-900">
+          <Text className="text-2xl font-black text-black">
             {filter === "selected"
               ? "Selected"
               : filter === "preset"
@@ -486,8 +484,8 @@ export default function ManageListScreen() {
           </Text>
         </View>
 
-        <View className="rounded-full bg-white px-3 py-2 shadow-sm">
-          <Text className="text-sm font-black text-green-700">
+        <View className="rounded-full border border-gray-200 bg-white px-3 py-2 shadow-sm">
+          <Text className="text-sm font-black text-green-600">
             {filteredItems.length}
           </Text>
         </View>
@@ -496,21 +494,21 @@ export default function ManageListScreen() {
   );
 
   return (
-    <View className="flex-1 bg-green-50">
+    <View className="flex-1 bg-white">
       <Modal visible={!!editingItem} transparent animationType="fade">
         <View className="flex-1 justify-center bg-black/40 px-6">
           <View className="rounded-[32px] bg-white p-5">
             <View className="flex-row items-center">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
-                <Ionicons name="create" size={24} color="#16A34A" />
+              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                <Ionicons name="create" size={24} color="#000000" />
               </View>
 
               <View className="ml-3 flex-1">
-                <Text className="text-xl font-black text-gray-900">
+                <Text className="text-xl font-black text-black">
                   Edit custom {singularTitle}
                 </Text>
 
-                <Text className="mt-1 text-sm leading-5 text-gray-600">
+                <Text className="mt-1 text-sm leading-5 text-gray-500">
                   Rename it, or delete it from future logging.
                 </Text>
               </View>
@@ -521,7 +519,7 @@ export default function ManageListScreen() {
               onChangeText={setEditText}
               placeholder={`Custom ${singularTitle}`}
               placeholderTextColor="#9CA3AF"
-              className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900"
+              className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
               multiline={false}
               returnKeyType="done"
               blurOnSubmit
@@ -566,26 +564,22 @@ export default function ManageListScreen() {
             <View
               className={`mx-5 mb-3 rounded-[28px] border p-4 shadow-sm ${
                 isSelected
-                  ? "border-green-200 bg-green-50"
-                  : "border-gray-100 bg-white"
+                  ? "border-gray-200 bg-gray-50"
+                  : "border-gray-200 bg-white"
               }`}
             >
               <View className="flex-row items-center justify-between">
-                <View className="flex-row flex-1 items-center pr-3">
-                  <View
-                    className={`h-12 w-12 items-center justify-center rounded-2xl ${
-                      isCustom ? "bg-yellow-100" : "bg-green-100"
-                    }`}
-                  >
+                <View className="flex-1 flex-row items-center pr-3">
+                  <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
                     <Ionicons
                       name={isCustom ? "create" : "sparkles"}
                       size={24}
-                      color={isSelected ? "#16A34A" : "#111827"}
+                      color="#000000"
                     />
                   </View>
 
                   <View className="ml-3 flex-1">
-                    <Text className="text-base font-black text-gray-900">
+                    <Text className="text-base font-black text-black">
                       {item.name}
                     </Text>
 
@@ -601,9 +595,7 @@ export default function ManageListScreen() {
                     onPress={() => openEdit(item)}
                     className="mr-3 rounded-2xl border border-gray-200 bg-white px-3 py-2 active:bg-gray-50"
                   >
-                    <Text className="text-xs font-black text-gray-900">
-                      Edit
-                    </Text>
+                    <Text className="text-xs font-black text-black">Edit</Text>
                   </Pressable>
                 ) : null}
 
@@ -611,13 +603,13 @@ export default function ManageListScreen() {
                   onPress={() => toggleSelected(item.id)}
                   className={`rounded-2xl border px-4 py-2.5 ${
                     isSelected
-                      ? "border-gray-200 bg-white"
+                      ? "border-gray-300 bg-white"
                       : "border-green-600 bg-green-600"
                   }`}
                 >
                   <Text
                     className={`font-black ${
-                      isSelected ? "text-gray-900" : "text-white"
+                      isSelected ? "text-black" : "text-white"
                     }`}
                   >
                     {isSelected ? "Selected" : "Select"}
@@ -632,16 +624,16 @@ export default function ManageListScreen() {
         ListHeaderComponent={<Header />}
         contentContainerStyle={{ paddingBottom: 116 }}
         ListEmptyComponent={
-          <View className="mx-5 rounded-[28px] border border-gray-100 bg-white p-5 shadow-sm">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
-              <Ionicons name="leaf" size={24} color="#16A34A" />
+          <View className="mx-5 rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="leaf" size={24} color="#000000" />
             </View>
 
-            <Text className="mt-4 text-lg font-black text-gray-900">
+            <Text className="mt-4 text-lg font-black text-black">
               Nothing here yet
             </Text>
 
-            <Text className="mt-2 text-sm leading-5 text-gray-600">
+            <Text className="mt-2 text-sm leading-5 text-gray-500">
               {filter === "selected"
                 ? "Select items from Preset or Custom to see them here."
                 : filter === "preset"
@@ -652,10 +644,10 @@ export default function ManageListScreen() {
         }
       />
 
-      <View className="absolute bottom-0 left-0 right-0 border-t border-green-100 bg-green-50 px-5 pb-6 pt-4">
+      <View className="absolute bottom-0 left-0 right-0 border-t border-gray-200 bg-white px-5 pb-6 pt-4">
         <Pressable
           onPress={onDone}
-          className="w-full rounded-3xl bg-gray-900 py-4 shadow-sm active:bg-gray-800"
+          className="w-full rounded-3xl bg-green-600 py-4 shadow-sm active:bg-green-700"
         >
           <View className="flex-row items-center justify-center">
             <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />

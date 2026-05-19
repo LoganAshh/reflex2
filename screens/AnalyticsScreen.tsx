@@ -180,12 +180,12 @@ function StatCard({
     <View className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 p-4 shadow-sm">
       <View className="flex-row items-start justify-between">
         <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-          <Ionicons name={icon} size={21} color="#16A34A" />
+          <Ionicons name={icon} size={21} color="#000000" />
         </View>
       </View>
 
-      <Text className="mt-4 text-3xl font-black text-gray-900">{value}</Text>
-      <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-600">
+      <Text className="mt-4 text-3xl font-black text-black">{value}</Text>
+      <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-500">
         {label}
       </Text>
       {sub ? (
@@ -207,11 +207,11 @@ function MiniStat({
   return (
     <View className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 p-3">
       <View className="h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white">
-        <Ionicons name={icon} size={19} color="#16A34A" />
+        <Ionicons name={icon} size={19} color="#000000" />
       </View>
 
-      <Text className="mt-3 text-xl font-black text-gray-900">{value}</Text>
-      <Text className="mt-1 text-xs font-bold text-gray-600">{label}</Text>
+      <Text className="mt-3 text-xl font-black text-black">{value}</Text>
+      <Text className="mt-1 text-xs font-bold text-gray-500">{label}</Text>
     </View>
   );
 }
@@ -231,16 +231,16 @@ function ListBlock({
     <View className="mt-4 rounded-[28px] border border-gray-200 bg-white p-4 shadow-sm">
       <View className="flex-row items-center">
         <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-          <Ionicons name={icon} size={23} color="#16A34A" />
+          <Ionicons name={icon} size={23} color="#000000" />
         </View>
 
-        <Text className="ml-3 flex-1 text-base font-black text-gray-900">
+        <Text className="ml-3 flex-1 text-base font-black text-black">
           {title}
         </Text>
       </View>
 
       {items.length === 0 ? (
-        <Text className="mt-3 text-sm leading-5 text-gray-600">{empty}</Text>
+        <Text className="mt-3 text-sm leading-5 text-gray-500">{empty}</Text>
       ) : (
         <View className="mt-3">
           {items.map((x, idx) => (
@@ -248,7 +248,7 @@ function ListBlock({
               key={`${x.name}-${idx}`}
               className="mb-2 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3"
             >
-              <Text className="flex-1 pr-3 text-sm font-bold text-gray-900">
+              <Text className="flex-1 pr-3 text-sm font-bold text-black">
                 {x.name}
               </Text>
 
@@ -805,28 +805,28 @@ export default function AnalyticsScreen() {
               Analytics
             </Text>
 
-            <Text className="mt-0.5 text-2xl font-black text-gray-900">
+            <Text className="mt-0.5 text-2xl font-black text-black">
               Pattern map
             </Text>
           </View>
 
-          <View className="h-12 w-12 items-center justify-center rounded-full border-4 border-green-500 bg-gray-100 shadow-sm">
-            <Ionicons name="stats-chart" size={23} color="#16A34A" />
+          <View className="h-12 w-12 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
+            <Ionicons name="stats-chart" size={23} color="#000000" />
           </View>
         </View>
 
         <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
           <View className="flex-row items-center">
-            <View className="h-9 w-9 items-center justify-center rounded-2xl bg-green-100">
-              <Ionicons name="bulb" size={19} color="#16A34A" />
+            <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="bulb" size={19} color="#000000" />
             </View>
 
             <View className="ml-2 flex-1">
-              <Text className="text-sm font-black text-gray-900">
+              <Text className="text-sm font-black text-black">
                 Look for patterns
               </Text>
 
-              <Text className="mt-0.5 text-xs leading-4 text-gray-600">
+              <Text className="mt-0.5 text-xs leading-4 text-gray-500">
                 Notice what makes urges easier or harder to beat.
               </Text>
             </View>
@@ -854,7 +854,7 @@ export default function AnalyticsScreen() {
             >
               <Text
                 className={`text-xs font-black ${
-                  t === activeTab ? "text-white" : "text-gray-900"
+                  t === activeTab ? "text-white" : "text-black"
                 }`}
                 numberOfLines={1}
               >
@@ -867,7 +867,7 @@ export default function AnalyticsScreen() {
         <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
           <View className="mb-2 flex-row items-center justify-between">
             <View>
-              <Text className="text-base font-black text-gray-900">
+              <Text className="text-base font-black text-black">
                 Give-in calendar
               </Text>
               <Text className="mt-0.5 text-xs font-semibold text-gray-500">
@@ -876,7 +876,7 @@ export default function AnalyticsScreen() {
             </View>
 
             <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="calendar" size={19} color="#16A34A" />
+              <Ionicons name="calendar" size={19} color="#000000" />
             </View>
           </View>
 
@@ -898,7 +898,7 @@ export default function AnalyticsScreen() {
         <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="flex-row items-center justify-between">
             <View>
-              <Text className="text-xl font-black text-gray-900">
+              <Text className="text-xl font-black text-black">
                 {patternTitle}
               </Text>
 
@@ -908,7 +908,7 @@ export default function AnalyticsScreen() {
             </View>
 
             <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="search" size={24} color="#16A34A" />
+              <Ionicons name="search" size={24} color="#000000" />
             </View>
           </View>
 
@@ -937,7 +937,7 @@ export default function AnalyticsScreen() {
         <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="flex-row items-center justify-between">
             <View>
-              <Text className="text-xl font-black text-gray-900">
+              <Text className="text-xl font-black text-black">
                 More insights
               </Text>
 
@@ -946,8 +946,8 @@ export default function AnalyticsScreen() {
               </Text>
             </View>
 
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
-              <Ionicons name="sparkles" size={24} color="#16A34A" />
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="sparkles" size={24} color="#000000" />
             </View>
           </View>
 
@@ -984,11 +984,11 @@ export default function AnalyticsScreen() {
 
           <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
             <View className="flex-row items-center">
-              <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
-                <Ionicons name="pie-chart" size={23} color="#16A34A" />
+              <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                <Ionicons name="pie-chart" size={23} color="#000000" />
               </View>
 
-              <Text className="ml-3 flex-1 text-base font-black text-gray-900">
+              <Text className="ml-3 flex-1 text-base font-black text-black">
                 Outcome breakdown
               </Text>
             </View>
@@ -1017,10 +1017,10 @@ export default function AnalyticsScreen() {
           <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
             <View className="flex-row items-center">
               <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                <Ionicons name="pulse" size={23} color="#16A34A" />
+                <Ionicons name="pulse" size={23} color="#000000" />
               </View>
 
-              <Text className="ml-3 flex-1 text-base font-black text-gray-900">
+              <Text className="ml-3 flex-1 text-base font-black text-black">
                 Intensity trends
               </Text>
             </View>

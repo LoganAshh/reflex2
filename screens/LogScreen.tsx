@@ -153,10 +153,10 @@ function ChipRow<T extends BaseItem>({
         <Text
           className={`text-xs font-black ${
             item.kind === "add"
-              ? "text-gray-900"
+              ? "text-black"
               : isSelected
                 ? "text-white"
-                : "text-gray-900"
+                : "text-black"
           }`}
           numberOfLines={1}
         >
@@ -170,11 +170,11 @@ function ChipRow<T extends BaseItem>({
     <View className="mt-2 w-full rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
       <View className="flex-row items-center">
         <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-          <Ionicons name={icon} size={19} color="#16A34A" />
+          <Ionicons name={icon} size={19} color="#000000" />
         </View>
 
         <View className="ml-2 flex-1">
-          <Text className="text-sm font-black text-gray-900">{title}</Text>
+          <Text className="text-sm font-black text-black">{title}</Text>
           <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
             {subtitle}
           </Text>
@@ -238,12 +238,12 @@ function IntensityPickerModal({
           onPress={() => {}}
         >
           <View className="flex-row items-center">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
-              <Ionicons name="pulse" size={24} color="#16A34A" />
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="pulse" size={24} color="#000000" />
             </View>
 
             <View className="ml-3 flex-1">
-              <Text className="text-xl font-black text-gray-900">
+              <Text className="text-xl font-black text-black">
                 Pick intensity
               </Text>
               <Text className="mt-1 text-sm font-semibold text-gray-500">
@@ -268,7 +268,7 @@ function IntensityPickerModal({
                 >
                   <Text
                     className={`text-sm font-black ${
-                      selected ? "text-white" : "text-gray-900"
+                      selected ? "text-white" : "text-black"
                     }`}
                   >
                     {n}
@@ -283,7 +283,7 @@ function IntensityPickerModal({
               onPress={onClear}
               className="rounded-2xl border border-gray-200 bg-white px-4 py-3"
             >
-              <Text className="text-sm font-black text-gray-900">Set None</Text>
+              <Text className="text-sm font-black text-black">Set None</Text>
             </Pressable>
 
             <Pressable
@@ -333,12 +333,12 @@ function CountPickerModal({
           onPress={() => {}}
         >
           <View className="flex-row items-center">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
-              <Ionicons name="repeat" size={24} color="#16A34A" />
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="repeat" size={24} color="#000000" />
             </View>
 
             <View className="ml-3 flex-1">
-              <Text className="text-xl font-black text-gray-900">
+              <Text className="text-xl font-black text-black">
                 Times given in
               </Text>
               <Text className="mt-1 text-sm font-semibold text-gray-500">
@@ -363,7 +363,7 @@ function CountPickerModal({
                 >
                   <Text
                     className={`text-sm font-black ${
-                      selected ? "text-white" : "text-gray-900"
+                      selected ? "text-white" : "text-black"
                     }`}
                   >
                     {labelFor(n)}
@@ -735,12 +735,12 @@ export default function LogScreen() {
     >
       <View className="flex-row items-center justify-between">
         <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-          <Ionicons name={icon} size={19} color="#16A34A" />
+          <Ionicons name={icon} size={19} color="#000000" />
         </View>
 
         {onPress ? (
           <View className="rounded-full bg-white px-2 py-0.5">
-            <Text className="text-[10px] font-black text-gray-700">Change</Text>
+            <Text className="text-[10px] font-black text-black">Change</Text>
           </View>
         ) : null}
       </View>
@@ -748,7 +748,7 @@ export default function LogScreen() {
       <Text className="mt-2 text-[10px] font-black uppercase tracking-wide text-gray-500">
         {label}
       </Text>
-      <Text className="mt-0.5 text-base font-black text-gray-900">{value}</Text>
+      <Text className="mt-0.5 text-base font-black text-black">{value}</Text>
     </Pressable>
   );
 
@@ -806,13 +806,13 @@ export default function LogScreen() {
                 Check-in
               </Text>
 
-              <Text className="mt-0.5 text-2xl font-black text-gray-950">
+              <Text className="mt-0.5 text-2xl font-black text-black">
                 Log the moment
               </Text>
             </View>
 
-            <View className="h-12 w-12 items-center justify-center rounded-full border-4 border-green-500 bg-gray-100 shadow-sm">
-              <Ionicons name="create" size={23} color="#16A34A" />
+            <View className="h-12 w-12 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
+              <Ionicons name="create" size={23} color="#000000" />
             </View>
           </View>
 
@@ -863,12 +863,12 @@ export default function LogScreen() {
                   <Ionicons
                     name={didResist ? "shield-checkmark" : "shield-outline"}
                     size={21}
-                    color="#16A34A"
+                    color="#000000"
                   />
                 </View>
 
                 <View className="ml-2 flex-1">
-                  <Text className="text-sm font-black text-gray-900">
+                  <Text className="text-sm font-black text-black">
                     Did you resist?
                   </Text>
                   <Text className="mt-0.5 text-[11px] leading-4 text-gray-500">
@@ -909,11 +909,11 @@ export default function LogScreen() {
             <View className="flex-row items-center justify-between">
               <View className="flex-row flex-1 items-center pr-3">
                 <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                  <Ionicons name="document-text" size={19} color="#16A34A" />
+                  <Ionicons name="document-text" size={19} color="#000000" />
                 </View>
 
                 <View className="ml-2 flex-1">
-                  <Text className="text-sm font-black text-gray-900">
+                  <Text className="text-sm font-black text-black">
                     Notes
                   </Text>
                   <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
@@ -926,7 +926,7 @@ export default function LogScreen() {
                 onPress={onShowNotes}
                 className="rounded-2xl border border-gray-200 bg-white px-3 py-1.5"
               >
-                <Text className="text-xs font-black text-gray-900">
+                <Text className="text-xs font-black text-black">
                   {showNotes ? "Hide" : "Add"}
                 </Text>
               </Pressable>
@@ -940,7 +940,7 @@ export default function LogScreen() {
                   onChangeText={setNotes}
                   placeholder="Anything useful to remember..."
                   placeholderTextColor="#9CA3AF"
-                  className="mt-2 min-h-[38px] w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
+                  className="mt-2 min-h-[38px] w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm text-black"
                   returnKeyType="done"
                   blurOnSubmit
                   onSubmitEditing={() => Keyboard.dismiss()}

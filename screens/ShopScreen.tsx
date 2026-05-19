@@ -217,12 +217,12 @@ export default function ShopScreen() {
         <Ionicons
           name={getFilterIcon(value)}
           size={16}
-          color={selected ? "#FFFFFF" : "#374151"}
+          color={selected ? "#FFFFFF" : "#000000"}
         />
 
         <Text
           className={`ml-1.5 text-sm font-black ${
-            selected ? "text-white" : "text-gray-700"
+            selected ? "text-white" : "text-black"
           }`}
         >
           {label}
@@ -249,12 +249,12 @@ export default function ShopScreen() {
         <Ionicons
           name={getFilterIcon(label)}
           size={16}
-          color={selected ? "#FFFFFF" : "#374151"}
+          color={selected ? "#FFFFFF" : "#000000"}
         />
 
         <Text
           className={`ml-1.5 text-sm font-black ${
-            selected ? "text-white" : "text-gray-700"
+            selected ? "text-white" : "text-black"
           }`}
         >
           {label}
@@ -270,27 +270,17 @@ export default function ShopScreen() {
     return (
       <View
         className={`mb-3 rounded-3xl border p-4 shadow-sm ${
-          isSelected
-            ? "border-gray-300 bg-gray-100"
-            : "border-gray-200 bg-white"
+          isSelected ? "border-gray-200 bg-gray-50" : "border-gray-200 bg-white"
         }`}
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-1 flex-row items-center pr-3">
-            <View
-              className={`h-12 w-12 items-center justify-center rounded-2xl ${
-                isSelected ? "bg-green-600" : "bg-green-100"
-              }`}
-            >
-              <Ionicons
-                name={getActionIcon(item)}
-                size={24}
-                color={isSelected ? "#FFFFFF" : "#16A34A"}
-              />
+            <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+              <Ionicons name={getActionIcon(item)} size={24} color="#000000" />
             </View>
 
             <View className="ml-3 flex-1">
-              <Text className="text-base font-black text-gray-950">
+              <Text className="text-base font-black text-black">
                 {item.title}
               </Text>
 
@@ -311,7 +301,7 @@ export default function ShopScreen() {
           >
             <Text
               className={`font-black ${
-                isSelected ? "text-gray-950" : "text-white"
+                isSelected ? "text-black" : "text-white"
               }`}
             >
               {isSelected ? "Selected" : "Select"}
@@ -327,12 +317,12 @@ export default function ShopScreen() {
   );
 
   const EmptyState = () => (
-    <View className="mt-4 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-      <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
-        <Ionicons name="leaf" size={24} color="#16A34A" />
+    <View className="mt-4 rounded-3xl border border-gray-200 bg-gray-50 p-5 shadow-sm">
+      <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+        <Ionicons name="leaf" size={24} color="#000000" />
       </View>
 
-      <Text className="mt-4 text-lg font-black text-gray-950">
+      <Text className="mt-4 text-lg font-black text-black">
         Nothing here yet
       </Text>
 
@@ -354,24 +344,24 @@ export default function ShopScreen() {
             Action shop
           </Text>
 
-          <Text className="mt-1 text-3xl font-black text-gray-950">
+          <Text className="mt-1 text-3xl font-black text-black">
             Pick your backups
           </Text>
         </View>
 
-        <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-500 bg-gray-100 shadow-sm">
-          <Ionicons name="bag-handle" size={29} color="#16A34A" />
+        <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
+          <Ionicons name="bag-handle" size={29} color="#000000" />
         </View>
       </View>
 
-      <View className="mt-5 rounded-3xl border border-green-200 bg-white p-4 shadow-sm">
+      <View className="mt-5 rounded-3xl border border-gray-200 bg-gray-50 p-4 shadow-sm">
         <View className="flex-row items-center">
-          <View className="h-10 w-10 items-center justify-center rounded-2xl bg-green-100">
-            <Ionicons name="bulb" size={21} color="#16A34A" />
+          <View className="h-10 w-10 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+            <Ionicons name="bulb" size={21} color="#000000" />
           </View>
 
           <View className="ml-3 flex-1">
-            <Text className="text-sm font-black text-gray-950">
+            <Text className="text-sm font-black text-black">
               Tip: make it easy
             </Text>
 
@@ -406,7 +396,7 @@ export default function ShopScreen() {
       <View className="mx-5 mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-4">
-            <Text className="text-xl font-black text-gray-950">
+            <Text className="text-xl font-black text-black">
               Create your own
             </Text>
 
@@ -415,8 +405,8 @@ export default function ShopScreen() {
             </Text>
           </View>
 
-          <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-            <Ionicons name="add-circle" size={25} color="#16A34A" />
+          <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+            <Ionicons name="add-circle" size={25} color="#000000" />
           </View>
         </View>
 
@@ -426,7 +416,7 @@ export default function ShopScreen() {
             onChangeText={setText}
             placeholder="e.g., 10 push-ups, call a friend"
             placeholderTextColor="#9CA3AF"
-            className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-950"
+            className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-black"
             returnKeyType="done"
             onSubmitEditing={() => {
               if (text.trim()) onAdd();
@@ -465,7 +455,7 @@ export default function ShopScreen() {
 
       <View className="mx-5 mb-4 mt-6 flex-row items-center justify-between">
         <View>
-          <Text className="text-2xl font-black text-gray-950">
+          <Text className="text-2xl font-black text-black">
             {currentFilterLabel}
           </Text>
 

@@ -98,8 +98,8 @@ function StepBadge({
   totalSteps: number;
 }) {
   return (
-    <View className="mt-5 rounded-full bg-white px-4 py-2 shadow-sm">
-      <Text className="text-xs font-black uppercase tracking-wide text-green-700">
+    <View className="mt-5 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 shadow-sm">
+      <Text className="text-xs font-black uppercase tracking-wide text-green-600">
         {mode === "decision"
           ? "Check-in saved"
           : `Step ${currentStepNumber} of ${totalSteps}`}
@@ -120,18 +120,18 @@ function ProgressBar({
   return (
     <View className="pt-10">
       <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-sm font-black uppercase tracking-wide text-green-700">
+        <Text className="text-sm font-black uppercase tracking-wide text-green-600">
           Guided help
         </Text>
 
-        <View className="rounded-full bg-white px-4 py-2 shadow-sm">
-          <Text className="text-sm font-black text-green-700">
+        <View className="rounded-full border border-gray-200 bg-gray-50 px-4 py-2 shadow-sm">
+          <Text className="text-sm font-black text-green-600">
             {Math.round(progressPct)}%
           </Text>
         </View>
       </View>
 
-      <View className="h-5 w-full overflow-hidden rounded-full bg-white">
+      <View className="h-5 w-full overflow-hidden rounded-full bg-gray-200">
         <View
           style={{ width: `${progressPct}%` }}
           className="h-5 rounded-full bg-green-600"
@@ -262,18 +262,18 @@ export default function UrgeHelpScreen() {
     if (currentStep.kind !== "action") return null;
 
     return (
-      <View className="mt-6 w-full rounded-[28px] border border-green-100 bg-white p-5 shadow-sm">
+      <View className="mt-6 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
         <View className="flex-row items-center">
-          <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
-            <Ionicons name="flash" size={23} color="#16A34A" />
+          <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+            <Ionicons name="flash" size={23} color="#000000" />
           </View>
 
           <View className="ml-3 flex-1">
-            <Text className="text-base font-black text-gray-900">
+            <Text className="text-base font-black text-black">
               Selected replacement actions
             </Text>
 
-            <Text className="mt-1 text-sm leading-5 text-gray-600">
+            <Text className="mt-1 text-sm leading-5 text-gray-500">
               Choose the action you used, or add a new one.
             </Text>
           </View>
@@ -281,8 +281,8 @@ export default function UrgeHelpScreen() {
 
         {!hasSelectedActions ? (
           <>
-            <View className="mt-5 rounded-[24px] bg-gray-50 p-4">
-              <Text className="text-sm font-semibold leading-5 text-gray-600">
+            <View className="mt-5 rounded-[24px] border border-gray-200 bg-white p-4">
+              <Text className="text-sm font-semibold leading-5 text-gray-500">
                 You do not have any selected replacement actions yet.
               </Text>
             </View>
@@ -300,8 +300,8 @@ export default function UrgeHelpScreen() {
               })}
             >
               <View className="flex-row items-center justify-center">
-                <Ionicons name="bag-handle" size={20} color="#111827" />
-                <Text className="ml-2 text-center text-base font-black text-gray-900">
+                <Ionicons name="bag-handle" size={20} color="#000000" />
+                <Text className="ml-2 text-center text-base font-black text-black">
                   Go to Shop
                 </Text>
               </View>
@@ -330,7 +330,7 @@ export default function UrgeHelpScreen() {
               >
                 <Text
                   className={`text-sm font-black ${
-                    selectedActionId == null ? "text-white" : "text-gray-900"
+                    selectedActionId == null ? "text-white" : "text-black"
                   }`}
                 >
                   None
@@ -353,7 +353,7 @@ export default function UrgeHelpScreen() {
                   >
                     <Text
                       className={`text-sm font-black ${
-                        isSelected ? "text-white" : "text-gray-900"
+                        isSelected ? "text-white" : "text-black"
                       }`}
                     >
                       {action.title}
@@ -366,18 +366,18 @@ export default function UrgeHelpScreen() {
                 onPress={goToShop}
                 className="rounded-full border border-gray-200 bg-white px-4 py-2.5"
               >
-                <Text className="text-sm font-black text-gray-900">+ Add</Text>
+                <Text className="text-sm font-black text-black">+ Add</Text>
               </Pressable>
             </View>
           </ScrollView>
         )}
 
-        <View className="mt-5 rounded-[24px] bg-gray-50 p-4">
+        <View className="mt-5 rounded-[24px] border border-gray-200 bg-white p-4">
           <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
             Saved to this log
           </Text>
 
-          <Text className="mt-1 text-sm font-black text-gray-900">
+          <Text className="mt-1 text-sm font-black text-black">
             {currentLog?.selectedActionTitle ??
               "No replacement action selected"}
           </Text>
@@ -394,7 +394,7 @@ export default function UrgeHelpScreen() {
         : "Next";
 
   return (
-    <View className="flex-1 bg-green-50 px-5">
+    <View className="flex-1 bg-white px-5">
       <ProgressBar visible={mode === "guided"} progressPct={progressPct} />
 
       <ScrollView
@@ -408,8 +408,8 @@ export default function UrgeHelpScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="items-center">
-          <View className="rounded-full border-4 border-white bg-green-200 p-5 shadow-sm">
-            <Ionicons name={currentStep.icon} size={54} color="#16A34A" />
+          <View className="rounded-full border-4 border-green-600 bg-white p-5 shadow-sm">
+            <Ionicons name={currentStep.icon} size={54} color="#000000" />
           </View>
 
           <StepBadge
@@ -418,27 +418,27 @@ export default function UrgeHelpScreen() {
             totalSteps={totalSteps}
           />
 
-          <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-gray-900">
+          <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-black">
             {currentStep.title}
           </Text>
 
-          <Text className="mt-5 text-center text-lg font-semibold leading-7 text-gray-600">
+          <Text className="mt-5 text-center text-lg font-semibold leading-7 text-gray-500">
             {currentStep.body}
           </Text>
 
           {"tip" in currentStep && currentStep.tip ? (
-            <View className="mt-8 w-full rounded-[28px] border border-green-100 bg-white p-5 shadow-sm">
+            <View className="mt-8 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
               <View className="flex-row items-center">
-                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
-                  <Ionicons name="bulb" size={24} color="#854D0E" />
+                <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                  <Ionicons name="bulb" size={24} color="#000000" />
                 </View>
 
                 <View className="ml-3 flex-1">
-                  <Text className="text-base font-black text-gray-900">
+                  <Text className="text-base font-black text-black">
                     Why this helps
                   </Text>
 
-                  <Text className="mt-1 text-sm leading-5 text-gray-600">
+                  <Text className="mt-1 text-sm leading-5 text-gray-500">
                     {currentStep.tip}
                   </Text>
                 </View>
@@ -493,8 +493,8 @@ export default function UrgeHelpScreen() {
             })}
           >
             <View className="flex-row items-center justify-center">
-              <Ionicons name="shield-checkmark" size={22} color="#111827" />
-              <Text className="ml-2 text-center text-lg font-black text-gray-900">
+              <Ionicons name="shield-checkmark" size={22} color="#000000" />
+              <Text className="ml-2 text-center text-lg font-black text-black">
                 Help me resist
               </Text>
             </View>
@@ -547,7 +547,7 @@ export default function UrgeHelpScreen() {
                     transform: [{ translateY: pressed ? 1 : 0 }],
                   })}
                 >
-                  <Text className="text-center text-lg font-black text-gray-900">
+                  <Text className="text-center text-lg font-black text-black">
                     Back
                   </Text>
                 </Pressable>

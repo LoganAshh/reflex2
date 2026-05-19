@@ -32,7 +32,6 @@ type RowProps = {
   tone?: "default" | "danger";
   disabled?: boolean;
   icon: keyof typeof Ionicons.glyphMap;
-  iconBg?: string;
 };
 
 function Row({
@@ -43,7 +42,6 @@ function Row({
   tone = "default",
   disabled,
   icon,
-  iconBg = "bg-green-100",
 }: RowProps) {
   const danger = tone === "danger";
   const clickable = !!onPress && !disabled;
@@ -58,21 +56,21 @@ function Row({
       disabled={!clickable}
       className={[
         "rounded-[28px] border p-4 shadow-sm",
-        danger ? "border-red-200 bg-red-50" : "border-gray-100 bg-white",
+        danger ? "border-red-200 bg-red-50" : "border-gray-200 bg-white",
         disabled ? "opacity-50" : "",
       ].join(" ")}
     >
       <View className="flex-row items-center justify-between">
         <View className="flex-row flex-1 items-center pr-4">
           <View
-            className={`h-11 w-11 items-center justify-center rounded-2xl ${
-              danger ? "bg-red-100" : iconBg
+            className={`h-11 w-11 items-center justify-center rounded-2xl border ${
+              danger ? "border-red-200 bg-white" : "border-gray-200 bg-white"
             }`}
           >
             <Ionicons
               name={icon}
               size={23}
-              color={danger ? "#DC2626" : "#111827"}
+              color={danger ? "#DC2626" : "#000000"}
             />
           </View>
 
@@ -80,7 +78,7 @@ function Row({
             <Text
               className={[
                 "text-base font-black",
-                danger ? "text-red-700" : "text-gray-900",
+                danger ? "text-red-700" : "text-black",
               ].join(" ")}
             >
               {title}
@@ -90,7 +88,7 @@ function Row({
               <Text
                 className={[
                   "mt-1 text-sm leading-5",
-                  danger ? "text-red-700/80" : "text-gray-600",
+                  danger ? "text-red-700/80" : "text-gray-500",
                 ].join(" ")}
               >
                 {subtitle}
@@ -102,8 +100,8 @@ function Row({
         {right ? (
           right
         ) : clickable ? (
-          <View className="h-8 w-8 items-center justify-center rounded-full bg-gray-50">
-            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          <View className="h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white">
+            <Ionicons name="chevron-forward" size={18} color="#000000" />
           </View>
         ) : null}
       </View>
@@ -119,12 +117,12 @@ function SectionTitle({
   icon: keyof typeof Ionicons.glyphMap;
 }) {
   return (
-    <View className="mt-6 mb-3 flex-row items-center">
-      <View className="h-9 w-9 items-center justify-center rounded-2xl bg-white shadow-sm">
-        <Ionicons name={icon} size={19} color="#16A34A" />
+    <View className="mb-3 mt-6 flex-row items-center">
+      <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <Ionicons name={icon} size={19} color="#000000" />
       </View>
 
-      <Text className="ml-2 text-xs font-black uppercase tracking-widest text-green-700">
+      <Text className="ml-2 text-xs font-black uppercase tracking-widest text-green-600">
         {title}
       </Text>
     </View>
@@ -478,7 +476,7 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-green-50"
+      className="flex-1 bg-white"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{
         paddingHorizontal: 20,
@@ -488,24 +486,24 @@ export default function SettingsScreen() {
     >
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-4">
-          <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+          <Text className="text-sm font-black uppercase tracking-widest text-green-600">
             Settings
           </Text>
 
-          <Text className="mt-1 text-3xl font-black text-gray-900">
+          <Text className="mt-1 text-3xl font-black text-black">
             Your Reflex
           </Text>
         </View>
 
-        <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
-          <Ionicons name="settings" size={29} color="#15803D" />
+        <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
+          <Ionicons name="settings" size={29} color="#000000" />
         </View>
       </View>
 
-      <View className="mt-6 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+      <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
         <View className="flex-row items-center">
           {profilePhotoUri ? (
-            <View className="rounded-full border-4 border-green-100 bg-white">
+            <View className="rounded-full border-4 border-green-600 bg-white">
               <Image
                 source={{ uri: profilePhotoUri }}
                 className="h-16 w-16 rounded-full"
@@ -513,13 +511,13 @@ export default function SettingsScreen() {
               />
             </View>
           ) : (
-            <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-100 bg-green-200">
-              <Ionicons name="person" size={28} color="#15803D" />
+            <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white">
+              <Ionicons name="person" size={28} color="#000000" />
             </View>
           )}
 
           <View className="ml-4 flex-1">
-            <Text className="text-xl font-black text-gray-900">
+            <Text className="text-xl font-black text-black">
               {profileName || "No username"}
             </Text>
 
@@ -539,7 +537,6 @@ export default function SettingsScreen() {
           onPress={busy ? undefined : () => navigation.navigate("ProfileSetup")}
           disabled={!!busy}
           icon="create"
-          iconBg="bg-blue-100"
         />
 
         <Row
@@ -561,19 +558,19 @@ export default function SettingsScreen() {
 
       <SectionTitle title="Reminders" icon="notifications" />
 
-      <View className="rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+      <View className="rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
         <View className="flex-row items-start justify-between">
           <View className="flex-row flex-1 items-start pr-4">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
-              <Ionicons name="alarm" size={24} color="#854D0E" />
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="alarm" size={24} color="#000000" />
             </View>
 
             <View className="ml-3 flex-1">
-              <Text className="text-base font-black text-gray-900">
+              <Text className="text-base font-black text-black">
                 Daily reflection reminder
               </Text>
 
-              <Text className="mt-2 text-sm font-black text-green-700">
+              <Text className="mt-2 text-sm font-black text-green-600">
                 {dailyReminder.option === "off"
                   ? "Currently off"
                   : `${getReminderLabel(dailyReminder.option)} · ${formatReminderTime(
@@ -582,7 +579,7 @@ export default function SettingsScreen() {
                     )}`}
               </Text>
 
-              <Text className="mt-1 text-sm leading-5 text-gray-600">
+              <Text className="mt-1 text-sm leading-5 text-gray-500">
                 Get a gentle nudge to check in and reflect.
               </Text>
             </View>
@@ -613,13 +610,13 @@ export default function SettingsScreen() {
                 <Ionicons
                   name={getReminderIcon(option)}
                   size={16}
-                  color={selected ? "#FFFFFF" : "#111827"}
+                  color={selected ? "#FFFFFF" : "#000000"}
                 />
 
                 <Text
                   className={[
                     "ml-1.5 text-sm font-black",
-                    selected ? "text-white" : "text-gray-900",
+                    selected ? "text-white" : "text-black",
                   ].join(" ")}
                 >
                   {getReminderLabel(option)}
@@ -630,7 +627,7 @@ export default function SettingsScreen() {
         </View>
 
         {dailyReminder.option === "custom" && (
-          <View className="mt-5 rounded-[28px] bg-gray-50 p-2">
+          <View className="mt-5 rounded-[28px] border border-gray-200 bg-white p-2">
             <DateTimePicker
               value={
                 new Date(2000, 0, 1, dailyReminder.hour, dailyReminder.minute)
@@ -657,7 +654,6 @@ export default function SettingsScreen() {
         }
         disabled={busy === "lock"}
         icon="lock-closed"
-        iconBg="bg-purple-100"
         right={
           busy === "lock" ? (
             <ActivityIndicator />
@@ -666,8 +662,8 @@ export default function SettingsScreen() {
               value={appLockEnabled}
               onValueChange={onToggleAppLock}
               disabled={!!busy}
-              trackColor={{ false: "#D4D4D8", true: "#BBF7D0" }}
-              thumbColor={appLockEnabled ? "#16A34A" : "#F4F4F5"}
+              trackColor={{ false: "#E5E7EB", true: "#86EFAC" }}
+              thumbColor={appLockEnabled ? "#16A34A" : "#F9FAFB"}
             />
           )
         }
@@ -682,13 +678,12 @@ export default function SettingsScreen() {
           onPress={busy ? undefined : onExport}
           disabled={!!busy}
           icon="share"
-          iconBg="bg-green-100"
           right={
             busy === "export" ? (
               <ActivityIndicator />
             ) : (
-              <View className="rounded-full bg-gray-50 px-3 py-1.5">
-                <Text className="font-black text-gray-700">Share</Text>
+              <View className="rounded-full border border-gray-200 bg-white px-3 py-1.5">
+                <Text className="font-black text-black">Share</Text>
               </View>
             )
           }
@@ -700,13 +695,12 @@ export default function SettingsScreen() {
           onPress={busy ? undefined : onImport}
           disabled={!!busy}
           icon="cloud-upload"
-          iconBg="bg-blue-100"
           right={
             busy === "import" ? (
               <ActivityIndicator />
             ) : (
-              <View className="rounded-full bg-gray-50 px-3 py-1.5">
-                <Text className="font-black text-gray-700">Import</Text>
+              <View className="rounded-full border border-gray-200 bg-white px-3 py-1.5">
+                <Text className="font-black text-black">Import</Text>
               </View>
             )
           }
@@ -737,26 +731,23 @@ export default function SettingsScreen() {
           subtitle={version}
           disabled
           icon="phone-portrait"
-          iconBg="bg-gray-100"
           right={
-            <View className="rounded-full bg-gray-50 px-3 py-1.5">
-              <Text className="font-black text-gray-700">{version}</Text>
+            <View className="rounded-full border border-gray-200 bg-white px-3 py-1.5">
+              <Text className="font-black text-black">{version}</Text>
             </View>
           }
         />
 
-        <View className="rounded-[28px] border border-green-100 bg-white p-5 shadow-sm">
+        <View className="rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="flex-row items-center">
-            <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
-              <Ionicons name="leaf" size={23} color="#16A34A" />
+            <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="leaf" size={23} color="#000000" />
             </View>
 
             <View className="ml-3 flex-1">
-              <Text className="text-base font-black text-gray-900">
-                Privacy
-              </Text>
+              <Text className="text-base font-black text-black">Privacy</Text>
 
-              <Text className="mt-1 text-sm leading-5 text-gray-600">
+              <Text className="mt-1 text-sm leading-5 text-gray-500">
                 Reflex is local-first. Your tracking data and profile stay on
                 this device unless you export them.
               </Text>

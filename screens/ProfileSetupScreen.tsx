@@ -104,12 +104,12 @@ export default function ProfileSetupScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-green-50"
+      className="flex-1 bg-white"
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 20}
     >
       <ScrollView
-        className="flex-1 bg-green-50"
+        className="flex-1 bg-white"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
@@ -123,23 +123,23 @@ export default function ProfileSetupScreen() {
         <View>
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-4">
-              <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+              <Text className="text-sm font-black uppercase tracking-widest text-green-600">
                 Profile
               </Text>
 
-              <Text className="mt-1 text-3xl font-black text-gray-900">
+              <Text className="mt-1 text-3xl font-black text-black">
                 {isEditing ? "Edit profile" : "Set up profile"}
               </Text>
             </View>
 
-            <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
-              <Ionicons name="person" size={29} color="#15803D" />
+            <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
+              <Ionicons name="person" size={29} color="#000000" />
             </View>
           </View>
 
-          <View className="mt-6 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+          <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
             <View className="items-center">
-              <View className="rounded-full border-4 border-green-100 bg-white p-1 shadow-sm">
+              <View className="rounded-full border-4 border-green-600 bg-white p-1 shadow-sm">
                 {photoUri ? (
                   <Image
                     source={{ uri: photoUri }}
@@ -147,8 +147,8 @@ export default function ProfileSetupScreen() {
                     resizeMode="cover"
                   />
                 ) : (
-                  <View className="h-32 w-32 items-center justify-center rounded-full bg-green-100">
-                    <Ionicons name="camera" size={42} color="#16A34A" />
+                  <View className="h-32 w-32 items-center justify-center rounded-full bg-white">
+                    <Ionicons name="camera" size={42} color="#000000" />
                   </View>
                 )}
               </View>
@@ -168,28 +168,28 @@ export default function ProfileSetupScreen() {
                 <Ionicons
                   name={photoUri ? "camera-reverse" : "camera"}
                   size={18}
-                  color="#111827"
+                  color="#000000"
                 />
 
-                <Text className="ml-2 text-sm font-black text-gray-900">
+                <Text className="ml-2 text-sm font-black text-black">
                   {photoUri ? "Change photo" : "Choose photo"}
                 </Text>
               </Pressable>
             </View>
           </View>
 
-          <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+          <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
             <View className="flex-row items-center">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-blue-100">
-                <Ionicons name="id-card" size={24} color="#111827" />
+              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                <Ionicons name="id-card" size={24} color="#000000" />
               </View>
 
               <View className="ml-3 flex-1">
-                <Text className="text-base font-black text-gray-900">
+                <Text className="text-base font-black text-black">
                   Display name
                 </Text>
 
-                <Text className="mt-1 text-sm leading-5 text-gray-600">
+                <Text className="mt-1 text-sm leading-5 text-gray-500">
                   {isEditing
                     ? "Update the name shown around the app."
                     : "Choose the name you want Reflex to use on this device."}
@@ -205,23 +205,23 @@ export default function ProfileSetupScreen() {
               autoCapitalize="words"
               returnKeyType="done"
               submitBehavior="blurAndSubmit"
-              className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-gray-900"
+              className="mt-5 rounded-2xl border border-gray-200 bg-white px-4 py-4 text-black"
               onSubmitEditing={() => Keyboard.dismiss()}
             />
           </View>
 
-          <View className="mt-5 rounded-[28px] border border-green-100 bg-white p-4 shadow-sm">
+          <View className="mt-5 rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
             <View className="flex-row items-center">
-              <View className="h-11 w-11 items-center justify-center rounded-2xl bg-yellow-100">
-                <Ionicons name="lock-closed" size={22} color="#854D0E" />
+              <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                <Ionicons name="lock-closed" size={22} color="#000000" />
               </View>
 
               <View className="ml-3 flex-1">
-                <Text className="text-base font-black text-gray-900">
+                <Text className="text-base font-black text-black">
                   Local profile
                 </Text>
 
-                <Text className="mt-1 text-sm leading-5 text-gray-600">
+                <Text className="mt-1 text-sm leading-5 text-gray-500">
                   Your name and photo are saved locally on this device.
                 </Text>
               </View>
@@ -232,7 +232,7 @@ export default function ProfileSetupScreen() {
             onPress={onSave}
             disabled={!canSave}
             className={`mt-6 w-full rounded-3xl px-5 py-4 shadow-sm ${
-              canSave ? "bg-green-600" : "bg-green-300"
+              canSave ? "bg-green-600" : "bg-gray-300"
             }`}
             style={({ pressed }) => ({
               shadowColor: canSave ? "#000" : "transparent",

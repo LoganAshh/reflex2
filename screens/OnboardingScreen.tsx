@@ -79,14 +79,14 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
   const canAdd = value.trim().length > 0;
 
   return (
-    <View className="mt-5 w-full rounded-[28px] border border-green-100 bg-white p-5 shadow-sm">
+    <View className="mt-5 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
       <View className="flex-row items-center">
-        <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
-          <Ionicons name={getTypeIcon(type)} size={23} color="#16A34A" />
+        <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+          <Ionicons name={getTypeIcon(type)} size={23} color="#000000" />
         </View>
 
         <View className="ml-3 flex-1">
-          <Text className="text-base font-black text-gray-900">
+          <Text className="text-base font-black text-black">
             {getTypeTitle(type)}
           </Text>
           <Text className="mt-1 text-sm font-semibold text-gray-500">
@@ -111,7 +111,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
             >
               <Text
                 className={`text-sm font-black ${
-                  isSelected ? "text-white" : "text-gray-900"
+                  isSelected ? "text-white" : "text-black"
                 }`}
               >
                 {item.name}
@@ -121,14 +121,14 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
         })}
       </View>
 
-      <View className="mt-5 rounded-[24px] bg-gray-50 p-4">
+      <View className="mt-5 rounded-[24px] border border-gray-200 bg-white p-4">
         <View className="flex-row items-center">
-          <View className="h-10 w-10 items-center justify-center rounded-2xl bg-yellow-100">
-            <Ionicons name="add-circle" size={22} color="#854D0E" />
+          <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+            <Ionicons name="add-circle" size={22} color="#000000" />
           </View>
 
           <View className="ml-3 flex-1">
-            <Text className="text-sm font-black text-gray-900">Add custom</Text>
+            <Text className="text-sm font-black text-black">Add custom</Text>
             <Text className="mt-0.5 text-xs font-semibold text-gray-500">
               Create one that fits your real life.
             </Text>
@@ -141,7 +141,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
             onChangeText={onChangeText}
             placeholder={placeholder}
             placeholderTextColor="#9CA3AF"
-            className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+            className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-black"
             returnKeyType="done"
             onSubmitEditing={() => {
               if (canAdd) onAddCustom(type);
@@ -156,7 +156,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
             }}
             disabled={!canAdd}
             className={`rounded-2xl px-4 py-3 ${
-              canAdd ? "bg-gray-900" : "bg-gray-300"
+              canAdd ? "bg-green-600" : "bg-gray-300"
             }`}
             style={({ pressed }) => ({
               shadowColor: canAdd ? "#000" : "transparent",
@@ -392,7 +392,7 @@ export default function OnboardingScreen() {
     return (
       <View className="pt-10">
         <View className="mb-3 flex-row items-center justify-between">
-          <Text className="text-sm font-black uppercase tracking-wide text-green-700">
+          <Text className="text-sm font-black uppercase tracking-wide text-green-600">
             Step {step + 1} of {totalSteps}
           </Text>
 
@@ -402,20 +402,18 @@ export default function OnboardingScreen() {
                 buzz();
                 skipToSetup();
               }}
-              className="rounded-full bg-white px-4 py-2 shadow-sm"
+              className="rounded-full border border-gray-200 bg-white px-4 py-2 shadow-sm"
             >
-              <Text className="text-sm font-black text-gray-900">
-                Skip setup
-              </Text>
+              <Text className="text-sm font-black text-black">Skip setup</Text>
             </Pressable>
           ) : (
-            <View className="rounded-full bg-white px-4 py-2 shadow-sm">
-              <Text className="text-sm font-black text-green-700">Setup</Text>
+            <View className="rounded-full border border-gray-200 bg-white px-4 py-2 shadow-sm">
+              <Text className="text-sm font-black text-green-600">Setup</Text>
             </View>
           )}
         </View>
 
-        <View className="h-5 w-full overflow-hidden rounded-full bg-white">
+        <View className="h-5 w-full overflow-hidden rounded-full bg-gray-200">
           <View
             style={{ width: `${pct}%` }}
             className="h-5 rounded-full bg-green-600"
@@ -457,13 +455,13 @@ export default function OnboardingScreen() {
               style={({ pressed }) => ({
                 shadowColor: "#000",
                 shadowOffset: { width: 0, height: pressed ? 1 : 4 },
-                shadowOpacity: 0.15,
+                shadowOpacity: 0.12,
                 shadowRadius: pressed ? 2 : 4,
                 elevation: pressed ? 2 : 5,
                 transform: [{ translateY: pressed ? 1 : 0 }],
               })}
             >
-              <Text className="text-center text-lg font-black text-gray-900">
+              <Text className="text-center text-lg font-black text-black">
                 Back
               </Text>
             </Pressable>
@@ -521,21 +519,21 @@ export default function OnboardingScreen() {
     badge: string;
   }) => (
     <View className="items-center">
-      <View className="rounded-full border-4 border-white bg-green-200 p-5 shadow-sm">
-        <Ionicons name={icon} size={54} color="#16A34A" />
+      <View className="rounded-full border-4 border-green-600 bg-white p-5 shadow-sm">
+        <Ionicons name={icon} size={54} color="#000000" />
       </View>
 
-      <View className="mt-5 rounded-full bg-white px-4 py-2 shadow-sm">
-        <Text className="text-xs font-black uppercase tracking-wide text-green-700">
+      <View className="mt-5 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 shadow-sm">
+        <Text className="text-xs font-black uppercase tracking-wide text-green-600">
           {badge}
         </Text>
       </View>
 
-      <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-gray-900">
+      <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-black">
         {title}
       </Text>
 
-      <Text className="mt-5 text-center text-lg font-semibold leading-7 text-gray-600">
+      <Text className="mt-5 text-center text-lg font-semibold leading-7 text-gray-500">
         {body}
       </Text>
     </View>
@@ -553,21 +551,21 @@ export default function OnboardingScreen() {
     badge: string;
   }) => (
     <View className="items-center">
-      <View className="rounded-full border-4 border-white bg-green-200 p-5 shadow-sm">
-        <Ionicons name={icon} size={54} color="#16A34A" />
+      <View className="rounded-full border-4 border-green-600 bg-white p-5 shadow-sm">
+        <Ionicons name={icon} size={54} color="#000000" />
       </View>
 
-      <View className="mt-5 rounded-full bg-white px-4 py-2 shadow-sm">
-        <Text className="text-xs font-black uppercase tracking-wide text-green-700">
+      <View className="mt-5 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 shadow-sm">
+        <Text className="text-xs font-black uppercase tracking-wide text-green-600">
           {badge}
         </Text>
       </View>
 
-      <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-gray-900">
+      <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-black">
         {title}
       </Text>
 
-      <Text className="mt-5 text-center text-lg font-semibold leading-7 text-gray-600">
+      <Text className="mt-5 text-center text-lg font-semibold leading-7 text-gray-500">
         {body}
       </Text>
     </View>
@@ -601,18 +599,18 @@ export default function OnboardingScreen() {
             badge="Your focus"
           />
 
-          <View className="mt-6 rounded-[28px] border border-green-100 bg-white p-5 shadow-sm">
+          <View className="mt-6 rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
             <View className="flex-row items-center">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
-                <Ionicons name="bulb" size={24} color="#854D0E" />
+              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                <Ionicons name="bulb" size={24} color="#000000" />
               </View>
 
               <View className="ml-3 flex-1">
-                <Text className="text-base font-black text-gray-900">
+                <Text className="text-base font-black text-black">
                   Tip: Start small
                 </Text>
 
-                <Text className="mt-1 text-sm leading-5 text-gray-600">
+                <Text className="mt-1 text-sm leading-5 text-gray-500">
                   It’s usually easier to focus on one or two habits at first.
                 </Text>
               </View>
@@ -690,7 +688,7 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <View className="flex-1 bg-green-50 px-5">
+    <View className="flex-1 bg-white px-5">
       <ProgressBar />
 
       <ScrollView
