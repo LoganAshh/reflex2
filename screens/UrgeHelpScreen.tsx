@@ -196,6 +196,23 @@ export default function UrgeHelpScreen() {
   const hasSelectedActions = selectedActions.length > 0;
   const progressPct = (currentStepNumber / totalSteps) * 100;
 
+  const isReplacementActionStep =
+    currentStep.title === "Do a Replacement Action";
+
+  const titleClassName = isReplacementActionStep
+    ? "mt-5 text-center text-[25px] font-black leading-[30px] text-black"
+    : "mt-8 text-center text-4xl font-black leading-[44px] text-black";
+
+  const bodyClassName = isReplacementActionStep
+    ? "mt-2 text-center text-base font-semibold leading-6 text-gray-500"
+    : "mt-5 text-center text-lg font-semibold leading-7 text-gray-500";
+
+  const iconWrapClassName = isReplacementActionStep
+    ? "rounded-full border-4 border-green-600 bg-white p-4 shadow-sm"
+    : "rounded-full border-4 border-green-600 bg-white p-5 shadow-sm";
+
+  const iconSize = isReplacementActionStep ? 44 : 54;
+
   const onChooseAction = async (actionId: number | null) => {
     try {
       setSavingAction(true);
@@ -246,18 +263,18 @@ export default function UrgeHelpScreen() {
     if (currentStep.kind !== "action") return null;
 
     return (
-      <View className="mt-6 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+      <View className="mt-4 w-full rounded-[26px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
         <View className="flex-row items-center">
-          <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-            <Ionicons name="flash" size={23} color="#000000" />
+          <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+            <Ionicons name="flash" size={21} color="#000000" />
           </View>
 
           <View className="ml-3 flex-1">
-            <Text className="text-base font-black text-black">
+            <Text className="text-sm font-black text-black">
               Selected replacement actions
             </Text>
 
-            <Text className="mt-1 text-sm leading-5 text-gray-500">
+            <Text className="mt-0.5 text-xs leading-4 text-gray-500">
               Choose the action you used, or add a new one.
             </Text>
           </View>
@@ -265,15 +282,15 @@ export default function UrgeHelpScreen() {
 
         {!hasSelectedActions ? (
           <>
-            <View className="mt-5 rounded-[24px] border border-gray-200 bg-white p-4">
-              <Text className="text-sm font-semibold leading-5 text-gray-500">
+            <View className="mt-3 rounded-[20px] border border-gray-200 bg-white p-3">
+              <Text className="text-xs font-semibold leading-4 text-gray-500">
                 You do not have any selected replacement actions yet.
               </Text>
             </View>
 
             <Pressable
               onPress={goToShop}
-              className="mt-4 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+              className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-3 shadow-sm"
               style={({ pressed }) => ({
                 shadowColor: "#000",
                 shadowOffset: { width: 0, height: pressed ? 1 : 4 },
@@ -284,84 +301,93 @@ export default function UrgeHelpScreen() {
               })}
             >
               <View className="flex-row items-center justify-center">
-                <Ionicons name="bag-handle" size={20} color="#000000" />
-                <Text className="ml-2 text-center text-base font-black text-black">
+                <Ionicons name="bag-handle" size={19} color="#000000" />
+                <Text className="ml-2 text-center text-sm font-black text-black">
                   Go to Shop
                 </Text>
               </View>
             </Pressable>
 
-            <Text className="mt-3 text-center text-xs font-semibold text-gray-500">
-              Select a few actions in Shop, then tap Back to return here.
+            <Text className="mt-2 text-center text-xs font-semibold text-gray-500">
+              Select actions in Shop, then tap Back to return.
             </Text>
           </>
         ) : (
-          <ScrollView
-            className="mt-5"
-            style={{ maxHeight: 132 }}
-            nestedScrollEnabled
-            showsVerticalScrollIndicator
-          >
-            <View className="flex-row flex-wrap gap-2 pb-1">
-              <Pressable
-                onPress={() => onChooseAction(null)}
-                disabled={savingAction}
-                className={`rounded-full border px-4 py-2.5 ${
-                  selectedActionId == null
-                    ? "border-green-600 bg-green-600"
-                    : "border-gray-200 bg-white"
-                }`}
-              >
-                <Text
-                  className={`text-sm font-black ${
-                    selectedActionId == null ? "text-white" : "text-black"
+          <>
+            <ScrollView
+              className="mt-3"
+              style={{ maxHeight: 110 }}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+            >
+              <View className="flex-row flex-wrap gap-2 pb-1">
+                <Pressable
+                  onPress={() => onChooseAction(null)}
+                  disabled={savingAction}
+                  className={`rounded-full border px-3 py-2 ${
+                    selectedActionId == null
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
                   }`}
                 >
-                  None
-                </Text>
-              </Pressable>
-
-              {selectedActions.map((action) => {
-                const isSelected = selectedActionId === action.id;
-
-                return (
-                  <Pressable
-                    key={action.id}
-                    onPress={() => onChooseAction(action.id)}
-                    disabled={savingAction}
-                    className={`rounded-full border px-4 py-2.5 ${
-                      isSelected
-                        ? "border-green-600 bg-green-600"
-                        : "border-gray-200 bg-white"
+                  <Text
+                    className={`text-xs font-black ${
+                      selectedActionId == null ? "text-white" : "text-black"
                     }`}
                   >
-                    <Text
-                      className={`text-sm font-black ${
-                        isSelected ? "text-white" : "text-black"
+                    None
+                  </Text>
+                </Pressable>
+
+                {selectedActions.map((action) => {
+                  const isSelected = selectedActionId === action.id;
+
+                  return (
+                    <Pressable
+                      key={action.id}
+                      onPress={() => onChooseAction(action.id)}
+                      disabled={savingAction}
+                      className={`rounded-full border px-3 py-2 ${
+                        isSelected
+                          ? "border-green-600 bg-green-600"
+                          : "border-gray-200 bg-white"
                       }`}
                     >
-                      {action.title}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <Text
+                        className={`text-xs font-black ${
+                          isSelected ? "text-white" : "text-black"
+                        }`}
+                      >
+                        {action.title}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
 
-              <Pressable
-                onPress={goToShop}
-                className="rounded-full border border-gray-200 bg-white px-4 py-2.5"
-              >
-                <Text className="text-sm font-black text-black">+ Add</Text>
-              </Pressable>
+                <Pressable
+                  onPress={goToShop}
+                  className="rounded-full border border-gray-200 bg-white px-3 py-2"
+                >
+                  <Text className="text-xs font-black text-black">+ Add</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+
+            <View className="mt-2 flex-row items-center justify-center">
+              <Ionicons name="chevron-down" size={14} color="#6B7280" />
+              <Text className="ml-1 text-xs font-bold text-gray-500">
+                Scroll inside the box to see more options
+              </Text>
             </View>
-          </ScrollView>
+          </>
         )}
 
-        <View className="mt-5 rounded-[24px] border border-gray-200 bg-white p-4">
-          <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
+        <View className="mt-3 rounded-[20px] border border-gray-200 bg-white p-3">
+          <Text className="text-[10px] font-black uppercase tracking-wide text-gray-500">
             Saved to this log
           </Text>
 
-          <Text className="mt-1 text-sm font-black text-black">
+          <Text className="mt-0.5 text-sm font-black text-black">
             {currentLog?.selectedActionTitle ??
               "No replacement action selected"}
           </Text>
@@ -391,23 +417,26 @@ export default function UrgeHelpScreen() {
         contentContainerStyle={{
           flexGrow: 1,
           justifyContent: "center",
-          paddingTop: mode === "guided" ? 20 : 42,
-          paddingBottom: 12,
+          paddingTop: isReplacementActionStep ? 6 : mode === "guided" ? 20 : 42,
+          paddingBottom: isReplacementActionStep ? 4 : 12,
         }}
         showsVerticalScrollIndicator={false}
       >
         <View className="items-center">
-          <View className="rounded-full border-4 border-green-600 bg-white p-5 shadow-sm">
-            <Ionicons name={currentStep.icon} size={54} color="#000000" />
+          <View className={iconWrapClassName}>
+            <Ionicons name={currentStep.icon} size={iconSize} color="#000000" />
           </View>
 
-          <Text className="mt-8 text-center text-4xl font-black leading-[44px] text-black">
+          <Text
+            className={titleClassName}
+            numberOfLines={isReplacementActionStep ? 1 : undefined}
+            adjustsFontSizeToFit={isReplacementActionStep}
+            minimumFontScale={0.8}
+          >
             {currentStep.title}
           </Text>
 
-          <Text className="mt-5 text-center text-lg font-semibold leading-7 text-gray-500">
-            {currentStep.body}
-          </Text>
+          <Text className={bodyClassName}>{currentStep.body}</Text>
 
           {"tip" in currentStep && currentStep.tip ? (
             <View className="mt-8 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
