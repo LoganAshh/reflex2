@@ -176,11 +176,6 @@ export default function HomeScreen() {
     }
   }, [habitOptions, selectedHabitId]);
 
-  const selectedHabit = useMemo(() => {
-    if (selectedHabitId == null) return null;
-    return habitOptions.find((habit) => habit.id === selectedHabitId) ?? null;
-  }, [habitOptions, selectedHabitId]);
-
   const stats = useMemo(() => {
     const logsForStats =
       selectedHabitId == null
@@ -298,34 +293,6 @@ export default function HomeScreen() {
       previousBestCleanStreakDays,
     };
   }, [logs, selectedHabitId]);
-
-  const heroPercent =
-    selectedHabitId == null ? stats.allTimeResistRate : stats.todayResistRate;
-
-  const heroTitle =
-    logs.length === 0
-      ? "Start your first streak"
-      : selectedHabit
-        ? `${selectedHabit.name} progress`
-        : "Your progress is building";
-
-  const heroBody =
-    logs.length === 0
-      ? "One quick check-in starts the loop."
-      : selectedHabit
-        ? "Stay aware, interrupt the pattern, and keep stacking wins."
-        : "Every check-in makes the habit easier to understand and change.";
-
-  const selectedScopeLabel = selectedHabit?.name ?? "Overall";
-
-  const ProgressBar = ({ value }: { value: number }) => (
-    <View className="mt-4 h-5 w-full overflow-hidden rounded-full bg-white/30">
-      <View
-        style={{ width: `${Math.max(6, Math.min(100, value))}%` }}
-        className="h-5 rounded-full bg-white"
-      />
-    </View>
-  );
 
   const StatTile = ({
     label,
@@ -465,41 +432,7 @@ export default function HomeScreen() {
         )}
       </View>
 
-      <View className="mt-6 overflow-hidden rounded-[32px] bg-green-600 p-6 shadow-sm">
-        <View className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/20" />
-        <View className="absolute -bottom-12 -left-10 h-28 w-28 rounded-full bg-white/10" />
-
-        <View className="flex-row items-center justify-between">
-          <View className="rounded-full bg-white/20 px-3 py-1.5">
-            <Text className="text-xs font-black uppercase tracking-wide text-white">
-              {selectedScopeLabel}
-            </Text>
-          </View>
-
-          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white">
-            <Ionicons name="flash" size={26} color="#16A34A" />
-          </View>
-        </View>
-
-        <Text className="mt-5 text-3xl font-black leading-9 text-white">
-          {heroTitle}
-        </Text>
-
-        <Text className="mt-2 text-base font-semibold leading-6 text-green-50">
-          {heroBody}
-        </Text>
-
-        <ProgressBar value={heroPercent} />
-
-        <View className="mt-3 flex-row items-center justify-between">
-          <Text className="text-sm font-bold text-green-50">
-            Resist progress
-          </Text>
-          <Text className="text-sm font-black text-white">{heroPercent}%</Text>
-        </View>
-      </View>
-
-      <View className="mt-4 flex-row gap-3">
+      <View className="mt-6 flex-row gap-3">
         <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
