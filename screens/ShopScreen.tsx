@@ -269,7 +269,7 @@ export default function ShopScreen() {
 
     return (
       <View
-        className={`mb-3 rounded-3xl border p-4 shadow-sm ${
+        className={`mx-5 mb-3 rounded-3xl border p-4 shadow-sm ${
           isSelected ? "border-gray-200 bg-gray-50" : "border-gray-200 bg-white"
         }`}
       >
