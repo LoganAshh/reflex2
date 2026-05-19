@@ -303,26 +303,26 @@ export default function HomeScreen() {
 
   const positiveFeedbackText = useMemo(() => {
     if (stats.todayLogs === 0 && stats.weekLogs === 0) {
-      return "You’re here and checking your progress. That already means you’re paying attention instead of ignoring the habit.";
+      return "Nice work! You’re here and checking your progress. That already means you’re paying attention instead of ignoring the habit.";
     }
 
     if (stats.todayLogs === 0) {
-      return "You’ve logged this week, which means you’re building awareness. One quick check-in today keeps that pattern going.";
+      return "Good job! You’ve logged this week, which means you’re building awareness. One quick check-in today keeps that pattern going.";
     }
 
     if (stats.todayResists > 0) {
-      return `You resisted ${stats.todayResists} ${
+      return `Great job! You resisted ${stats.todayResists} ${
         stats.todayResists === 1 ? "urge" : "urges"
       } today. That means you paused, noticed the urge, and chose not to automatically give in.`;
     }
 
     if (stats.weekResists > 0) {
-      return `You’ve resisted ${stats.weekResists} ${
+      return `Keep going! You’ve resisted ${stats.weekResists} ${
         stats.weekResists === 1 ? "urge" : "urges"
       } this week. Even when today is hard, you’ve already proven you can interrupt the pattern.`;
     }
 
-    return "You checked in today. That means you caught the moment and recorded it instead of letting it pass unnoticed.";
+    return "Nice work! You checked in today. That means you caught the moment and recorded it instead of letting it pass unnoticed.";
   }, [stats.todayLogs, stats.todayResists, stats.weekLogs, stats.weekResists]);
 
   const StatTile = ({
