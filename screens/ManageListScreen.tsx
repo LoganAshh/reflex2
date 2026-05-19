@@ -43,18 +43,6 @@ function getFilterIcon(filter: Filter): keyof typeof Ionicons.glyphMap {
   return "create";
 }
 
-function getScreenSubtitle(type: ManageListType) {
-  if (type === "habits") {
-    return "Choose which habits appear when you log a check-in.";
-  }
-
-  if (type === "cues") {
-    return "Choose the triggers you want available on the Log screen.";
-  }
-
-  return "Choose the locations you want available on the Log screen.";
-}
-
 export default function ManageListScreen() {
   const route = useRoute<ManageRoute>();
   const navigation = useNavigation<Nav>();
@@ -359,44 +347,6 @@ export default function ManageListScreen() {
 
         <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
           <Ionicons name={getScreenIcon(type)} size={29} color="#000000" />
-        </View>
-      </View>
-
-      <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
-        <View className="flex-row items-center">
-          <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-            <Ionicons name="list" size={24} color="#000000" />
-          </View>
-
-          <View className="ml-3 flex-1">
-            <Text className="text-base font-black text-black">
-              Customize your Log screen
-            </Text>
-
-            <Text className="mt-1 text-sm leading-5 text-gray-500">
-              {getScreenSubtitle(type)}
-            </Text>
-          </View>
-        </View>
-
-        <View className="mt-5 flex-row gap-3">
-          <View className="flex-1 rounded-3xl border border-gray-200 bg-white p-4">
-            <Text className="text-3xl font-black text-black">
-              {selectedCount}
-            </Text>
-            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-500">
-              Selected
-            </Text>
-          </View>
-
-          <View className="flex-1 rounded-3xl border border-gray-200 bg-white p-4">
-            <Text className="text-3xl font-black text-black">
-              {customCount}
-            </Text>
-            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-500">
-              Custom
-            </Text>
-          </View>
         </View>
       </View>
 
