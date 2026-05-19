@@ -384,7 +384,7 @@ export default function OnboardingScreen() {
     const pct = ((step + 1) / totalSteps) * 100;
 
     return (
-      <View className="pt-10">
+      <View className="pt-16">
         <View className="mb-3 flex-row items-center justify-between">
           <Text className="text-sm font-black uppercase tracking-wide text-green-600">
             Step {step + 1} of {totalSteps}
@@ -671,7 +671,7 @@ export default function OnboardingScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           flexGrow: 1,
-          paddingTop: 20,
+          paddingTop: 12,
           paddingBottom: 12,
         }}
       >
