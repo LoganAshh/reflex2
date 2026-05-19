@@ -15,6 +15,7 @@ import {
   UIManager,
   findNodeHandle,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
@@ -91,6 +92,8 @@ function scrollChipToId<T extends { id: number }>(
 
 function ChipRow<T extends BaseItem>({
   title,
+  subtitle,
+  icon,
   items,
   selectedId,
   onSelect,
@@ -99,6 +102,8 @@ function ChipRow<T extends BaseItem>({
   listRef,
 }: {
   title: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
   items: T[];
   selectedId: number | null;
   onSelect: (id: number | null) => void;
@@ -127,11 +132,6 @@ function ChipRow<T extends BaseItem>({
           ? item.id === selectedId
           : false;
 
-    const base = "mr-2 rounded-full border px-4 py-2";
-    const selected = "border-green-600 bg-green-600";
-    const unselected = "border-gray-200 bg-white";
-    const addStyle = "border-gray-200 bg-white";
-
     return (
       <Pressable
         onPress={() => {
@@ -142,12 +142,16 @@ function ChipRow<T extends BaseItem>({
 
           onSelect(item.id);
         }}
-        className={`${base} ${
-          item.kind === "add" ? addStyle : isSelected ? selected : unselected
+        className={`mr-2 rounded-full border px-4 py-2.5 ${
+          item.kind === "add"
+            ? "border-gray-200 bg-white"
+            : isSelected
+              ? "border-green-600 bg-green-600"
+              : "border-gray-200 bg-white"
         }`}
       >
         <Text
-          className={`text-sm font-semibold ${
+          className={`text-sm font-black ${
             item.kind === "add"
               ? "text-gray-900"
               : isSelected
@@ -163,12 +167,23 @@ function ChipRow<T extends BaseItem>({
   };
 
   return (
-    <View className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3">
-      <Text className="text-sm font-semibold text-gray-900">{title}</Text>
+    <View className="mt-4 w-full rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+      <View className="flex-row items-center">
+        <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
+          <Ionicons name={icon} size={23} color="#16A34A" />
+        </View>
+
+        <View className="ml-3 flex-1">
+          <Text className="text-base font-black text-gray-900">{title}</Text>
+          <Text className="mt-0.5 text-xs font-semibold text-gray-500">
+            {subtitle}
+          </Text>
+        </View>
+      </View>
 
       <FlatList
         ref={listRef}
-        className="mt-2"
+        className="mt-3"
         horizontal
         showsHorizontalScrollIndicator={false}
         data={data}
@@ -219,15 +234,25 @@ function IntensityPickerModal({
         onPress={onClose}
       >
         <Pressable
-          className="w-full rounded-2xl bg-white p-4"
+          className="w-full rounded-[32px] bg-white p-5"
           onPress={() => {}}
         >
-          <Text className="text-base font-bold text-gray-900">
-            Pick intensity
-          </Text>
-          <Text className="mt-1 text-xs text-gray-500">1 low, 10 high</Text>
+          <View className="flex-row items-center">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-orange-100">
+              <Ionicons name="pulse" size={24} color="#111827" />
+            </View>
 
-          <View className="mt-4 flex-row flex-wrap">
+            <View className="ml-3 flex-1">
+              <Text className="text-xl font-black text-gray-900">
+                Pick intensity
+              </Text>
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                1 low, 10 high
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-5 flex-row flex-wrap">
             {options.map((n) => {
               const selected = value === n;
 
@@ -235,14 +260,14 @@ function IntensityPickerModal({
                 <Pressable
                   key={n}
                   onPress={() => onPick(n)}
-                  className={`mb-2 mr-2 rounded-full border px-4 py-2 ${
+                  className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
                     selected
                       ? "border-green-600 bg-green-600"
                       : "border-gray-200 bg-white"
                   }`}
                 >
                   <Text
-                    className={`text-sm font-semibold ${
+                    className={`text-sm font-black ${
                       selected ? "text-white" : "text-gray-900"
                     }`}
                   >
@@ -253,21 +278,19 @@ function IntensityPickerModal({
             })}
           </View>
 
-          <View className="mt-2 flex-row justify-between">
+          <View className="mt-3 flex-row justify-between">
             <Pressable
               onPress={onClear}
-              className="rounded-xl border border-gray-200 bg-white px-4 py-3"
+              className="rounded-2xl border border-gray-200 bg-white px-4 py-3"
             >
-              <Text className="text-sm font-semibold text-gray-900">
-                Set None
-              </Text>
+              <Text className="text-sm font-black text-gray-900">Set None</Text>
             </Pressable>
 
             <Pressable
               onPress={onClose}
-              className="rounded-xl bg-gray-900 px-4 py-3"
+              className="rounded-2xl bg-gray-900 px-4 py-3"
             >
-              <Text className="text-sm font-semibold text-white">Done</Text>
+              <Text className="text-sm font-black text-white">Done</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -306,17 +329,25 @@ function CountPickerModal({
         onPress={onClose}
       >
         <Pressable
-          className="w-full rounded-2xl bg-white p-4"
+          className="w-full rounded-[32px] bg-white p-5"
           onPress={() => {}}
         >
-          <Text className="text-base font-bold text-gray-900">
-            Times given in
-          </Text>
-          <Text className="mt-1 text-xs text-gray-500">
-            Only count times you actually gave in.
-          </Text>
+          <View className="flex-row items-center">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
+              <Ionicons name="repeat" size={24} color="#111827" />
+            </View>
 
-          <View className="mt-4 flex-row flex-wrap">
+            <View className="ml-3 flex-1">
+              <Text className="text-xl font-black text-gray-900">
+                Times given in
+              </Text>
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                Only count times you actually gave in.
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-5 flex-row flex-wrap">
             {options.map((n) => {
               const selected = value === n;
 
@@ -324,14 +355,14 @@ function CountPickerModal({
                 <Pressable
                   key={n}
                   onPress={() => onPick(n)}
-                  className={`mb-2 mr-2 rounded-full border px-4 py-2 ${
+                  className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
                     selected
                       ? "border-green-600 bg-green-600"
                       : "border-gray-200 bg-white"
                   }`}
                 >
                   <Text
-                    className={`text-sm font-semibold ${
+                    className={`text-sm font-black ${
                       selected ? "text-white" : "text-gray-900"
                     }`}
                   >
@@ -342,12 +373,12 @@ function CountPickerModal({
             })}
           </View>
 
-          <View className="mt-2 flex-row justify-end">
+          <View className="mt-3 flex-row justify-end">
             <Pressable
               onPress={onClose}
-              className="rounded-xl bg-gray-900 px-4 py-3"
+              className="rounded-2xl bg-gray-900 px-4 py-3"
             >
-              <Text className="text-sm font-semibold text-white">Done</Text>
+              <Text className="text-sm font-black text-white">Done</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -442,6 +473,23 @@ export default function LogScreen() {
     [selectedLocations, locationAssociationCounts],
   );
 
+  const selectedHabitName = useMemo(() => {
+    return orderedHabits.find((habit) => habit.id === habitId)?.name ?? "Habit";
+  }, [orderedHabits, habitId]);
+
+  const selectedCueName = useMemo(() => {
+    if (cueId == null) return "No cue";
+    return orderedCues.find((cue) => cue.id === cueId)?.name ?? "Cue";
+  }, [orderedCues, cueId]);
+
+  const selectedLocationName = useMemo(() => {
+    if (locationId == null) return "No location";
+    return (
+      orderedLocations.find((location) => location.id === locationId)?.name ??
+      "Location"
+    );
+  }, [orderedLocations, locationId]);
+
   const scrollChipRowsToStart = () => {
     habitListRef.current?.scrollToOffset({ offset: 0, animated: true });
     cueListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -474,7 +522,10 @@ export default function LogScreen() {
 
   const getDefaultHabitIdAfterLog = (submittedHabitId: number) => {
     const nextCounts = new Map(habitFrequencyCounts);
-    nextCounts.set(submittedHabitId, (nextCounts.get(submittedHabitId) ?? 0) + 1);
+    nextCounts.set(
+      submittedHabitId,
+      (nextCounts.get(submittedHabitId) ?? 0) + 1,
+    );
 
     return applyFrequencyOrdering(selectedHabits, nextCounts)[0]?.id ?? null;
   };
@@ -675,16 +726,57 @@ export default function LogScreen() {
   };
 
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
-  const countLabel = count === 1 ? "1 time" : `${count} times`;
+  const countLabel = didResist
+    ? "0 times"
+    : count === 1
+      ? "1 time"
+      : `${count} times`;
 
-  const chipBase = "rounded-full border px-2.5 py-1.5";
-  const chipSelected = "border-green-600 bg-green-600";
-  const chipUnselected = "border-gray-200 bg-white";
+  const ValueCard = ({
+    label,
+    value,
+    icon,
+    iconBg,
+    onPress,
+    disabled,
+  }: {
+    label: string;
+    value: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    iconBg: string;
+    onPress?: () => void;
+    disabled?: boolean;
+  }) => (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      className="flex-1 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm"
+    >
+      <View className="flex-row items-center justify-between">
+        <View
+          className={`h-11 w-11 items-center justify-center rounded-2xl ${iconBg}`}
+        >
+          <Ionicons name={icon} size={23} color="#111827" />
+        </View>
+
+        {onPress ? (
+          <View className="rounded-full bg-gray-100 px-2 py-1">
+            <Text className="text-xs font-black text-gray-700">Change</Text>
+          </View>
+        ) : null}
+      </View>
+
+      <Text className="mt-4 text-xs font-black uppercase tracking-wide text-gray-500">
+        {label}
+      </Text>
+      <Text className="mt-1 text-xl font-black text-gray-900">{value}</Text>
+    </Pressable>
+  );
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-white"
+      className="flex-1 bg-green-50"
       keyboardVerticalOffset={0}
     >
       <IntensityPickerModal
@@ -718,21 +810,101 @@ export default function LogScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: "center",
           paddingHorizontal: 20,
-          paddingVertical: 16,
-          paddingBottom: keyboardHeight > 0 ? 80 : 16,
+          paddingTop: 42,
+          paddingBottom: keyboardHeight > 0 ? 100 : 28,
         }}
       >
         <Animated.View
-          className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4"
           style={{
             transform: [{ translateY: keyboardLiftAnim }],
           }}
         >
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 pr-4">
+              <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+                Check-in
+              </Text>
+
+              <Text className="mt-1 text-3xl font-black text-gray-900">
+                Log the moment
+              </Text>
+            </View>
+
+            <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
+              <Ionicons name="create" size={29} color="#15803D" />
+            </View>
+          </View>
+
+          <View className="mt-6 overflow-hidden rounded-[32px] bg-green-600 p-6 shadow-sm">
+            <View className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/20" />
+            <View className="absolute -bottom-12 -left-10 h-28 w-28 rounded-full bg-white/10" />
+
+            <View className="flex-row items-center justify-between">
+              <View className="rounded-full bg-white/20 px-3 py-1.5">
+                <Text className="text-xs font-black uppercase tracking-wide text-white">
+                  Quick check-in
+                </Text>
+              </View>
+
+              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white">
+                <Ionicons name="flash" size={26} color="#16A34A" />
+              </View>
+            </View>
+
+            <Text className="mt-5 text-3xl font-black leading-9 text-white">
+              Catch it before autopilot
+            </Text>
+
+            <Text className="mt-2 text-base font-semibold leading-6 text-green-50">
+              Name what happened, save the check-in, then choose what to do
+              next.
+            </Text>
+
+            <View className="mt-5 flex-row gap-3">
+              <View className="flex-1 rounded-3xl bg-white/20 p-4">
+                <Text className="text-3xl font-black text-white">
+                  {logs.length}
+                </Text>
+                <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
+                  Total logs
+                </Text>
+              </View>
+
+              <View className="flex-1 rounded-3xl bg-white/20 p-4">
+                <Text className="text-3xl font-black text-white">
+                  {orderedHabits.length}
+                </Text>
+                <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
+                  Habits
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+            <View className="flex-row items-center">
+              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
+                <Ionicons name="bulb" size={24} color="#854D0E" />
+              </View>
+
+              <View className="ml-3 flex-1">
+                <Text className="text-base font-black text-gray-900">
+                  Keep it quick
+                </Text>
+
+                <Text className="mt-1 text-sm leading-5 text-gray-600">
+                  You do not need a perfect entry. The win is noticing the
+                  pattern.
+                </Text>
+              </View>
+            </View>
+          </View>
+
           <ChipRow<SelectedHabit>
             title="Habit"
+            subtitle="What urge or habit showed up?"
+            icon="radio-button-on"
             items={orderedHabits}
             selectedId={habitId}
             onSelect={(id) => {
@@ -745,6 +917,8 @@ export default function LogScreen() {
 
           <ChipRow<SelectedCue>
             title="Cue"
+            subtitle="What triggered it?"
+            icon="alert-circle"
             items={orderedCues}
             selectedId={cueId}
             onSelect={setCueId}
@@ -755,6 +929,8 @@ export default function LogScreen() {
 
           <ChipRow<SelectedPlace>
             title="Location"
+            subtitle="Where did it happen?"
+            icon="location"
             items={orderedLocations}
             selectedId={locationId}
             onSelect={setLocationId}
@@ -765,123 +941,140 @@ export default function LogScreen() {
             listRef={locationListRef}
           />
 
-          <View className="mt-3 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
-            <Text className="mr-4 flex-1 text-sm font-semibold text-gray-900">
-              Did you resist?
-            </Text>
+          <View className="mt-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row flex-1 items-center pr-4">
+                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
+                  <Ionicons
+                    name={didResist ? "shield-checkmark" : "shield-outline"}
+                    size={25}
+                    color="#16A34A"
+                  />
+                </View>
 
-            <Switch
-              value={didResist}
-              onValueChange={setDidResistAndMaybeCount}
+                <View className="ml-3 flex-1">
+                  <Text className="text-base font-black text-gray-900">
+                    Did you resist?
+                  </Text>
+                  <Text className="mt-1 text-sm leading-5 text-gray-500">
+                    Toggle on if you noticed the urge and did not give in.
+                  </Text>
+                </View>
+              </View>
+
+              <Switch
+                value={didResist}
+                onValueChange={setDidResistAndMaybeCount}
+              />
+            </View>
+          </View>
+
+          <View className="mt-4 flex-row gap-3">
+            <ValueCard
+              label="Times"
+              value={countLabel}
+              icon="repeat"
+              iconBg="bg-yellow-100"
+              onPress={() => {
+                if (!didResist) setShowCountPicker(true);
+              }}
+              disabled={didResist}
+            />
+
+            <ValueCard
+              label="Intensity"
+              value={intensityLabel}
+              icon="pulse"
+              iconBg="bg-orange-100"
+              onPress={() => setShowIntensityPicker(true)}
             />
           </View>
 
-          <View className="mt-3 w-full flex-row gap-3">
-            <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
-              <Text className="text-sm font-semibold text-gray-900">
-                Times given in
-              </Text>
-
-              {didResist ? (
-                <View className="mt-2">
-                  <View className={`${chipBase} ${chipSelected} self-start`}>
-                    <Text className="text-sm font-semibold text-white">
-                      0 times
-                    </Text>
-                  </View>
+          <View className="mt-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row flex-1 items-center pr-3">
+                <View className="h-11 w-11 items-center justify-center rounded-2xl bg-blue-100">
+                  <Ionicons name="document-text" size={23} color="#111827" />
                 </View>
-              ) : (
-                <View className="mt-2 flex-row items-center">
-                  <Pressable
-                    onPress={() => setShowCountPicker(true)}
-                    className={`${chipBase} ${chipSelected} mr-2`}
-                  >
-                    <Text className="text-sm font-semibold text-white">
-                      {countLabel}
-                    </Text>
-                  </Pressable>
 
-                  <Pressable
-                    onPress={() => setShowCountPicker(true)}
-                    className={`${chipBase} ${chipUnselected}`}
-                  >
-                    <Text className="text-sm font-semibold text-gray-900">
-                      Change
-                    </Text>
-                  </Pressable>
+                <View className="ml-3 flex-1">
+                  <Text className="text-base font-black text-gray-900">
+                    Notes
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold text-gray-500">
+                    Optional context for later
+                  </Text>
                 </View>
-              )}
+              </View>
+
+              <Pressable
+                onPress={onShowNotes}
+                className="rounded-2xl border border-gray-200 bg-white px-4 py-2.5"
+              >
+                <Text className="text-sm font-black text-gray-900">
+                  {showNotes ? "Hide" : "Add"}
+                </Text>
+              </Pressable>
             </View>
 
-            <View className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-3">
-              <Text className="text-sm font-semibold text-gray-900">
-                Intensity
-              </Text>
+            {showNotes ? (
+              <View ref={notesAnchorRef} collapsable={false}>
+                <TextInput
+                  ref={notesInputRef}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Anything useful to remember..."
+                  placeholderTextColor="#9CA3AF"
+                  className="mt-4 min-h-[46px] w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900"
+                  returnKeyType="done"
+                  blurOnSubmit
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                  onFocus={scrollNotesIntoView}
+                />
+              </View>
+            ) : null}
+          </View>
 
-              <View className="mt-2 flex-row items-center">
-                <Pressable
-                  onPress={() => setShowIntensityPicker(true)}
-                  className={`${chipBase} ${chipSelected} mr-2`}
-                >
-                  <Text className="text-sm font-semibold text-white">
-                    {intensityLabel}
-                  </Text>
-                </Pressable>
+          <View className="mt-4 rounded-[28px] bg-gray-900 p-4">
+            <View className="flex-row items-center">
+              <View className="h-10 w-10 items-center justify-center rounded-2xl bg-green-400">
+                <Ionicons name="checkmark" size={23} color="#111827" />
+              </View>
 
-                <Pressable
-                  onPress={() => setShowIntensityPicker(true)}
-                  className={`${chipBase} ${chipUnselected}`}
-                >
-                  <Text className="text-sm font-semibold text-gray-900">
-                    Change
-                  </Text>
-                </Pressable>
+              <View className="ml-3 flex-1">
+                <Text className="text-sm font-black text-white">
+                  Ready to save
+                </Text>
+
+                <Text className="mt-1 text-sm leading-5 text-gray-300">
+                  {selectedHabitName} • {selectedCueName} •{" "}
+                  {selectedLocationName}
+                </Text>
               </View>
             </View>
           </View>
 
-          <Pressable
-            onPress={onShowNotes}
-            className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3"
-          >
-            <Text className="text-sm font-semibold text-gray-900">
-              {showNotes ? "Hide notes" : "Add notes (optional)"}
-            </Text>
-          </Pressable>
-
-          {showNotes ? (
-            <View ref={notesAnchorRef} collapsable={false}>
-              <TextInput
-                ref={notesInputRef}
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Anything useful to remember..."
-                placeholderTextColor="#9CA3AF"
-                className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-gray-900"
-                returnKeyType="done"
-                blurOnSubmit
-                onSubmitEditing={() => Keyboard.dismiss()}
-                onFocus={scrollNotesIntoView}
-              />
-            </View>
-          ) : null}
-
           {errorMsg ? (
-            <View className="mt-3 w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
-              <Text className="text-sm font-bold text-red-700">{errorMsg}</Text>
+            <View className="mt-4 rounded-[28px] border border-red-200 bg-red-50 px-4 py-3">
+              <Text className="text-sm font-black text-red-700">
+                {errorMsg}
+              </Text>
             </View>
           ) : null}
 
           <Pressable
             onPress={onSave}
             disabled={saving}
-            className={`mt-3 w-full rounded-2xl px-5 py-3.5 ${
+            className={`mt-4 w-full rounded-3xl px-5 py-4 shadow-sm ${
               saving ? "bg-green-300" : "bg-green-600"
             }`}
           >
-            <Text className="text-center text-base font-semibold text-white">
-              {saving ? "Saving..." : "Save"}
-            </Text>
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="save" size={22} color="#FFFFFF" />
+              <Text className="ml-2 text-center text-lg font-black text-white">
+                {saving ? "Saving..." : "Save Check-In"}
+              </Text>
+            </View>
           </Pressable>
         </Animated.View>
       </ScrollView>

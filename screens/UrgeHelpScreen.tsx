@@ -88,6 +88,59 @@ const helpSteps: Step[] = [
   },
 ];
 
+function StepBadge({
+  mode,
+  currentStepNumber,
+  totalSteps,
+}: {
+  mode: "decision" | "guided";
+  currentStepNumber: number;
+  totalSteps: number;
+}) {
+  return (
+    <View className="mt-5 rounded-full bg-white px-4 py-2 shadow-sm">
+      <Text className="text-xs font-black uppercase tracking-wide text-green-700">
+        {mode === "decision"
+          ? "Check-in saved"
+          : `Step ${currentStepNumber} of ${totalSteps}`}
+      </Text>
+    </View>
+  );
+}
+
+function ProgressBar({
+  visible,
+  progressPct,
+}: {
+  visible: boolean;
+  progressPct: number;
+}) {
+  if (!visible) return null;
+
+  return (
+    <View className="pt-10">
+      <View className="mb-3 flex-row items-center justify-between">
+        <Text className="text-sm font-black uppercase tracking-wide text-green-700">
+          Guided help
+        </Text>
+
+        <View className="rounded-full bg-white px-4 py-2 shadow-sm">
+          <Text className="text-sm font-black text-green-700">
+            {Math.round(progressPct)}%
+          </Text>
+        </View>
+      </View>
+
+      <View className="h-5 w-full overflow-hidden rounded-full bg-white">
+        <View
+          style={{ width: `${progressPct}%` }}
+          className="h-5 rounded-full bg-green-600"
+        />
+      </View>
+    </View>
+  );
+}
+
 export default function UrgeHelpScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<HelpRoute>();
@@ -157,6 +210,7 @@ export default function UrgeHelpScreen() {
   const canGoBack = mode === "guided" && currentStepNumber > 1;
   const isFirstGuidedStep = mode === "guided" && currentStepNumber === 1;
   const hasSelectedActions = selectedActions.length > 0;
+  const progressPct = (currentStepNumber / totalSteps) * 100;
 
   const onChooseAction = async (actionId: number | null) => {
     try {
@@ -204,39 +258,62 @@ export default function UrgeHelpScreen() {
     setStepIndex((v) => Math.max(0, v - 1));
   };
 
-  const progressPct = (currentStepNumber / totalSteps) * 100;
-
   const renderActionPicker = () => {
     if (currentStep.kind !== "action") return null;
 
     return (
-      <View className="mt-6 w-full rounded-2xl border border-gray-200 bg-white p-4">
-        <Text className="text-sm font-semibold text-gray-900">
-          Selected replacement actions
-        </Text>
+      <View className="mt-6 w-full rounded-[28px] border border-green-100 bg-white p-5 shadow-sm">
+        <View className="flex-row items-center">
+          <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
+            <Ionicons name="flash" size={23} color="#16A34A" />
+          </View>
+
+          <View className="ml-3 flex-1">
+            <Text className="text-base font-black text-gray-900">
+              Selected replacement actions
+            </Text>
+
+            <Text className="mt-1 text-sm leading-5 text-gray-600">
+              Choose the action you used, or add a new one.
+            </Text>
+          </View>
+        </View>
 
         {!hasSelectedActions ? (
           <>
-            <Text className="mt-3 text-sm text-gray-600">
-              You do not have any selected replacement actions yet.
-            </Text>
+            <View className="mt-5 rounded-[24px] bg-gray-50 p-4">
+              <Text className="text-sm font-semibold leading-5 text-gray-600">
+                You do not have any selected replacement actions yet.
+              </Text>
+            </View>
 
             <Pressable
               onPress={goToShop}
-              className="mt-4 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4"
+              className="mt-4 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+              style={({ pressed }) => ({
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: pressed ? 1 : 4 },
+                shadowOpacity: 0.12,
+                shadowRadius: pressed ? 2 : 4,
+                elevation: pressed ? 2 : 5,
+                transform: [{ translateY: pressed ? 1 : 0 }],
+              })}
             >
-              <Text className="text-center text-base font-bold text-gray-900">
-                Go to Shop
-              </Text>
+              <View className="flex-row items-center justify-center">
+                <Ionicons name="bag-handle" size={20} color="#111827" />
+                <Text className="ml-2 text-center text-base font-black text-gray-900">
+                  Go to Shop
+                </Text>
+              </View>
             </Pressable>
 
-            <Text className="mt-3 text-center text-xs text-gray-500">
+            <Text className="mt-3 text-center text-xs font-semibold text-gray-500">
               Select a few actions in Shop, then tap Back to return here.
             </Text>
           </>
         ) : (
           <ScrollView
-            className="mt-3"
+            className="mt-5"
             style={{ maxHeight: 132 }}
             nestedScrollEnabled
             showsVerticalScrollIndicator
@@ -245,14 +322,14 @@ export default function UrgeHelpScreen() {
               <Pressable
                 onPress={() => onChooseAction(null)}
                 disabled={savingAction}
-                className={`rounded-full border px-4 py-2 ${
+                className={`rounded-full border px-4 py-2.5 ${
                   selectedActionId == null
                     ? "border-green-600 bg-green-600"
                     : "border-gray-200 bg-white"
                 }`}
               >
                 <Text
-                  className={`text-sm font-semibold ${
+                  className={`text-sm font-black ${
                     selectedActionId == null ? "text-white" : "text-gray-900"
                   }`}
                 >
@@ -262,19 +339,20 @@ export default function UrgeHelpScreen() {
 
               {selectedActions.map((action) => {
                 const isSelected = selectedActionId === action.id;
+
                 return (
                   <Pressable
                     key={action.id}
                     onPress={() => onChooseAction(action.id)}
                     disabled={savingAction}
-                    className={`rounded-full border px-4 py-2 ${
+                    className={`rounded-full border px-4 py-2.5 ${
                       isSelected
                         ? "border-green-600 bg-green-600"
                         : "border-gray-200 bg-white"
                     }`}
                   >
                     <Text
-                      className={`text-sm font-semibold ${
+                      className={`text-sm font-black ${
                         isSelected ? "text-white" : "text-gray-900"
                       }`}
                     >
@@ -286,21 +364,20 @@ export default function UrgeHelpScreen() {
 
               <Pressable
                 onPress={goToShop}
-                className="rounded-full border border-gray-200 bg-white px-4 py-2"
+                className="rounded-full border border-gray-200 bg-white px-4 py-2.5"
               >
-                <Text className="text-sm font-semibold text-gray-900">
-                  + Add
-                </Text>
+                <Text className="text-sm font-black text-gray-900">+ Add</Text>
               </Pressable>
             </View>
           </ScrollView>
         )}
 
-        <View className="mt-4 rounded-xl bg-gray-50 p-3">
-          <Text className="text-xs font-semibold text-gray-500">
+        <View className="mt-5 rounded-[24px] bg-gray-50 p-4">
+          <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
             Saved to this log
           </Text>
-          <Text className="mt-1 text-sm font-semibold text-gray-900">
+
+          <Text className="mt-1 text-sm font-black text-gray-900">
             {currentLog?.selectedActionTitle ??
               "No replacement action selected"}
           </Text>
@@ -317,53 +394,55 @@ export default function UrgeHelpScreen() {
         : "Next";
 
   return (
-    <View className="flex-1 bg-white px-6 pt-12">
-      {mode === "guided" ? (
-        <View className="mt-2">
-          <View className="mb-3 flex-row items-center justify-between">
-            <Text className="text-sm font-semibold text-gray-700">
-              Step {currentStepNumber} of {totalSteps}
-            </Text>
-            <Text className="text-sm font-semibold text-gray-700">
-              Guided help
-            </Text>
-          </View>
-
-          <View className="h-4 w-full overflow-hidden rounded-full bg-gray-200">
-            <View
-              style={{ width: `${progressPct}%` }}
-              className="h-4 rounded-full bg-green-600"
-            />
-          </View>
-        </View>
-      ) : null}
+    <View className="flex-1 bg-green-50 px-5">
+      <ProgressBar visible={mode === "guided"} progressPct={progressPct} />
 
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          paddingTop: mode === "guided" ? 20 : 42,
+          paddingBottom: 12,
+        }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="items-center px-2">
-          <Ionicons
-            name={currentStep.icon}
-            size={64}
-            color="#16A34A"
-            style={{ marginBottom: 20 }}
+        <View className="items-center">
+          <View className="rounded-full border-4 border-white bg-green-200 p-5 shadow-sm">
+            <Ionicons name={currentStep.icon} size={54} color="#16A34A" />
+          </View>
+
+          <StepBadge
+            mode={mode}
+            currentStepNumber={currentStepNumber}
+            totalSteps={totalSteps}
           />
 
-          <Text className="text-center text-4xl font-bold text-gray-900">
+          <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-gray-900">
             {currentStep.title}
           </Text>
 
-          <Text className="mt-5 text-center text-lg leading-7 text-gray-700">
+          <Text className="mt-5 text-center text-lg font-semibold leading-7 text-gray-600">
             {currentStep.body}
           </Text>
 
           {"tip" in currentStep && currentStep.tip ? (
-            <View className="mt-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <Text className="text-sm leading-6 text-gray-700">
-                {currentStep.tip}
-              </Text>
+            <View className="mt-8 w-full rounded-[28px] border border-green-100 bg-white p-5 shadow-sm">
+              <View className="flex-row items-center">
+                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
+                  <Ionicons name="bulb" size={24} color="#854D0E" />
+                </View>
+
+                <View className="ml-3 flex-1">
+                  <Text className="text-base font-black text-gray-900">
+                    Why this helps
+                  </Text>
+
+                  <Text className="mt-1 text-sm leading-5 text-gray-600">
+                    {currentStep.tip}
+                  </Text>
+                </View>
+              </View>
             </View>
           ) : null}
 
@@ -372,7 +451,7 @@ export default function UrgeHelpScreen() {
       </ScrollView>
 
       {mode === "decision" ? (
-        <View className="mb-10 pb-8 pt-4">
+        <View className="pb-8 pt-4">
           <Pressable
             onPress={() => {
               Haptics.notificationAsync(
@@ -380,11 +459,22 @@ export default function UrgeHelpScreen() {
               );
               goBackToLog();
             }}
-            className="w-full rounded-2xl bg-green-600 px-5 py-4"
+            className="w-full rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+            style={({ pressed }) => ({
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: pressed ? 2 : 6 },
+              shadowOpacity: 0.25,
+              shadowRadius: pressed ? 3 : 6,
+              elevation: pressed ? 3 : 8,
+              transform: [{ translateY: pressed ? 2 : 0 }],
+            })}
           >
-            <Text className="text-center text-lg font-bold text-white">
-              Complete Log
-            </Text>
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+              <Text className="ml-2 text-center text-lg font-black text-white">
+                Complete Log
+              </Text>
+            </View>
           </Pressable>
 
           <Pressable
@@ -392,26 +482,52 @@ export default function UrgeHelpScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               startGuided();
             }}
-            className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4"
+            className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+            style={({ pressed }) => ({
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: pressed ? 1 : 4 },
+              shadowOpacity: 0.12,
+              shadowRadius: pressed ? 2 : 4,
+              elevation: pressed ? 2 : 5,
+              transform: [{ translateY: pressed ? 1 : 0 }],
+            })}
           >
-            <Text className="text-center text-lg font-bold text-gray-900">
-              Help me resist
-            </Text>
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="shield-checkmark" size={22} color="#111827" />
+              <Text className="ml-2 text-center text-lg font-black text-gray-900">
+                Help me resist
+              </Text>
+            </View>
           </Pressable>
         </View>
       ) : (
-        <View className="mb-10 pb-8 pt-4">
+        <View className="pb-8 pt-4">
           {isFirstGuidedStep ? (
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 onPrimary();
               }}
-              className="w-full rounded-2xl bg-green-600 px-5 py-4"
+              className="w-full rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+              style={({ pressed }) => ({
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: pressed ? 2 : 6 },
+                shadowOpacity: 0.25,
+                shadowRadius: pressed ? 3 : 6,
+                elevation: pressed ? 3 : 8,
+                transform: [{ translateY: pressed ? 2 : 0 }],
+              })}
             >
-              <Text className="text-center text-lg font-bold text-white">
-                {primaryLabel}
-              </Text>
+              <View className="flex-row items-center justify-center">
+                <Ionicons
+                  name="arrow-forward-circle"
+                  size={22}
+                  color="#FFFFFF"
+                />
+                <Text className="ml-2 text-center text-lg font-black text-white">
+                  {primaryLabel}
+                </Text>
+              </View>
             </Pressable>
           ) : (
             <View className="flex-row items-center gap-3">
@@ -421,9 +537,17 @@ export default function UrgeHelpScreen() {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     onBack();
                   }}
-                  className="flex-1 rounded-2xl border border-gray-200 bg-white px-5 py-4"
+                  className="flex-1 rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+                  style={({ pressed }) => ({
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: pressed ? 1 : 4 },
+                    shadowOpacity: 0.12,
+                    shadowRadius: pressed ? 2 : 4,
+                    elevation: pressed ? 2 : 5,
+                    transform: [{ translateY: pressed ? 1 : 0 }],
+                  })}
                 >
-                  <Text className="text-center text-lg font-bold text-gray-900">
+                  <Text className="text-center text-lg font-black text-gray-900">
                     Back
                   </Text>
                 </Pressable>
@@ -442,9 +566,17 @@ export default function UrgeHelpScreen() {
                   }
                   onPrimary();
                 }}
-                className="flex-1 rounded-2xl bg-green-600 px-5 py-4"
+                className="flex-1 rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+                style={({ pressed }) => ({
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: pressed ? 2 : 6 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: pressed ? 3 : 6,
+                  elevation: pressed ? 3 : 8,
+                  transform: [{ translateY: pressed ? 2 : 0 }],
+                })}
               >
-                <Text className="text-center text-lg font-bold text-white">
+                <Text className="text-center text-lg font-black text-white">
                   {primaryLabel}
                 </Text>
               </Pressable>

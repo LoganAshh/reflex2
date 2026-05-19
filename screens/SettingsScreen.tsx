@@ -15,6 +15,7 @@ import * as LocalAuthentication from "expo-local-authentication";
 import * as DocumentPicker from "expo-document-picker";
 import * as Notifications from "expo-notifications";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
@@ -30,6 +31,8 @@ type RowProps = {
   onPress?: () => void;
   tone?: "default" | "danger";
   disabled?: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconBg?: string;
 };
 
 function Row({
@@ -39,6 +42,8 @@ function Row({
   onPress,
   tone = "default",
   disabled,
+  icon,
+  iconBg = "bg-green-100",
 }: RowProps) {
   const danger = tone === "danger";
   const clickable = !!onPress && !disabled;
@@ -52,39 +57,77 @@ function Row({
       }}
       disabled={!clickable}
       className={[
-        "rounded-2xl border px-4 py-4",
-        danger ? "border-red-300 bg-red-50" : "border-zinc-200 bg-white",
+        "rounded-[28px] border p-4 shadow-sm",
+        danger ? "border-red-200 bg-red-50" : "border-gray-100 bg-white",
         disabled ? "opacity-50" : "",
       ].join(" ")}
     >
       <View className="flex-row items-center justify-between">
-        <View className="flex-1 pr-4">
-          <Text
-            className={[
-              "text-base font-semibold",
-              danger ? "text-red-700" : "text-zinc-900",
-            ].join(" ")}
+        <View className="flex-row flex-1 items-center pr-4">
+          <View
+            className={`h-11 w-11 items-center justify-center rounded-2xl ${
+              danger ? "bg-red-100" : iconBg
+            }`}
           >
-            {title}
-          </Text>
-          {!!subtitle && (
+            <Ionicons
+              name={icon}
+              size={23}
+              color={danger ? "#DC2626" : "#111827"}
+            />
+          </View>
+
+          <View className="ml-3 flex-1">
             <Text
               className={[
-                "mt-1 text-sm",
-                danger ? "text-red-700/80" : "text-zinc-600",
+                "text-base font-black",
+                danger ? "text-red-700" : "text-gray-900",
               ].join(" ")}
             >
-              {subtitle}
+              {title}
             </Text>
-          )}
+
+            {!!subtitle && (
+              <Text
+                className={[
+                  "mt-1 text-sm leading-5",
+                  danger ? "text-red-700/80" : "text-gray-600",
+                ].join(" ")}
+              >
+                {subtitle}
+              </Text>
+            )}
+          </View>
         </View>
+
         {right ? (
           right
         ) : clickable ? (
-          <Text className="text-zinc-400">›</Text>
+          <View className="h-8 w-8 items-center justify-center rounded-full bg-gray-50">
+            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          </View>
         ) : null}
       </View>
     </Pressable>
+  );
+}
+
+function SectionTitle({
+  title,
+  icon,
+}: {
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View className="mt-6 mb-3 flex-row items-center">
+      <View className="h-9 w-9 items-center justify-center rounded-2xl bg-white shadow-sm">
+        <Ionicons name={icon} size={19} color="#16A34A" />
+      </View>
+
+      <Text className="ml-2 text-xs font-black uppercase tracking-widest text-green-700">
+        {title}
+      </Text>
+    </View>
   );
 }
 
@@ -103,6 +146,15 @@ function getReminderLabel(option: DailyReminderOption) {
   if (option === "evening") return "Evening";
   if (option === "custom") return "Custom time";
   return "Off";
+}
+
+function getReminderIcon(
+  option: DailyReminderOption,
+): keyof typeof Ionicons.glyphMap {
+  if (option === "morning") return "sunny";
+  if (option === "evening") return "moon";
+  if (option === "custom") return "time";
+  return "notifications-off";
 }
 
 function getBiometricName(types: LocalAuthentication.AuthenticationType[]) {
@@ -426,53 +478,68 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-zinc-50"
-      contentContainerClassName="p-4 pb-10"
+      className="flex-1 bg-green-50"
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{
+        paddingHorizontal: 20,
+        paddingTop: 42,
+        paddingBottom: 32,
+      }}
     >
-      <View className="mb-4">
-        <Text className="text-2xl font-bold text-zinc-900">Settings</Text>
-        <Text className="mt-1 text-sm text-zinc-600">
-          Manage your local profile and app data.
-        </Text>
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 pr-4">
+          <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+            Settings
+          </Text>
+
+          <Text className="mt-1 text-3xl font-black text-gray-900">
+            Your Reflex
+          </Text>
+        </View>
+
+        <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
+          <Ionicons name="settings" size={29} color="#15803D" />
+        </View>
       </View>
 
-      <View className="mb-6 rounded-2xl border border-zinc-200 bg-white p-4">
+      <View className="mt-6 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
         <View className="flex-row items-center">
           {profilePhotoUri ? (
-            <Image
-              source={{ uri: profilePhotoUri }}
-              className="h-16 w-16 rounded-full"
-              resizeMode="cover"
-            />
+            <View className="rounded-full border-4 border-green-100 bg-white">
+              <Image
+                source={{ uri: profilePhotoUri }}
+                className="h-16 w-16 rounded-full"
+                resizeMode="cover"
+              />
+            </View>
           ) : (
-            <View className="h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
-              <Text className="text-xs font-semibold text-zinc-500">
-                No photo
-              </Text>
+            <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-100 bg-green-200">
+              <Ionicons name="person" size={28} color="#15803D" />
             </View>
           )}
 
           <View className="ml-4 flex-1">
-            <Text className="text-lg font-bold text-zinc-900">
+            <Text className="text-xl font-black text-gray-900">
               {profileName || "No username"}
             </Text>
-            <Text className="mt-1 text-sm text-zinc-600">
+
+            <Text className="mt-1 text-sm font-semibold text-gray-500">
               Stored locally on this device
             </Text>
           </View>
         </View>
       </View>
 
-      <View className="gap-3">
-        <Text className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Profile
-        </Text>
+      <SectionTitle title="Profile" icon="person-circle" />
 
+      <View className="gap-3">
         <Row
           title="Edit profile"
           subtitle="Change your local username and profile picture."
           onPress={busy ? undefined : () => navigation.navigate("ProfileSetup")}
           disabled={!!busy}
+          icon="create"
+          iconBg="bg-blue-100"
         />
 
         <Row
@@ -481,26 +548,32 @@ export default function SettingsScreen() {
           tone="danger"
           onPress={busy ? undefined : onClearProfile}
           disabled={!!busy}
+          icon="trash"
           right={
             busy === "profile" ? (
               <ActivityIndicator />
             ) : (
-              <Text className="text-red-700">Clear</Text>
+              <Text className="font-black text-red-700">Clear</Text>
             )
           }
         />
+      </View>
 
-        <Text className="mt-6 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Reminders
-        </Text>
+      <SectionTitle title="Reminders" icon="notifications" />
 
-        <View className="rounded-2xl border border-zinc-200 bg-white p-4">
-          <View className="flex-row items-start justify-between">
-            <View className="flex-1 pr-4">
-              <Text className="text-base font-semibold text-zinc-900">
+      <View className="rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+        <View className="flex-row items-start justify-between">
+          <View className="flex-row flex-1 items-start pr-4">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
+              <Ionicons name="alarm" size={24} color="#854D0E" />
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-gray-900">
                 Daily reflection reminder
               </Text>
-              <Text className="mt-2 text-sm font-semibold text-green-700">
+
+              <Text className="mt-2 text-sm font-black text-green-700">
                 {dailyReminder.option === "off"
                   ? "Currently off"
                   : `${getReminderLabel(dailyReminder.option)} · ${formatReminderTime(
@@ -508,100 +581,115 @@ export default function SettingsScreen() {
                       dailyReminder.minute,
                     )}`}
               </Text>
+
+              <Text className="mt-1 text-sm leading-5 text-gray-600">
+                Get a gentle nudge to check in and reflect.
+              </Text>
             </View>
-            {busy === "reminder" ? <ActivityIndicator /> : null}
           </View>
 
-          <View className="mt-4 flex-row flex-wrap gap-2">
-            {(
-              ["off", "morning", "evening", "custom"] as DailyReminderOption[]
-            ).map((option) => {
-              const selected = dailyReminder.option === option;
-
-              return (
-                <Pressable
-                  key={option}
-                  onPress={() => onChooseReminder(option)}
-                  disabled={!!busy}
-                  className={[
-                    "rounded-full border px-4 py-2",
-                    selected
-                      ? "border-green-600 bg-green-600"
-                      : "border-zinc-200 bg-zinc-50",
-                    busy ? "opacity-50" : "",
-                  ].join(" ")}
-                >
-                  <Text
-                    className={[
-                      "text-sm font-semibold",
-                      selected ? "text-white" : "text-zinc-700",
-                    ].join(" ")}
-                  >
-                    {getReminderLabel(option)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {dailyReminder.option === "custom" && (
-            <View className="mt-4 rounded-2xl bg-zinc-50 p-2">
-              <DateTimePicker
-                value={
-                  new Date(2000, 0, 1, dailyReminder.hour, dailyReminder.minute)
-                }
-                mode="time"
-                display="spinner"
-                onChange={(_, selectedDate) => {
-                  if (!selectedDate) return;
-                  onCustomTimeChange(selectedDate);
-                }}
-              />
-            </View>
-          )}
+          {busy === "reminder" ? <ActivityIndicator /> : null}
         </View>
 
-        <Text className="mt-6 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Security
-        </Text>
+        <View className="mt-5 flex-row flex-wrap gap-2">
+          {(
+            ["off", "morning", "evening", "custom"] as DailyReminderOption[]
+          ).map((option) => {
+            const selected = dailyReminder.option === option;
 
-        <Row
-          title="App Lock"
-          subtitle={
-            appLockEnabled
-              ? "Require Face ID or your device passcode when opening Reflex."
-              : "Protect your local Reflex data with Face ID or your device passcode."
-          }
-          disabled={busy === "lock"}
-          right={
-            busy === "lock" ? (
-              <ActivityIndicator />
-            ) : (
-              <Switch
-                value={appLockEnabled}
-                onValueChange={onToggleAppLock}
+            return (
+              <Pressable
+                key={option}
+                onPress={() => onChooseReminder(option)}
                 disabled={!!busy}
-                trackColor={{ false: "#D4D4D8", true: "#BBF7D0" }}
-                thumbColor={appLockEnabled ? "#16A34A" : "#F4F4F5"}
-              />
-            )
-          }
-        />
+                className={[
+                  "flex-row items-center rounded-full border px-4 py-2.5",
+                  selected
+                    ? "border-green-600 bg-green-600"
+                    : "border-gray-200 bg-white",
+                  busy ? "opacity-50" : "",
+                ].join(" ")}
+              >
+                <Ionicons
+                  name={getReminderIcon(option)}
+                  size={16}
+                  color={selected ? "#FFFFFF" : "#111827"}
+                />
 
-        <Text className="mt-6 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Data
-        </Text>
+                <Text
+                  className={[
+                    "ml-1.5 text-sm font-black",
+                    selected ? "text-white" : "text-gray-900",
+                  ].join(" ")}
+                >
+                  {getReminderLabel(option)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
+        {dailyReminder.option === "custom" && (
+          <View className="mt-5 rounded-[28px] bg-gray-50 p-2">
+            <DateTimePicker
+              value={
+                new Date(2000, 0, 1, dailyReminder.hour, dailyReminder.minute)
+              }
+              mode="time"
+              display="spinner"
+              onChange={(_, selectedDate) => {
+                if (!selectedDate) return;
+                onCustomTimeChange(selectedDate);
+              }}
+            />
+          </View>
+        )}
+      </View>
+
+      <SectionTitle title="Security" icon="shield-checkmark" />
+
+      <Row
+        title="App Lock"
+        subtitle={
+          appLockEnabled
+            ? "Require Face ID or your device passcode when opening Reflex."
+            : "Protect your local Reflex data with Face ID or your device passcode."
+        }
+        disabled={busy === "lock"}
+        icon="lock-closed"
+        iconBg="bg-purple-100"
+        right={
+          busy === "lock" ? (
+            <ActivityIndicator />
+          ) : (
+            <Switch
+              value={appLockEnabled}
+              onValueChange={onToggleAppLock}
+              disabled={!!busy}
+              trackColor={{ false: "#D4D4D8", true: "#BBF7D0" }}
+              thumbColor={appLockEnabled ? "#16A34A" : "#F4F4F5"}
+            />
+          )
+        }
+      />
+
+      <SectionTitle title="Data" icon="folder" />
+
+      <View className="gap-3">
         <Row
-          title="Export data (JSON)"
-          subtitle="Share a backup file of your logs and saved actions."
+          title="Export data"
+          subtitle="Share a JSON backup file of your logs and saved actions."
           onPress={busy ? undefined : onExport}
           disabled={!!busy}
+          icon="share"
+          iconBg="bg-green-100"
           right={
             busy === "export" ? (
               <ActivityIndicator />
             ) : (
-              <Text className="text-zinc-400">Share</Text>
+              <View className="rounded-full bg-gray-50 px-3 py-1.5">
+                <Text className="font-black text-gray-700">Share</Text>
+              </View>
             )
           }
         />
@@ -611,11 +699,15 @@ export default function SettingsScreen() {
           subtitle="Import a Reflex JSON backup and replace the current local data."
           onPress={busy ? undefined : onImport}
           disabled={!!busy}
+          icon="cloud-upload"
+          iconBg="bg-blue-100"
           right={
             busy === "import" ? (
               <ActivityIndicator />
             ) : (
-              <Text className="text-zinc-400">Import</Text>
+              <View className="rounded-full bg-gray-50 px-3 py-1.5">
+                <Text className="font-black text-gray-700">Import</Text>
+              </View>
             )
           }
         />
@@ -626,32 +718,50 @@ export default function SettingsScreen() {
           tone="danger"
           onPress={busy ? undefined : onReset}
           disabled={!!busy}
+          icon="warning"
           right={
             busy === "reset" ? (
               <ActivityIndicator />
             ) : (
-              <Text className="text-red-700">Reset</Text>
+              <Text className="font-black text-red-700">Reset</Text>
             )
           }
         />
+      </View>
 
-        <Text className="mt-6 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          About
-        </Text>
+      <SectionTitle title="About" icon="information-circle" />
 
+      <View className="gap-3">
         <Row
           title="Version"
           subtitle={version}
           disabled
-          right={<Text className="text-zinc-400">{version}</Text>}
+          icon="phone-portrait"
+          iconBg="bg-gray-100"
+          right={
+            <View className="rounded-full bg-gray-50 px-3 py-1.5">
+              <Text className="font-black text-gray-700">{version}</Text>
+            </View>
+          }
         />
 
-        <View className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4">
-          <Text className="text-sm font-semibold text-zinc-900">Privacy</Text>
-          <Text className="mt-1 text-sm text-zinc-600">
-            Reflex is local-first. Your tracking data and profile stay on this
-            device unless you export them.
-          </Text>
+        <View className="rounded-[28px] border border-green-100 bg-white p-5 shadow-sm">
+          <View className="flex-row items-center">
+            <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
+              <Ionicons name="leaf" size={23} color="#16A34A" />
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-gray-900">
+                Privacy
+              </Text>
+
+              <Text className="mt-1 text-sm leading-5 text-gray-600">
+                Reflex is local-first. Your tracking data and profile stay on
+                this device unless you export them.
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
     </ScrollView>

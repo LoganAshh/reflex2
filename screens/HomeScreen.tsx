@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, Image } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { RouteProp } from "@react-navigation/native";
@@ -175,6 +176,11 @@ export default function HomeScreen() {
     }
   }, [habitOptions, selectedHabitId]);
 
+  const selectedHabit = useMemo(() => {
+    if (selectedHabitId == null) return null;
+    return habitOptions.find((habit) => habit.id === selectedHabitId) ?? null;
+  }, [habitOptions, selectedHabitId]);
+
   const stats = useMemo(() => {
     const logsForStats =
       selectedHabitId == null
@@ -293,34 +299,102 @@ export default function HomeScreen() {
     };
   }, [logs, selectedHabitId]);
 
-  const Card = ({
+  const heroPercent =
+    selectedHabitId == null ? stats.allTimeResistRate : stats.todayResistRate;
+
+  const heroTitle =
+    logs.length === 0
+      ? "Start your first streak"
+      : selectedHabit
+        ? `${selectedHabit.name} progress`
+        : "Your progress is building";
+
+  const heroBody =
+    logs.length === 0
+      ? "One quick check-in starts the loop."
+      : selectedHabit
+        ? "Stay aware, interrupt the pattern, and keep stacking wins."
+        : "Every check-in makes the habit easier to understand and change.";
+
+  const selectedScopeLabel = selectedHabit?.name ?? "Overall";
+
+  const ProgressBar = ({ value }: { value: number }) => (
+    <View className="mt-4 h-5 w-full overflow-hidden rounded-full bg-white/30">
+      <View
+        style={{ width: `${Math.max(6, Math.min(100, value))}%` }}
+        className="h-5 rounded-full bg-white"
+      />
+    </View>
+  );
+
+  const StatTile = ({
     label,
     value,
-    sub,
+    icon,
+    bg,
+    iconBg,
     percentIncrease,
   }: {
     label: string;
     value: string;
-    sub?: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    bg: string;
+    iconBg: string;
     percentIncrease?: number | null;
   }) => (
-    <View className="flex-1 rounded-2xl border border-gray-200 bg-white p-4">
-      <Text className="text-xs font-semibold text-gray-500">{label}</Text>
-
-      <View className="mt-2 flex-row items-center">
-        <Text className="text-2xl font-bold text-gray-900">{value}</Text>
+    <View className={`flex-1 rounded-3xl border border-gray-100 p-4 ${bg}`}>
+      <View className="flex-row items-start justify-between">
+        <View
+          className={`h-10 w-10 items-center justify-center rounded-2xl ${iconBg}`}
+        >
+          <Ionicons name={icon} size={21} color="#111827" />
+        </View>
 
         {percentIncrease != null ? (
-          <View className="ml-2 flex-row items-center">
-            <Text className="text-sm font-semibold text-green-600">↑</Text>
-            <Text className="ml-1 text-sm font-semibold text-green-600">
-              {percentIncrease}%
+          <View className="rounded-full bg-white/80 px-2 py-1">
+            <Text className="text-xs font-black text-green-700">
+              ↑ {percentIncrease}%
             </Text>
           </View>
         ) : null}
       </View>
 
-      {sub ? <Text className="mt-1 text-xs text-gray-500">{sub}</Text> : null}
+      <Text className="mt-4 text-3xl font-black text-gray-900">{value}</Text>
+      <Text className="mt-1 text-xs font-bold uppercase tracking-wide text-gray-600">
+        {label}
+      </Text>
+    </View>
+  );
+
+  const StreakCard = ({
+    label,
+    value,
+    sub,
+    icon,
+    percentIncrease,
+  }: {
+    label: string;
+    value: string;
+    sub: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    percentIncrease?: number | null;
+  }) => (
+    <View className="flex-1 rounded-3xl border border-gray-100 bg-white p-4">
+      <View className="flex-row items-center justify-between">
+        <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
+          <Ionicons name={icon} size={23} color="#16A34A" />
+        </View>
+
+        {percentIncrease != null ? (
+          <Text className="text-xs font-black text-green-600">
+            ↑ {percentIncrease}%
+          </Text>
+        ) : null}
+      </View>
+
+      <Text className="mt-4 text-3xl font-black text-gray-900">{value}</Text>
+      <Text className="mt-1 text-sm font-bold text-gray-900">{label}</Text>
+      <Text className="mt-1 text-xs text-gray-500">{sub}</Text>
     </View>
   );
 
@@ -336,13 +410,13 @@ export default function HomeScreen() {
     <Pressable
       onPress={onPress}
       className={[
-        "mr-2 rounded-full border px-4 py-2",
-        selected ? "border-gray-900 bg-gray-900" : "border-gray-200 bg-white",
+        "mr-2 rounded-full border px-4 py-2.5",
+        selected ? "border-green-600 bg-green-600" : "border-gray-200 bg-white",
       ].join(" ")}
     >
       <Text
         className={[
-          "text-sm font-semibold",
+          "text-sm font-black",
           selected ? "text-white" : "text-gray-900",
         ].join(" ")}
         numberOfLines={1}
@@ -355,17 +429,21 @@ export default function HomeScreen() {
   return (
     <ScrollView
       ref={scrollViewRef}
-      className="flex-1 bg-white"
+      className="flex-1 bg-green-50"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{
-        paddingHorizontal: 24,
-        paddingTop: 40,
-        paddingBottom: 24,
+        paddingHorizontal: 20,
+        paddingTop: 42,
+        paddingBottom: 28,
       }}
     >
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-4">
-          <Text className="mt-1 text-3xl font-bold text-gray-900">
+          <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+            Reflex
+          </Text>
+
+          <Text className="mt-1 text-3xl font-black text-gray-900">
             {logs.length === 0
               ? `Welcome, ${displayName}`
               : `Welcome back, ${displayName}`}
@@ -373,50 +451,100 @@ export default function HomeScreen() {
         </View>
 
         {profilePhotoUri ? (
-          <Image
-            source={{ uri: profilePhotoUri }}
-            className="h-14 w-14 rounded-full"
-            resizeMode="cover"
-          />
+          <View className="rounded-full border-4 border-white bg-white shadow-sm">
+            <Image
+              source={{ uri: profilePhotoUri }}
+              className="h-16 w-16 rounded-full"
+              resizeMode="cover"
+            />
+          </View>
         ) : (
-          <View className="h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-            <Text className="text-xs font-semibold text-gray-500">Profile</Text>
+          <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
+            <Ionicons name="person" size={27} color="#15803D" />
           </View>
         )}
       </View>
 
-      <Pressable
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          navigation.navigate("Log");
-        }}
-        className="mt-6 w-full rounded-2xl bg-green-600 px-5 py-4"
-      >
-        <Text className="text-center text-lg font-semibold text-white">
-          Log a Check-In
-        </Text>
-      </Pressable>
+      <View className="mt-6 overflow-hidden rounded-[32px] bg-green-600 p-6 shadow-sm">
+        <View className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/20" />
+        <View className="absolute -bottom-12 -left-10 h-28 w-28 rounded-full bg-white/10" />
 
-      <Pressable
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          navigation.navigate("Shop");
-        }}
-        className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-5 py-4"
-      >
-        <Text className="text-center text-base font-semibold text-gray-900">
-          Browse Replacement Actions
-        </Text>
-      </Pressable>
+        <View className="flex-row items-center justify-between">
+          <View className="rounded-full bg-white/20 px-3 py-1.5">
+            <Text className="text-xs font-black uppercase tracking-wide text-white">
+              {selectedScopeLabel}
+            </Text>
+          </View>
 
-      <View className="mt-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-5">
-        <Text className="text-base font-semibold text-gray-900">Dashboard</Text>
+          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white">
+            <Ionicons name="flash" size={26} color="#16A34A" />
+          </View>
+        </View>
+
+        <Text className="mt-5 text-3xl font-black leading-9 text-white">
+          {heroTitle}
+        </Text>
+
+        <Text className="mt-2 text-base font-semibold leading-6 text-green-50">
+          {heroBody}
+        </Text>
+
+        <ProgressBar value={heroPercent} />
+
+        <View className="mt-3 flex-row items-center justify-between">
+          <Text className="text-sm font-bold text-green-50">
+            Resist progress
+          </Text>
+          <Text className="text-sm font-black text-white">{heroPercent}%</Text>
+        </View>
+      </View>
+
+      <View className="mt-4 flex-row gap-3">
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            navigation.navigate("Log");
+          }}
+          className="flex-1 rounded-3xl bg-gray-900 px-5 py-4 shadow-sm"
+        >
+          <View className="flex-row items-center justify-center">
+            <Ionicons name="add-circle" size={22} color="#FFFFFF" />
+            <Text className="ml-2 text-center text-base font-black text-white">
+              Log Check-In
+            </Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            navigation.navigate("Shop");
+          }}
+          className="rounded-3xl border border-green-200 bg-white px-5 py-4 shadow-sm"
+        >
+          <Ionicons name="bag-handle" size={24} color="#111827" />
+        </Pressable>
+      </View>
+
+      <View className="mt-6 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+        <View className="flex-row items-center justify-between">
+          <View>
+            <Text className="text-xl font-black text-gray-900">Dashboard</Text>
+            <Text className="mt-1 text-sm font-semibold text-gray-500">
+              Pick a habit to focus the stats.
+            </Text>
+          </View>
+
+          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
+            <Ionicons name="stats-chart" size={24} color="#854D0E" />
+          </View>
+        </View>
 
         <ScrollView
           ref={habitChipsScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-4"
+          className="mt-5"
         >
           <Chip
             label="Overall"
@@ -440,18 +568,25 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        <View className="mt-4 flex-row gap-3">
-          <Card
+        <View className="mt-5 flex-row gap-3">
+          <StatTile
             label="Logs today"
             value={`${stats.todayLogs}`}
+            icon="create"
+            bg="bg-green-100"
+            iconBg="bg-white/80"
             percentIncrease={getPercentIncrease(
               stats.todayLogs,
               stats.previousTodayLogs,
             )}
           />
-          <Card
-            label="Logs this week"
+
+          <StatTile
+            label="This week"
             value={`${stats.weekLogs}`}
+            icon="calendar"
+            bg="bg-blue-100"
+            iconBg="bg-white/80"
             percentIncrease={getPercentIncrease(
               stats.weekLogs,
               stats.previousWeekLogs,
@@ -460,17 +595,24 @@ export default function HomeScreen() {
         </View>
 
         <View className="mt-3 flex-row gap-3">
-          <Card
+          <StatTile
             label="Resists today"
             value={`${stats.todayResists}`}
+            icon="shield-checkmark"
+            bg="bg-yellow-100"
+            iconBg="bg-white/80"
             percentIncrease={getPercentIncrease(
               stats.todayResists,
               stats.previousTodayResists,
             )}
           />
-          <Card
-            label="Resists this week"
+
+          <StatTile
+            label="Week resists"
             value={`${stats.weekResists}`}
+            icon="trophy"
+            bg="bg-purple-100"
+            iconBg="bg-white/80"
             percentIncrease={getPercentIncrease(
               stats.weekResists,
               stats.previousWeekResists,
@@ -480,17 +622,22 @@ export default function HomeScreen() {
 
         {selectedHabitId === null ? (
           <View className="mt-3 flex-row gap-3">
-            <Card
-              label="Resist rate today"
+            <StreakCard
+              label="Today rate"
               value={`${stats.todayResistRate}%`}
+              sub="Resistance today"
+              icon="pulse"
               percentIncrease={getPercentIncrease(
                 stats.todayResistRate,
                 stats.previousTodayResistRate,
               )}
             />
-            <Card
-              label="Resist rate all time"
+
+            <StreakCard
+              label="All-time rate"
               value={`${stats.allTimeResistRate}%`}
+              sub="Overall progress"
+              icon="ribbon"
               percentIncrease={getPercentIncrease(
                 stats.allTimeResistRate,
                 stats.previousAllTimeResistRate,
@@ -499,17 +646,22 @@ export default function HomeScreen() {
           </View>
         ) : (
           <View className="mt-3 flex-row gap-3">
-            <Card
+            <StreakCard
               label="Current streak"
               value={`${stats.daysSinceGiveIn}`}
+              sub="Days since giving in"
+              icon="flame"
               percentIncrease={getPercentIncrease(
                 stats.daysSinceGiveIn,
                 stats.previousDaysSinceGiveIn,
               )}
             />
-            <Card
+
+            <StreakCard
               label="Best streak"
               value={`${stats.bestCleanStreakDays}`}
+              sub="Your record"
+              icon="medal"
               percentIncrease={getPercentIncrease(
                 stats.bestCleanStreakDays,
                 stats.previousBestCleanStreakDays,
@@ -518,11 +670,25 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <Text className="mt-4 text-sm text-gray-600">
-          {stats.todayLogs === 0
-            ? "Quick check-in takes 10 seconds. Do one now."
-            : "Nice! Keep the momentum going."}
-        </Text>
+        <View className="mt-5 rounded-3xl bg-gray-900 p-4">
+          <View className="flex-row items-center">
+            <View className="h-10 w-10 items-center justify-center rounded-2xl bg-green-400">
+              <Ionicons name="bulb" size={22} color="#111827" />
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-sm font-black text-white">
+                {stats.todayLogs === 0 ? "Your next move" : "Momentum"}
+              </Text>
+
+              <Text className="mt-1 text-sm leading-5 text-gray-300">
+                {stats.todayLogs === 0
+                  ? "Do one quick check-in today. Small reps are what make the app useful."
+                  : "Nice. You already checked in today, so the streak is alive."}
+              </Text>
+            </View>
+          </View>
+        </View>
       </View>
     </ScrollView>
   );

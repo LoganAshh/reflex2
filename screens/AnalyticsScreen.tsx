@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
@@ -162,23 +163,63 @@ async function successHaptic() {
 
 type TabKey = "Overall" | string;
 type AnalyticsRoute = RouteProp<RootTabParamList, "Analytics">;
-
 type BaseItem = { id: number; name: string };
 
 function StatCard({
   label,
   value,
   sub,
+  icon,
+  bg,
+  iconBg,
 }: {
   label: string;
   value: string;
   sub?: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  bg: string;
+  iconBg: string;
 }) {
   return (
-    <View className="flex-1 rounded-2xl border border-gray-200 bg-white p-4">
-      <Text className="text-xs font-semibold text-gray-500">{label}</Text>
-      <Text className="mt-2 text-2xl font-bold text-gray-900">{value}</Text>
-      {sub ? <Text className="mt-1 text-xs text-gray-500">{sub}</Text> : null}
+    <View className={`flex-1 rounded-3xl border border-gray-100 p-4 ${bg}`}>
+      <View className="flex-row items-start justify-between">
+        <View
+          className={`h-10 w-10 items-center justify-center rounded-2xl ${iconBg}`}
+        >
+          <Ionicons name={icon} size={21} color="#111827" />
+        </View>
+      </View>
+
+      <Text className="mt-4 text-3xl font-black text-gray-900">{value}</Text>
+      <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-600">
+        {label}
+      </Text>
+      {sub ? (
+        <Text className="mt-1 text-xs font-semibold text-gray-500">{sub}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  icon,
+  bg,
+}: {
+  label: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  bg: string;
+}) {
+  return (
+    <View className={`flex-1 rounded-2xl p-3 ${bg}`}>
+      <View className="h-9 w-9 items-center justify-center rounded-xl bg-white/80">
+        <Ionicons name={icon} size={19} color="#111827" />
+      </View>
+
+      <Text className="mt-3 text-xl font-black text-gray-900">{value}</Text>
+      <Text className="mt-1 text-xs font-bold text-gray-600">{label}</Text>
     </View>
   );
 }
@@ -187,29 +228,47 @@ function ListBlock({
   title,
   items,
   empty,
+  icon,
+  iconBg,
 }: {
   title: string;
   items: { name: string; count: number }[];
   empty: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconBg: string;
 }) {
   return (
-    <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
-      <Text className="text-base font-semibold text-gray-900">{title}</Text>
+    <View className="mt-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+      <View className="flex-row items-center">
+        <View
+          className={`h-11 w-11 items-center justify-center rounded-2xl ${iconBg}`}
+        >
+          <Ionicons name={icon} size={23} color="#111827" />
+        </View>
+
+        <Text className="ml-3 flex-1 text-base font-black text-gray-900">
+          {title}
+        </Text>
+      </View>
+
       {items.length === 0 ? (
-        <Text className="mt-2 text-sm text-gray-600">{empty}</Text>
+        <Text className="mt-3 text-sm leading-5 text-gray-600">{empty}</Text>
       ) : (
         <View className="mt-3">
           {items.map((x, idx) => (
             <View
               key={`${x.name}-${idx}`}
-              className="mb-2 flex-row items-center justify-between rounded-xl bg-gray-50 px-3 py-2"
+              className="mb-2 flex-row items-center justify-between rounded-2xl bg-gray-50 px-3 py-3"
             >
-              <Text className="text-sm font-semibold text-gray-900">
+              <Text className="flex-1 pr-3 text-sm font-bold text-gray-900">
                 {x.name}
               </Text>
-              <Text className="text-sm font-semibold text-gray-700">
-                {x.count}
-              </Text>
+
+              <View className="rounded-full bg-white px-3 py-1">
+                <Text className="text-sm font-black text-green-700">
+                  {x.count}
+                </Text>
+              </View>
             </View>
           ))}
         </View>
@@ -740,102 +799,245 @@ export default function AnalyticsScreen() {
       ? "Weekly patterns"
       : `Weekly patterns — ${activeTab}`;
 
+  const heroTitle =
+    activeTab === "Overall" ? "Spot your patterns" : `${activeTab} patterns`;
+
+  const heroBody =
+    logs.length === 0
+      ? "Log a few check-ins and this screen will start showing useful trends."
+      : "Use your data to find triggers, avoid risky moments, and stack more wins.";
+
+  const activeScopeLabel = activeTab === "Overall" ? "All habits" : activeTab;
+
   return (
     <>
       <ScrollView
         ref={scrollViewRef}
-        className="flex-1 bg-white px-6 pt-10"
+        className="flex-1 bg-green-50"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 42,
+          paddingBottom: 28,
+        }}
       >
-        <Text className="text-3xl font-bold text-gray-900">Analytics</Text>
-        <Text className="mt-2 text-gray-600">
-          Look for patterns, not perfection.
-        </Text>
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 pr-4">
+            <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+              Analytics
+            </Text>
+
+            <Text className="mt-1 text-3xl font-black text-gray-900">
+              Pattern map
+            </Text>
+          </View>
+
+          <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
+            <Ionicons name="stats-chart" size={29} color="#15803D" />
+          </View>
+        </View>
+
+        <View className="mt-6 overflow-hidden rounded-[32px] bg-green-600 p-6 shadow-sm">
+          <View className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/20" />
+          <View className="absolute -bottom-12 -left-10 h-28 w-28 rounded-full bg-white/10" />
+
+          <View className="flex-row items-center justify-between">
+            <View className="rounded-full bg-white/20 px-3 py-1.5">
+              <Text className="text-xs font-black uppercase tracking-wide text-white">
+                {activeScopeLabel}
+              </Text>
+            </View>
+
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white">
+              <Ionicons name="analytics" size={26} color="#16A34A" />
+            </View>
+          </View>
+
+          <Text className="mt-5 text-3xl font-black leading-9 text-white">
+            {heroTitle}
+          </Text>
+
+          <Text className="mt-2 text-base font-semibold leading-6 text-green-50">
+            {heroBody}
+          </Text>
+
+          <View className="mt-5 flex-row gap-3">
+            <View className="flex-1 rounded-3xl bg-white/20 p-4">
+              <Text className="text-3xl font-black text-white">
+                {filteredLogs.length}
+              </Text>
+              <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
+                Logs
+              </Text>
+            </View>
+
+            <View className="flex-1 rounded-3xl bg-white/20 p-4">
+              <Text className="text-3xl font-black text-white">
+                {extraAnalytics.overallResistRate}%
+              </Text>
+              <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
+                Resist rate
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+          <View className="flex-row items-center">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
+              <Ionicons name="bulb" size={24} color="#854D0E" />
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-gray-900">
+                Look for patterns
+              </Text>
+
+              <Text className="mt-1 text-sm leading-5 text-gray-600">
+                The goal is not perfect stats. The goal is noticing what makes
+                urges easier or harder to beat.
+              </Text>
+            </View>
+          </View>
+        </View>
 
         <ScrollView
           ref={habitTabsScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-4"
+          className="mt-5"
         >
-          <View className="flex-row gap-2">
-            {habitTabs.map((t) => (
-              <Pressable
-                key={t}
-                onPress={async () => {
-                  await lightHaptic();
-                  setActiveTab(t);
-                }}
-                className={`rounded-full border px-4 py-2 ${
-                  t === activeTab
-                    ? "border-gray-900 bg-gray-900"
-                    : "border-gray-200 bg-white"
+          {habitTabs.map((t) => (
+            <Pressable
+              key={t}
+              onPress={async () => {
+                await lightHaptic();
+                setActiveTab(t);
+              }}
+              className={`mr-2 rounded-full border px-4 py-2.5 ${
+                t === activeTab
+                  ? "border-green-600 bg-green-600"
+                  : "border-gray-200 bg-white"
+              }`}
+            >
+              <Text
+                className={`text-sm font-black ${
+                  t === activeTab ? "text-white" : "text-gray-900"
                 }`}
+                numberOfLines={1}
               >
-                <Text
-                  className={`text-sm font-semibold ${
-                    t === activeTab ? "text-white" : "text-gray-900"
-                  }`}
-                  numberOfLines={1}
-                >
-                  {t}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+                {t}
+              </Text>
+            </Pressable>
+          ))}
         </ScrollView>
 
-        <AnalyticsCalendar
-          monthLabel={calendar.monthLabel}
-          weeks={calendar.weeks}
-          onPreviousMonth={async () => {
-            await lightHaptic();
-            setMonthOffset((v) => v - 1);
-          }}
-          onNextMonth={async () => {
-            await lightHaptic();
-            setMonthOffset((v) => v + 1);
-          }}
-          onOpenDay={openDayModal}
-        />
+        <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+          <View className="mb-4 flex-row items-center justify-between">
+            <View>
+              <Text className="text-xl font-black text-gray-900">
+                Give-in calendar
+              </Text>
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                Tap a day to view or edit logs.
+              </Text>
+            </View>
 
-        <View className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-5">
-          <Text className="text-base font-semibold text-gray-900">
-            {patternTitle}
-          </Text>
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-blue-100">
+              <Ionicons name="calendar" size={24} color="#111827" />
+            </View>
+          </View>
+
+          <AnalyticsCalendar
+            monthLabel={calendar.monthLabel}
+            weeks={calendar.weeks}
+            onPreviousMonth={async () => {
+              await lightHaptic();
+              setMonthOffset((v) => v - 1);
+            }}
+            onNextMonth={async () => {
+              await lightHaptic();
+              setMonthOffset((v) => v + 1);
+            }}
+            onOpenDay={openDayModal}
+          />
+        </View>
+
+        <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-xl font-black text-gray-900">
+                {patternTitle}
+              </Text>
+
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                Your most common triggers this week.
+              </Text>
+            </View>
+
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-purple-100">
+              <Ionicons name="search" size={24} color="#111827" />
+            </View>
+          </View>
 
           <ListBlock
             title="Most Common Cues"
             items={data.topCues}
             empty="Add cues in your logs to see patterns."
+            icon="alert-circle"
+            iconBg="bg-orange-100"
           />
+
           <ListBlock
             title="Most Common Locations"
             items={data.topLocations}
             empty="Add locations in your logs to see patterns."
+            icon="location"
+            iconBg="bg-blue-100"
           />
+
           <ListBlock
             title="Most Common Times"
             items={data.topTimes}
             empty="Log a few check-ins and this will populate."
+            icon="time"
+            iconBg="bg-yellow-100"
           />
         </View>
 
-        <View className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-5">
-          <Text className="text-base font-semibold text-gray-900">
-            More insights
-          </Text>
+        <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-xl font-black text-gray-900">
+                More insights
+              </Text>
 
-          <View className="mt-4 flex-row gap-3">
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                Small numbers still reveal useful patterns.
+              </Text>
+            </View>
+
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
+              <Ionicons name="sparkles" size={24} color="#16A34A" />
+            </View>
+          </View>
+
+          <View className="mt-5 flex-row gap-3">
             <StatCard
               label="Logs this week"
               value={`${extraAnalytics.weeklyTotal}`}
+              icon="create"
+              bg="bg-green-100"
+              iconBg="bg-white/80"
             />
+
             <StatCard
               label="Resist rate"
               value={`${extraAnalytics.weeklyResistRate}%`}
               sub="This week"
+              icon="shield-checkmark"
+              bg="bg-blue-100"
+              iconBg="bg-white/80"
             />
           </View>
 
@@ -844,81 +1046,88 @@ export default function AnalyticsScreen() {
               label="Gave in"
               value={`${extraAnalytics.weeklyGaveIn}`}
               sub="This week"
+              icon="trending-down"
+              bg="bg-yellow-100"
+              iconBg="bg-white/80"
             />
+
             <StatCard
               label="Active days"
               value={`${extraAnalytics.activeDays30}`}
               sub="Last 30 days"
+              icon="flame"
+              bg="bg-purple-100"
+              iconBg="bg-white/80"
             />
           </View>
 
-          <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
-            <Text className="text-base font-semibold text-gray-900">
-              Outcome breakdown
-            </Text>
-
-            <View className="mt-3 flex-row gap-3">
-              <View className="flex-1 rounded-xl bg-gray-50 p-3">
-                <Text className="text-xs font-semibold text-gray-500">
-                  Resisted
-                </Text>
-                <Text className="mt-1 text-xl font-bold text-gray-900">
-                  {extraAnalytics.allResisted}
-                </Text>
+          <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+            <View className="flex-row items-center">
+              <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
+                <Ionicons name="pie-chart" size={23} color="#16A34A" />
               </View>
 
-              <View className="flex-1 rounded-xl bg-gray-50 p-3">
-                <Text className="text-xs font-semibold text-gray-500">
-                  Gave in
-                </Text>
-                <Text className="mt-1 text-xl font-bold text-gray-900">
-                  {extraAnalytics.allGiveIn}
-                </Text>
-              </View>
+              <Text className="ml-3 flex-1 text-base font-black text-gray-900">
+                Outcome breakdown
+              </Text>
+            </View>
 
-              <View className="flex-1 rounded-xl bg-gray-50 p-3">
-                <Text className="text-xs font-semibold text-gray-500">
-                  Overall resist rate
-                </Text>
-                <Text className="mt-1 text-xl font-bold text-gray-900">
-                  {extraAnalytics.overallResistRate}%
-                </Text>
-              </View>
+            <View className="mt-4 flex-row gap-3">
+              <MiniStat
+                label="Resisted"
+                value={`${extraAnalytics.allResisted}`}
+                icon="shield-checkmark"
+                bg="bg-green-100"
+              />
+
+              <MiniStat
+                label="Gave in"
+                value={`${extraAnalytics.allGiveIn}`}
+                icon="close-circle"
+                bg="bg-red-100"
+              />
+
+              <MiniStat
+                label="Rate"
+                value={`${extraAnalytics.overallResistRate}%`}
+                icon="pulse"
+                bg="bg-blue-100"
+              />
             </View>
           </View>
 
-          <View className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
-            <Text className="text-base font-semibold text-gray-900">
-              Intensity trends
-            </Text>
-
-            <View className="mt-3 flex-row gap-3">
-              <View className="flex-1 rounded-xl bg-gray-50 p-3">
-                <Text className="text-xs font-semibold text-gray-500">
-                  Avg intensity
-                </Text>
-                <Text className="mt-1 text-xl font-bold text-gray-900">
-                  {formatAvg(extraAnalytics.avgIntensity)}
-                </Text>
+          <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+            <View className="flex-row items-center">
+              <View className="h-11 w-11 items-center justify-center rounded-2xl bg-orange-100">
+                <Ionicons name="pulse" size={23} color="#111827" />
               </View>
 
-              <View className="flex-1 rounded-xl bg-gray-50 p-3">
-                <Text className="text-xs font-semibold text-gray-500">
-                  Avg when resisted
-                </Text>
-                <Text className="mt-1 text-xl font-bold text-gray-900">
-                  {formatAvg(extraAnalytics.avgResistedIntensity)}
-                </Text>
-              </View>
+              <Text className="ml-3 flex-1 text-base font-black text-gray-900">
+                Intensity trends
+              </Text>
+            </View>
 
-              <View className="flex-1 rounded-xl bg-gray-50 p-3">
-                <Text className="text-xs font-semibold text-gray-500">
-                  Avg when gave in
-                </Text>
-                <Text className="mt-1 text-xl font-bold text-gray-900">
-                  {formatAvg(extraAnalytics.avgGaveInIntensity)}
-                </Text>
-              </View>
+            <View className="mt-4 flex-row gap-3">
+              <MiniStat
+                label="Average"
+                value={formatAvg(extraAnalytics.avgIntensity)}
+                icon="analytics"
+                bg="bg-gray-100"
+              />
+
+              <MiniStat
+                label="Resisted"
+                value={formatAvg(extraAnalytics.avgResistedIntensity)}
+                icon="shield-checkmark"
+                bg="bg-green-100"
+              />
+
+              <MiniStat
+                label="Gave in"
+                value={formatAvg(extraAnalytics.avgGaveInIntensity)}
+                icon="alert"
+                bg="bg-yellow-100"
+              />
             </View>
           </View>
         </View>

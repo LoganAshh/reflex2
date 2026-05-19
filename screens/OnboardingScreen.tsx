@@ -1,5 +1,13 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { View, Text, Pressable, TextInput, Alert } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  TextInput,
+  Alert,
+  ScrollView,
+  Keyboard,
+} from "react-native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useData, type Habit, type Cue, type Place } from "../data/DataContext";
@@ -19,6 +27,20 @@ type ChipListProps<T extends { id: number; name: string; isCustom: 0 | 1 }> = {
 
   onAddCustom: (type: "habits" | "cues" | "locations") => void;
 };
+
+function getTypeIcon(
+  type: "habits" | "cues" | "locations",
+): keyof typeof Ionicons.glyphMap {
+  if (type === "habits") return "radio-button-on";
+  if (type === "cues") return "alert-circle";
+  return "location";
+}
+
+function getTypeTitle(type: "habits" | "cues" | "locations") {
+  if (type === "habits") return "Choose your habits";
+  if (type === "cues") return "Choose your cues";
+  return "Choose your locations";
+}
 
 function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
   data,
@@ -57,26 +79,40 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
   const canAdd = value.trim().length > 0;
 
   return (
-    <View className="w-full rounded-2xl border border-gray-200 bg-white p-4">
-      <Text className="text-sm font-semibold text-gray-900">Tap to select</Text>
+    <View className="mt-5 w-full rounded-[28px] border border-green-100 bg-white p-5 shadow-sm">
+      <View className="flex-row items-center">
+        <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
+          <Ionicons name={getTypeIcon(type)} size={23} color="#16A34A" />
+        </View>
 
-      <View className="mt-3 flex-row flex-wrap gap-2">
+        <View className="ml-3 flex-1">
+          <Text className="text-base font-black text-gray-900">
+            {getTypeTitle(type)}
+          </Text>
+          <Text className="mt-1 text-sm font-semibold text-gray-500">
+            Tap any item to add it to your Log screen.
+          </Text>
+        </View>
+      </View>
+
+      <View className="mt-4 flex-row flex-wrap gap-2">
         {data.map((item) => {
           const isSelected = selected.has(item.id);
+
           return (
             <Pressable
               key={item.id}
               onPress={() => toggle(item.id, type)}
-              className={`rounded-full border px-3 py-2 ${
+              className={`rounded-full border px-4 py-2.5 ${
                 isSelected
                   ? "border-green-600 bg-green-600"
                   : "border-gray-200 bg-white"
               }`}
             >
               <Text
-                className={`${
+                className={`text-sm font-black ${
                   isSelected ? "text-white" : "text-gray-900"
-                } text-sm font-semibold`}
+                }`}
               >
                 {item.name}
               </Text>
@@ -85,44 +121,53 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
         })}
       </View>
 
-      <View className="mt-4">
-        <Text className="text-xs font-semibold text-gray-700">Add custom</Text>
+      <View className="mt-5 rounded-[24px] bg-gray-50 p-4">
+        <View className="flex-row items-center">
+          <View className="h-10 w-10 items-center justify-center rounded-2xl bg-yellow-100">
+            <Ionicons name="add-circle" size={22} color="#854D0E" />
+          </View>
 
-        <View className="mt-2 flex-row items-center gap-3">
+          <View className="ml-3 flex-1">
+            <Text className="text-sm font-black text-gray-900">Add custom</Text>
+            <Text className="mt-0.5 text-xs font-semibold text-gray-500">
+              Create one that fits your real life.
+            </Text>
+          </View>
+        </View>
+
+        <View className="mt-3 flex-row items-center gap-3">
           <TextInput
             value={value}
             onChangeText={onChangeText}
             placeholder={placeholder}
             placeholderTextColor="#9CA3AF"
-            className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+            className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
             returnKeyType="done"
+            onSubmitEditing={() => {
+              if (canAdd) onAddCustom(type);
+            }}
           />
 
           <Pressable
             onPress={() => {
               if (!canAdd) return;
+              Keyboard.dismiss();
               onAddCustom(type);
             }}
             disabled={!canAdd}
-            className={`rounded-xl px-4 py-3 ${
-              canAdd ? "bg-gray-900" : "border border-gray-200 bg-white"
+            className={`rounded-2xl px-4 py-3 ${
+              canAdd ? "bg-gray-900" : "bg-gray-300"
             }`}
             style={({ pressed }) => ({
               shadowColor: canAdd ? "#000" : "transparent",
-              shadowOffset: { width: 0, height: pressed ? 2 : 4 },
+              shadowOffset: { width: 0, height: pressed ? 2 : 5 },
               shadowOpacity: canAdd ? 0.2 : 0,
-              shadowRadius: pressed ? 3 : 4,
-              elevation: canAdd ? (pressed ? 4 : 6) : 0,
+              shadowRadius: pressed ? 3 : 5,
+              elevation: canAdd ? (pressed ? 3 : 7) : 0,
               transform: [{ translateY: canAdd && pressed ? 1 : 0 }],
             })}
           >
-            <Text
-              className={`text-base font-bold ${
-                canAdd ? "text-white" : "text-gray-400"
-              }`}
-            >
-              Add
-            </Text>
+            <Text className="text-base font-black text-white">Add</Text>
           </Pressable>
         </View>
       </View>
@@ -170,39 +215,42 @@ export default function OnboardingScreen() {
       {
         title: "Welcome to Reflex!",
         body: "Congratulations! You have just taken the first step toward building more intentional habits!",
+        icon: "flash",
+        badge: "Start here",
       },
       {
         title: "Did you know?",
         body: "Over time, your habits can become so automatic that you do them without even thinking, just like your body's reflexes.",
+        icon: "bulb",
+        badge: "Brain basics",
       },
       {
         title: "Why most apps\ndon’t work",
         body: "Most habit apps focus on streaks, punishment, or motivation. They tell you what you did, but not why.",
+        icon: "close-circle",
+        badge: "Different approach",
       },
       {
         title: "Patterns over Perfection",
         body: "Reflex helps you understand the triggers behind the urge, not shame you for having one.",
+        icon: "analytics",
+        badge: "Pattern map",
       },
       {
         title: "Your Privacy Matters",
         body: "Your data is stored locally on your phone. We never collect or share your personal information.",
+        icon: "lock-closed",
+        badge: "Private by design",
       },
       {
         title: "Free Forever",
         body: "Reflex's essential tracking and insights will always remain 100% free. Subscriptions will be offered for optional advanced features.",
+        icon: "gift",
+        badge: "No pressure",
       },
     ],
     [],
   );
-
-  const stepIcons = [
-    "flash",
-    "bulb",
-    "close-circle",
-    "analytics",
-    "lock-closed",
-    "gift",
-  ];
 
   const setupStartIndex = infoSteps.length;
   const totalSteps = infoSteps.length + 3;
@@ -216,30 +264,39 @@ export default function OnboardingScreen() {
 
   useEffect(() => {
     if (!pendingHabitName) return;
+
     const match = habits.find(
       (h) => h.name.toLowerCase() === pendingHabitName.toLowerCase(),
     );
+
     if (!match) return;
+
     setHabitIds((prev) => Array.from(new Set([...prev, match.id])));
     setPendingHabitName(null);
   }, [habits, pendingHabitName]);
 
   useEffect(() => {
     if (!pendingCueName) return;
+
     const match = cues.find(
       (c) => c.name.toLowerCase() === pendingCueName.toLowerCase(),
     );
+
     if (!match) return;
+
     setCueIds((prev) => Array.from(new Set([...prev, match.id])));
     setPendingCueName(null);
   }, [cues, pendingCueName]);
 
   useEffect(() => {
     if (!pendingLocationName) return;
+
     const match = locations.find(
       (l) => l.name.toLowerCase() === pendingLocationName.toLowerCase(),
     );
+
     if (!match) return;
+
     setLocationIds((prev) => Array.from(new Set([...prev, match.id])));
     setPendingLocationName(null);
   }, [locations, pendingLocationName]);
@@ -249,6 +306,8 @@ export default function OnboardingScreen() {
   const locationSet = useMemo(() => new Set(locationIds), [locationIds]);
 
   const toggle = (id: number, type: "habits" | "cues" | "locations") => {
+    buzz();
+
     const updater =
       type === "habits"
         ? setHabitIds
@@ -299,6 +358,7 @@ export default function OnboardingScreen() {
       );
       return false;
     }
+
     return true;
   };
 
@@ -319,6 +379,7 @@ export default function OnboardingScreen() {
       setStep(setupStartIndex);
       return;
     }
+
     await setSelectedHabits(habitIds);
     await setSelectedCues(cueIds);
     await setSelectedLocations(locationIds);
@@ -329,9 +390,9 @@ export default function OnboardingScreen() {
     const pct = ((step + 1) / totalSteps) * 100;
 
     return (
-      <View className="mt-10">
+      <View className="pt-10">
         <View className="mb-3 flex-row items-center justify-between">
-          <Text className="text-sm font-semibold text-gray-700">
+          <Text className="text-sm font-black uppercase tracking-wide text-green-700">
             Step {step + 1} of {totalSteps}
           </Text>
 
@@ -341,21 +402,23 @@ export default function OnboardingScreen() {
                 buzz();
                 skipToSetup();
               }}
-              className="rounded-full px-4 py-1.5"
+              className="rounded-full bg-white px-4 py-2 shadow-sm"
             >
-              <Text className="text-sm font-semibold text-gray-700">
-                Skip to setup
+              <Text className="text-sm font-black text-gray-900">
+                Skip setup
               </Text>
             </Pressable>
           ) : (
-            <View />
+            <View className="rounded-full bg-white px-4 py-2 shadow-sm">
+              <Text className="text-sm font-black text-green-700">Setup</Text>
+            </View>
           )}
         </View>
 
-        <View className="h-4 w-full overflow-hidden rounded-full bg-gray-200">
+        <View className="h-5 w-full overflow-hidden rounded-full bg-white">
           <View
             style={{ width: `${pct}%` }}
-            className="h-4 rounded-full bg-green-600"
+            className="h-5 rounded-full bg-green-600"
           />
         </View>
       </View>
@@ -382,7 +445,7 @@ export default function OnboardingScreen() {
         : goNext;
 
     return (
-      <View className="mb-10 pb-8 pt-4">
+      <View className="pb-8 pt-4">
         <View className="flex-row items-center gap-3">
           {!isFirst ? (
             <Pressable
@@ -390,17 +453,17 @@ export default function OnboardingScreen() {
                 buzz();
                 goBack();
               }}
-              className="flex-1 rounded-2xl border border-gray-200 bg-white px-5 py-4"
+              className="flex-1 rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
               style={({ pressed }) => ({
                 shadowColor: "#000",
                 shadowOffset: { width: 0, height: pressed ? 1 : 4 },
-                shadowOpacity: 0.18,
+                shadowOpacity: 0.15,
                 shadowRadius: pressed ? 2 : 4,
                 elevation: pressed ? 2 : 5,
                 transform: [{ translateY: pressed ? 1 : 0 }],
               })}
             >
-              <Text className="text-center text-lg font-bold text-gray-900">
+              <Text className="text-center text-lg font-black text-gray-900">
                 Back
               </Text>
             </Pressable>
@@ -417,7 +480,7 @@ export default function OnboardingScreen() {
               }
               onPrimary();
             }}
-            className={`rounded-2xl bg-green-600 px-5 py-4 ${
+            className={`rounded-3xl bg-green-600 px-5 py-4 ${
               !isFirst ? "flex-1" : "w-full"
             }`}
             style={({ pressed }) => ({
@@ -429,33 +492,99 @@ export default function OnboardingScreen() {
               transform: [{ translateY: pressed ? 2 : 0 }],
             })}
           >
-            <Text className="text-center text-lg font-bold text-white">
-              {primaryText}
-            </Text>
+            <View className="flex-row items-center justify-center">
+              <Ionicons
+                name={isLast ? "checkmark-circle" : "arrow-forward-circle"}
+                size={22}
+                color="#FFFFFF"
+              />
+
+              <Text className="ml-2 text-center text-lg font-black text-white">
+                {primaryText}
+              </Text>
+            </View>
           </Pressable>
         </View>
       </View>
     );
   };
 
+  const InfoStepCard = ({
+    title,
+    body,
+    icon,
+    badge,
+  }: {
+    title: string;
+    body: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    badge: string;
+  }) => (
+    <View className="items-center">
+      <View className="rounded-full border-4 border-white bg-green-200 p-5 shadow-sm">
+        <Ionicons name={icon} size={54} color="#16A34A" />
+      </View>
+
+      <View className="mt-5 rounded-full bg-white px-4 py-2 shadow-sm">
+        <Text className="text-xs font-black uppercase tracking-wide text-green-700">
+          {badge}
+        </Text>
+      </View>
+
+      <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-gray-900">
+        {title}
+      </Text>
+
+      <Text className="mt-5 text-center text-lg font-semibold leading-7 text-gray-600">
+        {body}
+      </Text>
+    </View>
+  );
+
+  const SetupTitle = ({
+    title,
+    body,
+    icon,
+    badge,
+  }: {
+    title: string;
+    body: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    badge: string;
+  }) => (
+    <View className="items-center">
+      <View className="rounded-full border-4 border-white bg-green-200 p-5 shadow-sm">
+        <Ionicons name={icon} size={54} color="#16A34A" />
+      </View>
+
+      <View className="mt-5 rounded-full bg-white px-4 py-2 shadow-sm">
+        <Text className="text-xs font-black uppercase tracking-wide text-green-700">
+          {badge}
+        </Text>
+      </View>
+
+      <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-gray-900">
+        {title}
+      </Text>
+
+      <Text className="mt-5 text-center text-lg font-semibold leading-7 text-gray-600">
+        {body}
+      </Text>
+    </View>
+  );
+
   const renderContent = () => {
     if (step < infoSteps.length) {
       const s = infoSteps[step];
-      return (
-        <View className="flex-1 items-center justify-center px-4">
-          <Ionicons
-            name={stepIcons[step] as any}
-            size={64}
-            color="#16A34A"
-            style={{ marginBottom: 20 }}
-          />
 
-          <Text className="text-center text-4xl font-bold text-gray-900">
-            {s.title}
-          </Text>
-          <Text className="mt-5 text-center text-lg leading-7 text-gray-700">
-            {s.body}
-          </Text>
+      return (
+        <View className="flex-1 justify-center">
+          <InfoStepCard
+            title={s.title}
+            body={s.body}
+            icon={s.icon as keyof typeof Ionicons.glyphMap}
+            badge={s.badge}
+          />
         </View>
       );
     }
@@ -465,101 +594,35 @@ export default function OnboardingScreen() {
     if (setupIndex === 0) {
       return (
         <View className="flex-1 justify-center">
-          <View className="items-center">
-            <Ionicons
-              name="list"
-              size={56}
-              color="#16A34A"
-              style={{ marginBottom: 12 }}
-            />
-          </View>
-
-          <Text className="text-3xl font-bold text-gray-900">Pick habits</Text>
-
-          <Text className="mt-3 text-sm font-semibold text-gray-700">
-            Tip: Start small
-          </Text>
-          <Text className="mt-1 text-sm leading-6 text-gray-600">
-            It’s usually easier to focus on one or two habits at first. You can
-            always add more later.
-          </Text>
-
-          <View className="mt-4">
-            <ChipList<Habit>
-              data={habits}
-              selected={habitSet}
-              type="habits"
-              toggle={toggle}
-              customHabit={customHabit}
-              setCustomHabit={setCustomHabit}
-              customCue={customCue}
-              setCustomCue={setCustomCue}
-              customLocation={customLocation}
-              setCustomLocation={setCustomLocation}
-              onAddCustom={onAddCustom}
-            />
-          </View>
-        </View>
-      );
-    }
-
-    if (setupIndex === 1) {
-      return (
-        <View className="flex-1 justify-center">
-          <View className="items-center">
-            <Ionicons
-              name="pulse"
-              size={56}
-              color="#16A34A"
-              style={{ marginBottom: 12 }}
-            />
-          </View>
-
-          <Text className="text-3xl font-bold text-gray-900">Pick cues</Text>
-          <Text className="mt-2 text-gray-600">
-            Optional — common triggers that lead to the habit.
-          </Text>
-
-          <View className="mt-4">
-            <ChipList<Cue>
-              data={cues}
-              selected={cueSet}
-              type="cues"
-              toggle={toggle}
-              customHabit={customHabit}
-              setCustomHabit={setCustomHabit}
-              customCue={customCue}
-              setCustomCue={setCustomCue}
-              customLocation={customLocation}
-              setCustomLocation={setCustomLocation}
-              onAddCustom={onAddCustom}
-            />
-          </View>
-        </View>
-      );
-    }
-
-    return (
-      <View className="flex-1 justify-center">
-        <View className="items-center">
-          <Ionicons
-            name="location"
-            size={56}
-            color="#16A34A"
-            style={{ marginBottom: 12 }}
+          <SetupTitle
+            title="Pick habits"
+            body="Choose the habits you want to track first. You can always add more later."
+            icon="list"
+            badge="Your focus"
           />
-        </View>
 
-        <Text className="text-3xl font-bold text-gray-900">Pick locations</Text>
-        <Text className="mt-2 text-gray-600">
-          Optional — where it usually happens.
-        </Text>
+          <View className="mt-6 rounded-[28px] border border-green-100 bg-white p-5 shadow-sm">
+            <View className="flex-row items-center">
+              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
+                <Ionicons name="bulb" size={24} color="#854D0E" />
+              </View>
 
-        <View className="mt-4">
-          <ChipList<Place>
-            data={locations}
-            selected={locationSet}
-            type="locations"
+              <View className="ml-3 flex-1">
+                <Text className="text-base font-black text-gray-900">
+                  Tip: Start small
+                </Text>
+
+                <Text className="mt-1 text-sm leading-5 text-gray-600">
+                  It’s usually easier to focus on one or two habits at first.
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <ChipList<Habit>
+            data={habits}
+            selected={habitSet}
+            type="habits"
             toggle={toggle}
             customHabit={customHabit}
             setCustomHabit={setCustomHabit}
@@ -570,14 +633,79 @@ export default function OnboardingScreen() {
             onAddCustom={onAddCustom}
           />
         </View>
+      );
+    }
+
+    if (setupIndex === 1) {
+      return (
+        <View className="flex-1 justify-center">
+          <SetupTitle
+            title="Pick cues"
+            body="Cues are the triggers that usually show up before the urge."
+            icon="alert-circle"
+            badge="Triggers"
+          />
+
+          <ChipList<Cue>
+            data={cues}
+            selected={cueSet}
+            type="cues"
+            toggle={toggle}
+            customHabit={customHabit}
+            setCustomHabit={setCustomHabit}
+            customCue={customCue}
+            setCustomCue={setCustomCue}
+            customLocation={customLocation}
+            setCustomLocation={setCustomLocation}
+            onAddCustom={onAddCustom}
+          />
+        </View>
+      );
+    }
+
+    return (
+      <View className="flex-1 justify-center">
+        <SetupTitle
+          title="Pick locations"
+          body="Locations help you see where certain patterns happen most often."
+          icon="location"
+          badge="Environment"
+        />
+
+        <ChipList<Place>
+          data={locations}
+          selected={locationSet}
+          type="locations"
+          toggle={toggle}
+          customHabit={customHabit}
+          setCustomHabit={setCustomHabit}
+          customCue={customCue}
+          setCustomCue={setCustomCue}
+          customLocation={customLocation}
+          setCustomLocation={setCustomLocation}
+          onAddCustom={onAddCustom}
+        />
       </View>
     );
   };
 
   return (
-    <View className="flex-1 bg-white px-6 pt-12">
+    <View className="flex-1 bg-green-50 px-5">
       <ProgressBar />
-      <View className="flex-1 pt-6">{renderContent()}</View>
+
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: 20,
+          paddingBottom: 12,
+        }}
+      >
+        {renderContent()}
+      </ScrollView>
+
       <BottomNav />
     </View>
   );

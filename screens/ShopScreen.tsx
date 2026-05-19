@@ -9,6 +9,7 @@ import {
   ScrollView,
   Keyboard,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
@@ -46,6 +47,7 @@ function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
       customs.push(a);
       continue;
     }
+
     const cat = (a.category ?? "") as PresetCategory;
     if (PRESET_CATEGORIES.includes(cat)) buckets[cat].push(a);
     else buckets.Other.push(a);
@@ -67,6 +69,45 @@ function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
   return [...out, ...customs];
 }
 
+function getFilterIcon(filter: Filter): keyof typeof Ionicons.glyphMap {
+  if (filter === SELECTED) return "checkmark-circle";
+  if (filter === ALL) return "sparkles";
+  if (filter === CUSTOM) return "create";
+  if (filter === "Physical") return "fitness";
+  if (filter === "Mental") return "bulb";
+  if (filter === "Social") return "people";
+  if (filter === "Creative") return "color-palette";
+  return "ellipsis-horizontal-circle";
+}
+
+function getActionIcon(
+  action: ReplacementAction,
+): keyof typeof Ionicons.glyphMap {
+  if (action.isCustom === 1) return "create";
+
+  const category = action.category ?? "";
+
+  if (category === "Physical") return "fitness";
+  if (category === "Mental") return "bulb";
+  if (category === "Social") return "people";
+  if (category === "Creative") return "color-palette";
+
+  return "flash";
+}
+
+function getActionIconBg(action: ReplacementAction) {
+  if (action.isCustom === 1) return "bg-green-100";
+
+  const category = action.category ?? "";
+
+  if (category === "Physical") return "bg-orange-100";
+  if (category === "Mental") return "bg-blue-100";
+  if (category === "Social") return "bg-purple-100";
+  if (category === "Creative") return "bg-yellow-100";
+
+  return "bg-gray-100";
+}
+
 export default function ShopScreen() {
   const route = useRoute<ShopRoute>();
   const { actions, addAction, selectedActionIds, toggleSelectedAction } =
@@ -80,8 +121,10 @@ export default function ShopScreen() {
   const handledResetTokenRef = useRef<number | null>(null);
 
   const didSetInitialFilter = useRef(false);
+
   useEffect(() => {
     if (didSetInitialFilter.current) return;
+
     didSetInitialFilter.current = true;
     setFilter(selectedActionIds.length > 0 ? SELECTED : ALL);
   }, [selectedActionIds.length]);
@@ -102,7 +145,9 @@ export default function ShopScreen() {
 
   const selectedActions = useMemo(() => {
     if (selectedActionIds.length === 0) return [];
+
     const map = new Map(actions.map((a) => [a.id, a]));
+
     return selectedActionIds
       .map((id) => map.get(id))
       .filter(Boolean) as ReplacementAction[];
@@ -119,6 +164,17 @@ export default function ShopScreen() {
       (a) => a.isCustom === 0 && (a.category ?? "") === filter,
     );
   }, [actions, filter, selectedActions, allInterleaved]);
+
+  const selectedCount = selectedActionIds.length;
+  const customCount = actions.filter((a) => a.isCustom === 1).length;
+  const currentFilterLabel =
+    filter === SELECTED
+      ? "Selected"
+      : filter === ALL
+        ? "All actions"
+        : filter === CUSTOM
+          ? "Custom"
+          : filter;
 
   const onToggleSelected = async (actionId: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -142,8 +198,17 @@ export default function ShopScreen() {
 
       setText("");
       setNewCategory("Physical");
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+        () => {},
+      );
+
       Alert.alert("Added ✅", `"${title}" is now in your actions list.`);
     } catch (e: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
+        () => {},
+      );
+
       Alert.alert(
         "Already exists",
         e?.message ?? "That action already exists.",
@@ -153,15 +218,29 @@ export default function ShopScreen() {
 
   const FilterPill = ({ label, value }: { label: string; value: Filter }) => {
     const selected = filter === value;
+
     return (
       <Pressable
-        onPress={() => setFilter(value)}
-        className={`rounded-full border px-4 py-2 ${
-          selected ? "bg-gray-900 border-gray-900" : "bg-white border-gray-200"
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {});
+          setFilter(value);
+        }}
+        className={`mr-2 flex-row items-center rounded-full border px-4 py-2.5 ${
+          selected
+            ? "border-green-600 bg-green-600"
+            : "border-gray-200 bg-white"
         }`}
       >
+        <Ionicons
+          name={getFilterIcon(value)}
+          size={16}
+          color={selected ? "#FFFFFF" : "#111827"}
+        />
+
         <Text
-          className={`${selected ? "text-white" : "text-gray-900"} font-semibold`}
+          className={`ml-1.5 text-sm font-black ${
+            selected ? "text-white" : "text-gray-900"
+          }`}
         >
           {label}
         </Text>
@@ -171,15 +250,29 @@ export default function ShopScreen() {
 
   const CategoryPill = ({ label }: { label: PresetCategory }) => {
     const selected = newCategory === label;
+
     return (
       <Pressable
-        onPress={() => setNewCategory(label)}
-        className={`rounded-full border px-4 py-2 ${
-          selected ? "bg-gray-900 border-gray-900" : "bg-white border-gray-200"
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {});
+          setNewCategory(label);
+        }}
+        className={`mr-2 mt-2 flex-row items-center rounded-full border px-4 py-2.5 ${
+          selected
+            ? "border-green-600 bg-green-600"
+            : "border-gray-200 bg-white"
         }`}
       >
+        <Ionicons
+          name={getFilterIcon(label)}
+          size={16}
+          color={selected ? "#FFFFFF" : "#111827"}
+        />
+
         <Text
-          className={`${selected ? "text-white" : "text-gray-900"} font-semibold`}
+          className={`ml-1.5 text-sm font-black ${
+            selected ? "text-white" : "text-gray-900"
+          }`}
         >
           {label}
         </Text>
@@ -187,33 +280,54 @@ export default function ShopScreen() {
     );
   };
 
-  const renderItem = ({ item }: { item: ReplacementAction }) => {
+  const ActionCard = ({ item }: { item: ReplacementAction }) => {
     const isCustom = item.isCustom === 1;
     const isSelected = selectedActionIds.includes(item.id);
 
     return (
-      <View className="mb-3 rounded-2xl border border-gray-200 bg-white p-4">
-        <View className="flex-row items-start justify-between">
-          <View className="flex-1 pr-3">
-            <Text className="text-base font-semibold text-gray-900">
-              {item.title}
-            </Text>
-            <Text className="mt-1 text-xs text-gray-500">
-              {isCustom ? "Custom" : "Preset"}
-              {item.category ? ` • ${item.category}` : ""}
-            </Text>
+      <View
+        className={`mb-3 rounded-3xl border p-4 shadow-sm ${
+          isSelected
+            ? "border-green-200 bg-green-50"
+            : "border-gray-100 bg-white"
+        }`}
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row flex-1 items-center pr-3">
+            <View
+              className={`h-12 w-12 items-center justify-center rounded-2xl ${getActionIconBg(
+                item,
+              )}`}
+            >
+              <Ionicons
+                name={getActionIcon(item)}
+                size={24}
+                color={isSelected ? "#16A34A" : "#111827"}
+              />
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-gray-900">
+                {item.title}
+              </Text>
+
+              <Text className="mt-1 text-xs font-bold uppercase tracking-wide text-gray-500">
+                {isCustom ? "Custom" : "Preset"}
+                {item.category ? ` • ${item.category}` : ""}
+              </Text>
+            </View>
           </View>
 
           <Pressable
             onPress={() => onToggleSelected(item.id)}
-            className={`rounded-xl border px-4 py-2 ${
+            className={`rounded-2xl border px-4 py-2.5 ${
               isSelected
-                ? "bg-white border-gray-300"
-                : "bg-green-600 border-green-600"
+                ? "border-gray-200 bg-white"
+                : "border-green-600 bg-green-600"
             }`}
           >
             <Text
-              className={`font-semibold ${
+              className={`font-black ${
                 isSelected ? "text-gray-900" : "text-white"
               }`}
             >
@@ -225,11 +339,23 @@ export default function ShopScreen() {
     );
   };
 
+  const renderItem = ({ item }: { item: ReplacementAction }) => (
+    <ActionCard item={item} />
+  );
+
   const EmptyState = () => (
-    <View className="mt-4 mx-6 rounded-2xl border border-gray-200 bg-white p-5">
-      <Text className="text-gray-700">
+    <View className="mt-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+      <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
+        <Ionicons name="leaf" size={24} color="#16A34A" />
+      </View>
+
+      <Text className="mt-4 text-lg font-black text-gray-900">
+        Nothing here yet
+      </Text>
+
+      <Text className="mt-2 text-sm leading-5 text-gray-600">
         {filter === SELECTED
-          ? "No selected actions yet."
+          ? "No selected actions yet. Choose a few easy actions from All."
           : filter === CUSTOM
             ? "No custom actions yet. Add one above."
             : "No actions in this category yet."}
@@ -237,126 +363,209 @@ export default function ShopScreen() {
     </View>
   );
 
-  return (
-    <View className="flex-1 bg-white pt-10">
-      <View className="px-6">
-        <Text className="text-3xl font-bold text-gray-900">Shop</Text>
+  const Header = () => (
+    <View className="px-5 pt-10">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 pr-4">
+          <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+            Action shop
+          </Text>
 
-        <Text className="mt-2 text-base font-semibold text-gray-900">
-          Tip: Make it easy
-        </Text>
-        <Text className="mt-1 text-sm text-gray-600">
-          Pick something you genuinely enjoy doing, then choose the easiest
-          possible version of it.
-        </Text>
+          <Text className="mt-1 text-3xl font-black text-gray-900">
+            Pick your backups
+          </Text>
+        </View>
 
-        <View className="mt-5 flex-row flex-wrap gap-2">
-          <FilterPill label="Selected" value={SELECTED} />
-          <FilterPill label="All" value={ALL} />
-          {PRESET_CATEGORIES.map((cat) => (
-            <FilterPill key={cat} label={cat} value={cat} />
-          ))}
-          <FilterPill label="Custom" value={CUSTOM} />
+        <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
+          <Ionicons name="bag-handle" size={29} color="#15803D" />
         </View>
       </View>
 
-      {filter === CUSTOM ? (
-        <ScrollView
-          ref={scrollViewRef}
-          className="mt-5 flex-1"
-          showsVerticalScrollIndicator
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
-        >
-          <View className="rounded-2xl border border-gray-200 bg-white p-4">
-            <Text className="text-sm font-semibold text-gray-900">
-              Add an action
-            </Text>
+      <View className="mt-6 overflow-hidden rounded-[32px] bg-green-600 p-6 shadow-sm">
+        <View className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/20" />
+        <View className="absolute -bottom-12 -left-10 h-28 w-28 rounded-full bg-white/10" />
 
-            <View className="mt-3 flex-row items-center gap-3">
-              <TextInput
-                value={text}
-                onChangeText={setText}
-                placeholder="e.g., 10 push-ups, call a friend"
-                placeholderTextColor="#9CA3AF"
-                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-                returnKeyType="done"
-                onSubmitEditing={() => {
-                  if (text.trim()) onAdd();
-                }}
-                blurOnSubmit
-              />
-
-              <Pressable
-                onPress={onAdd}
-                className={`rounded-xl px-4 py-3 ${
-                  text.trim() ? "bg-gray-900" : "bg-gray-300"
-                }`}
-                disabled={!text.trim()}
-              >
-                <Text className="font-semibold text-white">Add</Text>
-              </Pressable>
-            </View>
-
-            <Text className="mt-4 text-xs font-semibold text-gray-600">
-              Category
-            </Text>
-            <View className="mt-2 flex-row flex-wrap gap-2">
-              {PRESET_CATEGORIES.map((cat) => (
-                <CategoryPill key={cat} label={cat} />
-              ))}
-            </View>
-          </View>
-
-          <View className="mt-6">
-            <Text className="text-xl font-bold text-gray-900">Actions</Text>
-            <Text className="mt-1 text-sm text-gray-500">
-              Tap “Select” to add or remove an action.
-            </Text>
-
-            {filtered.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <FlatList
-                className="mt-4"
-                data={filtered}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={renderItem}
-                showsVerticalScrollIndicator={false}
-                scrollEnabled={false}
-              />
-            )}
-          </View>
-        </ScrollView>
-      ) : (
-        <View className="mt-6 flex-1">
-          <View className="px-6">
-            <Text className="text-xl font-bold text-gray-900">
-              {filter === SELECTED ? "Selected actions" : "Actions"}
-            </Text>
-            <Text className="mt-1 text-sm text-gray-500">
-              Tap “Select” to add or remove an action.
+        <View className="flex-row items-center justify-between">
+          <View className="rounded-full bg-white/20 px-3 py-1.5">
+            <Text className="text-xs font-black uppercase tracking-wide text-white">
+              Replacement actions
             </Text>
           </View>
 
-          {filtered.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <FlatList
-              ref={actionListRef}
-              className="mt-4 flex-1"
-              data={filtered}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={renderItem}
-              showsVerticalScrollIndicator
-              contentContainerStyle={{
-                paddingHorizontal: 24,
-                paddingBottom: 20,
-              }}
-            />
-          )}
+          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white">
+            <Ionicons name="sparkles" size={26} color="#16A34A" />
+          </View>
         </View>
-      )}
+
+        <Text className="mt-5 text-3xl font-black leading-9 text-white">
+          Make the better choice easier
+        </Text>
+
+        <Text className="mt-2 text-base font-semibold leading-6 text-green-50">
+          Pick simple actions you actually like, then use them when an urge
+          shows up.
+        </Text>
+
+        <View className="mt-5 flex-row gap-3">
+          <View className="flex-1 rounded-3xl bg-white/20 p-4">
+            <Text className="text-3xl font-black text-white">
+              {selectedCount}
+            </Text>
+            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
+              Selected
+            </Text>
+          </View>
+
+          <View className="flex-1 rounded-3xl bg-white/20 p-4">
+            <Text className="text-3xl font-black text-white">
+              {customCount}
+            </Text>
+            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
+              Custom
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+        <View className="flex-row items-center">
+          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
+            <Ionicons name="bulb" size={24} color="#854D0E" />
+          </View>
+
+          <View className="ml-3 flex-1">
+            <Text className="text-base font-black text-gray-900">
+              Tip: make it easy
+            </Text>
+
+            <Text className="mt-1 text-sm leading-5 text-gray-600">
+              Pick something enjoyable, then choose the easiest possible version
+              of it.
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="mt-5"
+      >
+        <FilterPill label="Selected" value={SELECTED} />
+        <FilterPill label="All" value={ALL} />
+
+        {PRESET_CATEGORIES.map((cat) => (
+          <FilterPill key={cat} label={cat} value={cat} />
+        ))}
+
+        <FilterPill label="Custom" value={CUSTOM} />
+      </ScrollView>
+    </View>
+  );
+
+  const CustomForm = () => {
+    if (filter !== CUSTOM) return null;
+
+    return (
+      <View className="mx-5 mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+        <View className="flex-row items-center justify-between">
+          <View>
+            <Text className="text-xl font-black text-gray-900">
+              Create your own
+            </Text>
+
+            <Text className="mt-1 text-sm font-semibold text-gray-500">
+              Add a backup action that fits your life.
+            </Text>
+          </View>
+
+          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
+            <Ionicons name="add-circle" size={25} color="#16A34A" />
+          </View>
+        </View>
+
+        <View className="mt-4 flex-row items-center gap-3">
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="e.g., 10 push-ups, call a friend"
+            placeholderTextColor="#9CA3AF"
+            className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900"
+            returnKeyType="done"
+            onSubmitEditing={() => {
+              if (text.trim()) onAdd();
+            }}
+            blurOnSubmit
+          />
+
+          <Pressable
+            onPress={onAdd}
+            className={`rounded-2xl px-4 py-3 ${
+              text.trim() ? "bg-gray-900" : "bg-gray-300"
+            }`}
+            disabled={!text.trim()}
+          >
+            <Text className="font-black text-white">Add</Text>
+          </Pressable>
+        </View>
+
+        <Text className="mt-5 text-xs font-black uppercase tracking-wide text-gray-500">
+          Category
+        </Text>
+
+        <View className="mt-1 flex-row flex-wrap">
+          {PRESET_CATEGORIES.map((cat) => (
+            <CategoryPill key={cat} label={cat} />
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  const ListHeader = () => (
+    <View>
+      <Header />
+      <CustomForm />
+
+      <View className="mx-5 mt-6 mb-4 flex-row items-center justify-between">
+        <View>
+          <Text className="text-2xl font-black text-gray-900">
+            {currentFilterLabel}
+          </Text>
+
+          <Text className="mt-1 text-sm font-semibold text-gray-500">
+            Tap “Select” to add or remove an action.
+          </Text>
+        </View>
+
+        <View className="rounded-full bg-white px-3 py-2 shadow-sm">
+          <Text className="text-sm font-black text-green-700">
+            {filtered.length}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  return (
+    <View className="flex-1 bg-green-50">
+      <FlatList
+        ref={actionListRef}
+        data={filtered}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderItem}
+        showsVerticalScrollIndicator
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={<ListHeader />}
+        ListEmptyComponent={
+          <View className="px-5">
+            <EmptyState />
+          </View>
+        }
+        contentContainerStyle={{
+          paddingBottom: 28,
+        }}
+      />
     </View>
   );
 }

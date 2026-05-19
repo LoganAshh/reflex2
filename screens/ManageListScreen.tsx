@@ -9,6 +9,7 @@ import {
   Keyboard,
   Modal,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import {
   CommonActions,
   useRoute,
@@ -29,6 +30,30 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Filter = "selected" | "preset" | "custom";
 type ManageItem = Habit | Cue | Place;
 type PendingAddedItem = { type: ManageListType; name: string };
+
+function getScreenIcon(type: ManageListType): keyof typeof Ionicons.glyphMap {
+  if (type === "habits") return "radio-button-on";
+  if (type === "cues") return "alert-circle";
+  return "location";
+}
+
+function getFilterIcon(filter: Filter): keyof typeof Ionicons.glyphMap {
+  if (filter === "selected") return "checkmark-circle";
+  if (filter === "preset") return "sparkles";
+  return "create";
+}
+
+function getScreenSubtitle(type: ManageListType) {
+  if (type === "habits") {
+    return "Choose which habits appear when you log a check-in.";
+  }
+
+  if (type === "cues") {
+    return "Choose the triggers you want available on the Log screen.";
+  }
+
+  return "Choose the locations you want available on the Log screen.";
+}
 
 export default function ManageListScreen() {
   const route = useRoute<ManageRoute>();
@@ -131,6 +156,9 @@ export default function ManageListScreen() {
 
     return items.filter((it) => !!it.isCustom);
   }, [items, selectedIds, filter]);
+
+  const selectedCount = selectedIds.size;
+  const customCount = items.filter((item) => item.isCustom === 1).length;
 
   const setLogReturnSelectionParam = (selection: ManageListSelection) => {
     const rootState = navigation.getState();
@@ -288,18 +316,27 @@ export default function ManageListScreen() {
     navigation.goBack();
   };
 
-  const Chip = ({ label, value }: { label: string; value: Filter }) => {
+  const FilterChip = ({ label, value }: { label: string; value: Filter }) => {
     const active = filter === value;
 
     return (
       <Pressable
-        onPress={() => setFilter(value)}
-        className={`rounded-full border px-4 py-2 ${
-          active ? "border-gray-900 bg-gray-900" : "border-gray-200 bg-white"
+        onPress={() => {
+          Haptics.selectionAsync();
+          setFilter(value);
+        }}
+        className={`mr-2 flex-row items-center rounded-full border px-4 py-2.5 ${
+          active ? "border-green-600 bg-green-600" : "border-gray-200 bg-white"
         }`}
       >
+        <Ionicons
+          name={getFilterIcon(value)}
+          size={16}
+          color={active ? "#FFFFFF" : "#111827"}
+        />
+
         <Text
-          className={`text-sm font-semibold ${
+          className={`ml-1.5 text-sm font-black ${
             active ? "text-white" : "text-gray-900"
           }`}
         >
@@ -309,94 +346,112 @@ export default function ManageListScreen() {
     );
   };
 
-  return (
-    <View className="flex-1 bg-white px-6 pt-6">
-      <Modal visible={!!editingItem} transparent animationType="fade">
-        <View className="flex-1 justify-center bg-black/40 px-6">
-          <View className="rounded-3xl bg-white p-5">
-            <Text className="text-xl font-bold text-gray-900">
-              Edit custom {singularTitle}
+  const Header = () => (
+    <View className="px-5 pt-10">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 pr-4">
+          <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+            Manage list
+          </Text>
+
+          <Text className="mt-1 text-3xl font-black text-gray-900">
+            {title}
+          </Text>
+        </View>
+
+        <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
+          <Ionicons name={getScreenIcon(type)} size={29} color="#15803D" />
+        </View>
+      </View>
+
+      <View className="mt-6 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+        <View className="flex-row items-center">
+          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
+            <Ionicons name="list" size={24} color="#16A34A" />
+          </View>
+
+          <View className="ml-3 flex-1">
+            <Text className="text-base font-black text-gray-900">
+              Customize your Log screen
             </Text>
 
-            <Text className="mt-2 text-sm text-gray-600">
-              Rename it, or delete it from future logging.
+            <Text className="mt-1 text-sm leading-5 text-gray-600">
+              {getScreenSubtitle(type)}
             </Text>
-
-            <TextInput
-              value={editText}
-              onChangeText={setEditText}
-              placeholder={`Custom ${singularTitle}`}
-              placeholderTextColor="#9CA3AF"
-              className="mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
-              multiline={false}
-              returnKeyType="done"
-              blurOnSubmit
-              onSubmitEditing={onRename}
-            />
-
-            <Pressable
-              onPress={onRename}
-              className="mt-4 rounded-2xl bg-green-600 py-4 active:bg-green-700"
-            >
-              <Text className="text-center text-base font-semibold text-white">
-                Save Rename
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={onDelete}
-              className="mt-3 rounded-2xl border border-red-200 bg-red-50 py-4 active:bg-red-100"
-            >
-              <Text className="text-center text-base font-semibold text-red-600">
-                Delete Custom Item
-              </Text>
-            </Pressable>
-
-            <Pressable onPress={closeEdit} className="mt-3 rounded-2xl py-3">
-              <Text className="text-center text-base font-semibold text-gray-500">
-                Cancel
-              </Text>
-            </Pressable>
           </View>
         </View>
-      </Modal>
 
-      <Text className="text-2xl font-bold text-gray-900">{title}</Text>
+        <View className="mt-5 flex-row gap-3">
+          <View className="flex-1 rounded-3xl bg-green-100 p-4">
+            <Text className="text-3xl font-black text-gray-900">
+              {selectedCount}
+            </Text>
+            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-600">
+              Selected
+            </Text>
+          </View>
 
-      <Text className="mt-2 text-gray-600">
-        Add new items and choose which ones appear in your Log screen.
-      </Text>
+          <View className="flex-1 rounded-3xl bg-blue-100 p-4">
+            <Text className="text-3xl font-black text-gray-900">
+              {customCount}
+            </Text>
+            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-600">
+              Custom
+            </Text>
+          </View>
+        </View>
+      </View>
 
       {type === "habits" ? (
-        <View className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-          <Text className="text-sm font-semibold text-gray-900">
-            Tip: Start Small
-          </Text>
+        <View className="mt-5 rounded-[28px] border border-green-100 bg-white p-4 shadow-sm">
+          <View className="flex-row items-center">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
+              <Ionicons name="bulb" size={24} color="#854D0E" />
+            </View>
 
-          <Text className="mt-1 text-xs text-gray-600">
-            It’s usually easier to focus on one or two habits at first. You can
-            always add more later.
-          </Text>
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-gray-900">
+                Tip: Start small
+              </Text>
+
+              <Text className="mt-1 text-sm leading-5 text-gray-600">
+                It’s usually easier to focus on one or two habits at first. You
+                can always add more later.
+              </Text>
+            </View>
+          </View>
         </View>
       ) : null}
 
-      <View className="mt-5 flex-row gap-2">
-        <Chip label="Selected" value="selected" />
-        <Chip label="Preset" value="preset" />
-        <Chip label="Custom" value="custom" />
+      <View className="mt-5 flex-row">
+        <FilterChip label="Selected" value="selected" />
+        <FilterChip label="Preset" value="preset" />
+        <FilterChip label="Custom" value="custom" />
       </View>
 
       {filter === "custom" ? (
-        <View className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-          <Text className="text-sm font-semibold text-gray-900">Add new</Text>
+        <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 pr-3">
+              <Text className="text-xl font-black text-gray-900">Add new</Text>
 
-          <View className="mt-3 flex-row items-center gap-3">
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                Create a custom {singularTitle} that fits your life.
+              </Text>
+            </View>
+
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
+              <Ionicons name="add-circle" size={25} color="#854D0E" />
+            </View>
+          </View>
+
+          <View className="mt-4 flex-row items-center gap-3">
             <TextInput
               value={text}
               onChangeText={setText}
               placeholder={`New ${singularTitle}...`}
               placeholderTextColor="#9CA3AF"
-              className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900"
+              className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900"
               multiline={false}
               returnKeyType="done"
               blurOnSubmit
@@ -405,24 +460,102 @@ export default function ManageListScreen() {
 
             <Pressable
               onPress={onAdd}
-              className="rounded-xl bg-gray-900 px-4 py-3 active:bg-gray-800"
+              disabled={!text.trim()}
+              className={`rounded-2xl px-4 py-3 ${
+                text.trim() ? "bg-gray-900" : "bg-gray-300"
+              }`}
             >
-              <Text className="font-semibold text-white">Add</Text>
+              <Text className="font-black text-white">Add</Text>
             </Pressable>
           </View>
         </View>
       ) : null}
 
-      <Text className="mt-6 text-base font-bold text-gray-900">
-        {filter === "selected"
-          ? "Selected"
-          : filter === "preset"
-            ? "Preset"
-            : "Custom"}
-      </Text>
+      <View className="mt-6 mb-4 flex-row items-center justify-between">
+        <View>
+          <Text className="text-2xl font-black text-gray-900">
+            {filter === "selected"
+              ? "Selected"
+              : filter === "preset"
+                ? "Preset"
+                : "Custom"}
+          </Text>
+
+          <Text className="mt-1 text-sm font-semibold text-gray-500">
+            Tap Select to show an item on the Log screen.
+          </Text>
+        </View>
+
+        <View className="rounded-full bg-white px-3 py-2 shadow-sm">
+          <Text className="text-sm font-black text-green-700">
+            {filteredItems.length}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  return (
+    <View className="flex-1 bg-green-50">
+      <Modal visible={!!editingItem} transparent animationType="fade">
+        <View className="flex-1 justify-center bg-black/40 px-6">
+          <View className="rounded-[32px] bg-white p-5">
+            <View className="flex-row items-center">
+              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
+                <Ionicons name="create" size={24} color="#16A34A" />
+              </View>
+
+              <View className="ml-3 flex-1">
+                <Text className="text-xl font-black text-gray-900">
+                  Edit custom {singularTitle}
+                </Text>
+
+                <Text className="mt-1 text-sm leading-5 text-gray-600">
+                  Rename it, or delete it from future logging.
+                </Text>
+              </View>
+            </View>
+
+            <TextInput
+              value={editText}
+              onChangeText={setEditText}
+              placeholder={`Custom ${singularTitle}`}
+              placeholderTextColor="#9CA3AF"
+              className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900"
+              multiline={false}
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={onRename}
+            />
+
+            <Pressable
+              onPress={onRename}
+              className="mt-4 rounded-3xl bg-green-600 py-4 active:bg-green-700"
+            >
+              <Text className="text-center text-base font-black text-white">
+                Save Rename
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={onDelete}
+              className="mt-3 rounded-3xl border border-red-200 bg-red-50 py-4 active:bg-red-100"
+            >
+              <Text className="text-center text-base font-black text-red-600">
+                Delete Custom Item
+              </Text>
+            </Pressable>
+
+            <Pressable onPress={closeEdit} className="mt-3 rounded-3xl py-3">
+              <Text className="text-center text-base font-black text-gray-500">
+                Cancel
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       <FlatList
-        className="mt-3"
         data={filteredItems}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => {
@@ -431,30 +564,44 @@ export default function ManageListScreen() {
 
           return (
             <View
-              className={`mb-3 rounded-2xl border p-4 ${
+              className={`mx-5 mb-3 rounded-[28px] border p-4 shadow-sm ${
                 isSelected
-                  ? "border-green-600 bg-green-50"
-                  : "border-gray-200 bg-white"
+                  ? "border-green-200 bg-green-50"
+                  : "border-gray-100 bg-white"
               }`}
             >
               <View className="flex-row items-center justify-between">
-                <View className="flex-1 pr-3">
-                  <Text className="text-base font-semibold text-gray-900">
-                    {item.name}
-                  </Text>
+                <View className="flex-row flex-1 items-center pr-3">
+                  <View
+                    className={`h-12 w-12 items-center justify-center rounded-2xl ${
+                      isCustom ? "bg-yellow-100" : "bg-green-100"
+                    }`}
+                  >
+                    <Ionicons
+                      name={isCustom ? "create" : "sparkles"}
+                      size={24}
+                      color={isSelected ? "#16A34A" : "#111827"}
+                    />
+                  </View>
 
-                  <Text className="mt-1 text-xs text-gray-500">
-                    {isCustom ? "Custom" : "Preset"}
-                    {isCustom ? " • Tap Edit to rename/delete" : ""}
-                  </Text>
+                  <View className="ml-3 flex-1">
+                    <Text className="text-base font-black text-gray-900">
+                      {item.name}
+                    </Text>
+
+                    <Text className="mt-1 text-xs font-bold uppercase tracking-wide text-gray-500">
+                      {isCustom ? "Custom" : "Preset"}
+                      {isCustom ? " • Editable" : ""}
+                    </Text>
+                  </View>
                 </View>
 
                 {isCustom ? (
                   <Pressable
                     onPress={() => openEdit(item)}
-                    className="mr-3 rounded-xl border border-gray-200 bg-white px-3 py-2 active:bg-gray-50"
+                    className="mr-3 rounded-2xl border border-gray-200 bg-white px-3 py-2 active:bg-gray-50"
                   >
-                    <Text className="text-xs font-semibold text-gray-900">
+                    <Text className="text-xs font-black text-gray-900">
                       Edit
                     </Text>
                   </Pressable>
@@ -462,14 +609,14 @@ export default function ManageListScreen() {
 
                 <Pressable
                   onPress={() => toggleSelected(item.id)}
-                  className={`rounded-xl border px-4 py-2 ${
+                  className={`rounded-2xl border px-4 py-2.5 ${
                     isSelected
-                      ? "border-gray-300 bg-white"
+                      ? "border-gray-200 bg-white"
                       : "border-green-600 bg-green-600"
                   }`}
                 >
                   <Text
-                    className={`font-semibold ${
+                    className={`font-black ${
                       isSelected ? "text-gray-900" : "text-white"
                     }`}
                   >
@@ -481,14 +628,20 @@ export default function ManageListScreen() {
           );
         }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 110 }}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={<Header />}
+        contentContainerStyle={{ paddingBottom: 116 }}
         ListEmptyComponent={
-          <View className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-            <Text className="text-sm font-semibold text-gray-900">
+          <View className="mx-5 rounded-[28px] border border-gray-100 bg-white p-5 shadow-sm">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
+              <Ionicons name="leaf" size={24} color="#16A34A" />
+            </View>
+
+            <Text className="mt-4 text-lg font-black text-gray-900">
               Nothing here yet
             </Text>
 
-            <Text className="mt-1 text-xs text-gray-600">
+            <Text className="mt-2 text-sm leading-5 text-gray-600">
               {filter === "selected"
                 ? "Select items from Preset or Custom to see them here."
                 : filter === "preset"
@@ -499,14 +652,18 @@ export default function ManageListScreen() {
         }
       />
 
-      <View className="absolute bottom-0 left-0 right-0 border-t border-gray-200 bg-white px-6 pb-6 pt-4">
+      <View className="absolute bottom-0 left-0 right-0 border-t border-green-100 bg-green-50 px-5 pb-6 pt-4">
         <Pressable
           onPress={onDone}
-          className="w-full rounded-2xl bg-gray-900 py-4 active:bg-gray-800"
+          className="w-full rounded-3xl bg-gray-900 py-4 shadow-sm active:bg-gray-800"
         >
-          <Text className="text-center text-base font-semibold text-white">
-            Done
-          </Text>
+          <View className="flex-row items-center justify-center">
+            <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+
+            <Text className="ml-2 text-center text-base font-black text-white">
+              Done
+            </Text>
+          </View>
         </Pressable>
       </View>
     </View>
