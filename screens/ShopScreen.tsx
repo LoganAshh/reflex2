@@ -379,20 +379,19 @@ export default function ShopScreen() {
         </View>
       </View>
 
-      <View className="mt-6 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+      <View className="mt-4 rounded-3xl border border-green-100 bg-white p-3 shadow-sm">
         <View className="flex-row items-center">
-          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
-            <Ionicons name="bulb" size={24} color="#854D0E" />
+          <View className="h-9 w-9 items-center justify-center rounded-2xl bg-yellow-100">
+            <Ionicons name="bulb" size={19} color="#854D0E" />
           </View>
 
-          <View className="ml-3 flex-1">
-            <Text className="text-base font-black text-gray-900">
+          <View className="ml-2 flex-1">
+            <Text className="text-sm font-black text-gray-900">
               Tip: make it easy
             </Text>
 
-            <Text className="mt-1 text-sm leading-5 text-gray-600">
-              Pick something enjoyable, then choose the easiest possible version
-              of it.
+            <Text className="mt-0.5 text-xs leading-4 text-gray-600">
+              Pick something enjoyable, then choose the easiest version.
             </Text>
           </View>
         </View>

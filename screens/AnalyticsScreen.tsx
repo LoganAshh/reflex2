@@ -799,16 +799,6 @@ export default function AnalyticsScreen() {
       ? "Weekly patterns"
       : `Weekly patterns — ${activeTab}`;
 
-  const heroTitle =
-    activeTab === "Overall" ? "Spot your patterns" : `${activeTab} patterns`;
-
-  const heroBody =
-    logs.length === 0
-      ? "Log a few check-ins and this screen will start showing useful trends."
-      : "Use your data to find triggers, avoid risky moments, and stack more wins.";
-
-  const activeScopeLabel = activeTab === "Overall" ? "All habits" : activeTab;
-
   return (
     <>
       <ScrollView
@@ -817,85 +807,39 @@ export default function AnalyticsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: 42,
+          paddingTop: 30,
           paddingBottom: 28,
         }}
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-4">
-            <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+            <Text className="text-xs font-black uppercase tracking-widest text-green-700">
               Analytics
             </Text>
 
-            <Text className="mt-1 text-3xl font-black text-gray-900">
+            <Text className="mt-0.5 text-2xl font-black text-gray-900">
               Pattern map
             </Text>
           </View>
 
-          <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
-            <Ionicons name="stats-chart" size={29} color="#15803D" />
+          <View className="h-12 w-12 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
+            <Ionicons name="stats-chart" size={23} color="#15803D" />
           </View>
         </View>
 
-        <View className="mt-6 overflow-hidden rounded-[32px] bg-green-600 p-6 shadow-sm">
-          <View className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/20" />
-          <View className="absolute -bottom-12 -left-10 h-28 w-28 rounded-full bg-white/10" />
-
-          <View className="flex-row items-center justify-between">
-            <View className="rounded-full bg-white/20 px-3 py-1.5">
-              <Text className="text-xs font-black uppercase tracking-wide text-white">
-                {activeScopeLabel}
-              </Text>
-            </View>
-
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white">
-              <Ionicons name="analytics" size={26} color="#16A34A" />
-            </View>
-          </View>
-
-          <Text className="mt-5 text-3xl font-black leading-9 text-white">
-            {heroTitle}
-          </Text>
-
-          <Text className="mt-2 text-base font-semibold leading-6 text-green-50">
-            {heroBody}
-          </Text>
-
-          <View className="mt-5 flex-row gap-3">
-            <View className="flex-1 rounded-3xl bg-white/20 p-4">
-              <Text className="text-3xl font-black text-white">
-                {filteredLogs.length}
-              </Text>
-              <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
-                Logs
-              </Text>
-            </View>
-
-            <View className="flex-1 rounded-3xl bg-white/20 p-4">
-              <Text className="text-3xl font-black text-white">
-                {extraAnalytics.overallResistRate}%
-              </Text>
-              <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
-                Resist rate
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+        <View className="mt-3 rounded-3xl border border-green-100 bg-white p-3 shadow-sm">
           <View className="flex-row items-center">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
-              <Ionicons name="bulb" size={24} color="#854D0E" />
+            <View className="h-9 w-9 items-center justify-center rounded-2xl bg-yellow-100">
+              <Ionicons name="bulb" size={19} color="#854D0E" />
             </View>
 
-            <View className="ml-3 flex-1">
-              <Text className="text-base font-black text-gray-900">
+            <View className="ml-2 flex-1">
+              <Text className="text-sm font-black text-gray-900">
                 Look for patterns
               </Text>
 
-              <Text className="mt-1 text-sm leading-5 text-gray-600">
-                The goal is not perfect stats. The goal is noticing what makes
-                urges easier or harder to beat.
+              <Text className="mt-0.5 text-xs leading-4 text-gray-600">
+                Notice what makes urges easier or harder to beat.
               </Text>
             </View>
           </View>
@@ -905,7 +849,7 @@ export default function AnalyticsScreen() {
           ref={habitTabsScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-5"
+          className="mt-3"
         >
           {habitTabs.map((t) => (
             <Pressable
@@ -914,14 +858,14 @@ export default function AnalyticsScreen() {
                 await lightHaptic();
                 setActiveTab(t);
               }}
-              className={`mr-2 rounded-full border px-4 py-2.5 ${
+              className={`mr-2 rounded-full border px-3 py-1.5 ${
                 t === activeTab
                   ? "border-green-600 bg-green-600"
                   : "border-gray-200 bg-white"
               }`}
             >
               <Text
-                className={`text-sm font-black ${
+                className={`text-xs font-black ${
                   t === activeTab ? "text-white" : "text-gray-900"
                 }`}
                 numberOfLines={1}
@@ -932,19 +876,19 @@ export default function AnalyticsScreen() {
           ))}
         </ScrollView>
 
-        <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
-          <View className="mb-4 flex-row items-center justify-between">
+        <View className="mt-3 rounded-3xl border border-green-100 bg-white p-3 shadow-sm">
+          <View className="mb-2 flex-row items-center justify-between">
             <View>
-              <Text className="text-xl font-black text-gray-900">
+              <Text className="text-base font-black text-gray-900">
                 Give-in calendar
               </Text>
-              <Text className="mt-1 text-sm font-semibold text-gray-500">
+              <Text className="mt-0.5 text-xs font-semibold text-gray-500">
                 Tap a day to view or edit logs.
               </Text>
             </View>
 
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-blue-100">
-              <Ionicons name="calendar" size={24} color="#111827" />
+            <View className="h-9 w-9 items-center justify-center rounded-2xl bg-blue-100">
+              <Ionicons name="calendar" size={19} color="#111827" />
             </View>
           </View>
 
