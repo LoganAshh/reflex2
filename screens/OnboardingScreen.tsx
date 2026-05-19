@@ -216,37 +216,31 @@ export default function OnboardingScreen() {
         title: "Welcome to Reflex!",
         body: "Congratulations! You have just taken the first step toward building more intentional habits!",
         icon: "flash",
-        badge: "Start here",
       },
       {
         title: "Did you know?",
         body: "Over time, your habits can become so automatic that you do them without even thinking, just like your body's reflexes.",
         icon: "bulb",
-        badge: "Brain basics",
       },
       {
         title: "Why most apps\ndon’t work",
         body: "Most habit apps focus on streaks, punishment, or motivation. They tell you what you did, but not why.",
         icon: "close-circle",
-        badge: "Different approach",
       },
       {
         title: "Patterns over Perfection",
         body: "Reflex helps you understand the triggers behind the urge, not shame you for having one.",
         icon: "analytics",
-        badge: "Pattern map",
       },
       {
         title: "Your Privacy Matters",
         body: "Your data is stored locally on your phone. We never collect or share your personal information.",
         icon: "lock-closed",
-        badge: "Private by design",
       },
       {
         title: "Free Forever",
         body: "Reflex's essential tracking and insights will always remain 100% free. Subscriptions will be offered for optional advanced features.",
         icon: "gift",
-        badge: "No pressure",
       },
     ],
     [],
@@ -511,25 +505,17 @@ export default function OnboardingScreen() {
     title,
     body,
     icon,
-    badge,
   }: {
     title: string;
     body: string;
     icon: keyof typeof Ionicons.glyphMap;
-    badge: string;
   }) => (
     <View className="items-center">
       <View className="rounded-full border-4 border-green-600 bg-white p-5 shadow-sm">
         <Ionicons name={icon} size={54} color="#000000" />
       </View>
 
-      <View className="mt-5 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 shadow-sm">
-        <Text className="text-xs font-black uppercase tracking-wide text-green-600">
-          {badge}
-        </Text>
-      </View>
-
-      <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-black">
+      <Text className="mt-8 text-center text-4xl font-black leading-[44px] text-black">
         {title}
       </Text>
 
@@ -543,25 +529,17 @@ export default function OnboardingScreen() {
     title,
     body,
     icon,
-    badge,
   }: {
     title: string;
     body: string;
     icon: keyof typeof Ionicons.glyphMap;
-    badge: string;
   }) => (
     <View className="items-center">
       <View className="rounded-full border-4 border-green-600 bg-white p-5 shadow-sm">
         <Ionicons name={icon} size={54} color="#000000" />
       </View>
 
-      <View className="mt-5 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 shadow-sm">
-        <Text className="text-xs font-black uppercase tracking-wide text-green-600">
-          {badge}
-        </Text>
-      </View>
-
-      <Text className="mt-6 text-center text-4xl font-black leading-[44px] text-black">
+      <Text className="mt-8 text-center text-4xl font-black leading-[44px] text-black">
         {title}
       </Text>
 
@@ -581,7 +559,6 @@ export default function OnboardingScreen() {
             title={s.title}
             body={s.body}
             icon={s.icon as keyof typeof Ionicons.glyphMap}
-            badge={s.badge}
           />
         </View>
       );
@@ -596,7 +573,6 @@ export default function OnboardingScreen() {
             title="Pick habits"
             body="Choose the habits you want to track first. You can always add more later."
             icon="list"
-            badge="Your focus"
           />
 
           <View className="mt-6 rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
@@ -641,7 +617,6 @@ export default function OnboardingScreen() {
             title="Pick cues"
             body="Cues are the triggers that usually show up before the urge."
             icon="alert-circle"
-            badge="Triggers"
           />
 
           <ChipList<Cue>
@@ -667,7 +642,6 @@ export default function OnboardingScreen() {
           title="Pick locations"
           body="Locations help you see where certain patterns happen most often."
           icon="location"
-          badge="Environment"
         />
 
         <ChipList<Place>
