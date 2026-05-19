@@ -539,9 +539,9 @@ export default function ManageListScreen() {
                 {isCustom ? (
                   <Pressable
                     onPress={() => openEdit(item)}
-                    className="mr-3 rounded-2xl border border-gray-200 bg-white px-3 py-2 active:bg-gray-50"
+                    className="mr-3 rounded-2xl border border-gray-300 bg-white px-4 py-2.5"
                   >
-                    <Text className="text-xs font-black text-black">Edit</Text>
+                    <Text className="font-black text-black">Edit</Text>
                   </Pressable>
                 ) : null}
 
