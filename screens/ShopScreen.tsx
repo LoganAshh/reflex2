@@ -104,6 +104,8 @@ export default function ShopScreen() {
   const [text, setText] = useState("");
   const [newCategory, setNewCategory] = useState<PresetCategory>("Physical");
   const actionListRef = useRef<FlatList<ReplacementAction> | null>(null);
+  const filterScrollRef = useRef<ScrollView | null>(null);
+  const filterScrollOffsetRef = useRef(0);
   const handledResetTokenRef = useRef<number | null>(null);
 
   const didSetInitialFilter = useRef(false);
@@ -124,8 +126,10 @@ export default function ShopScreen() {
     setFilter(selectedActionIds.length > 0 ? SELECTED : ALL);
     setText("");
     setNewCategory("Physical");
+    filterScrollOffsetRef.current = 0;
     Keyboard.dismiss();
     actionListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    filterScrollRef.current?.scrollTo({ x: 0, animated: true });
   }, [route.params?.resetToken, selectedActionIds.length]);
 
   const selectedActions = useMemo(() => {
@@ -373,9 +377,15 @@ export default function ShopScreen() {
       </View>
 
       <ScrollView
+        ref={filterScrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         className="mt-5"
+        scrollEventThrottle={16}
+        contentOffset={{ x: filterScrollOffsetRef.current, y: 0 }}
+        onScroll={(event) => {
+          filterScrollOffsetRef.current = event.nativeEvent.contentOffset.x;
+        }}
       >
         <FilterPill label="Selected" value={SELECTED} />
         <FilterPill label="All" value={ALL} />

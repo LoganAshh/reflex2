@@ -826,7 +826,7 @@ export default function AnalyticsScreen() {
                 Look for patterns
               </Text>
 
-              <Text className="mt-0.5 text-xs leading-4 text-gray-500">
+              <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-500">
                 Notice what makes urges easier or harder to beat.
               </Text>
             </View>
