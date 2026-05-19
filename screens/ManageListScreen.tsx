@@ -145,9 +145,6 @@ export default function ManageListScreen() {
     return items.filter((it) => !!it.isCustom);
   }, [items, selectedIds, filter]);
 
-  const selectedCount = selectedIds.size;
-  const customCount = items.filter((item) => item.isCustom === 1).length;
-
   const setLogReturnSelectionParam = (selection: ManageListSelection) => {
     const rootState = navigation.getState();
     const mainRoute = rootState.routes.find((r) => r.name === "Main");
@@ -535,7 +532,6 @@ export default function ManageListScreen() {
 
                     <Text className="mt-1 text-xs font-bold uppercase tracking-wide text-gray-500">
                       {isCustom ? "Custom" : "Preset"}
-                      {isCustom ? " • Editable" : ""}
                     </Text>
                   </View>
                 </View>
