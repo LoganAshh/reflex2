@@ -226,7 +226,7 @@ export default function OnboardingScreen() {
 
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({
-        y: 360,
+        y: 250,
         animated: true,
       });
     }, 250);
@@ -741,7 +741,7 @@ export default function OnboardingScreen() {
           contentContainerStyle={{
             flexGrow: 1,
             paddingTop: 8,
-            paddingBottom: customInputFocused ? 160 : 8,
+            paddingBottom: customInputFocused ? 110 : 8,
           }}
         >
           {renderContent()}
