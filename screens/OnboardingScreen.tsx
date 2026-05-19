@@ -101,30 +101,38 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
         </View>
       </View>
 
-      <View className="mt-3 flex-row flex-wrap gap-2">
-        {data.map((item) => {
-          const isSelected = selected.has(item.id);
+      <View className="mt-3 max-h-[120px] rounded-[20px] border border-gray-200 bg-white p-2">
+        <ScrollView
+          nestedScrollEnabled
+          showsVerticalScrollIndicator
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="flex-row flex-wrap gap-2 pb-1">
+            {data.map((item) => {
+              const isSelected = selected.has(item.id);
 
-          return (
-            <Pressable
-              key={item.id}
-              onPress={() => toggle(item.id, type)}
-              className={`rounded-full border px-3 py-2 ${
-                isSelected
-                  ? "border-green-600 bg-green-600"
-                  : "border-gray-200 bg-white"
-              }`}
-            >
-              <Text
-                className={`text-xs font-black ${
-                  isSelected ? "text-white" : "text-black"
-                }`}
-              >
-                {item.name}
-              </Text>
-            </Pressable>
-          );
-        })}
+              return (
+                <Pressable
+                  key={item.id}
+                  onPress={() => toggle(item.id, type)}
+                  className={`rounded-full border px-3 py-2 ${
+                    isSelected
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-black ${
+                      isSelected ? "text-white" : "text-black"
+                    }`}
+                  >
+                    {item.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
       </View>
 
       <View className="mt-3 rounded-[22px] border border-gray-200 bg-white p-3">
