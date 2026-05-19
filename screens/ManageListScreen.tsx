@@ -301,11 +301,12 @@ export default function ManageListScreen() {
     navigation.goBack();
   };
 
-  const FilterChip = ({ label, value }: { label: string; value: Filter }) => {
+  const renderFilterChip = (label: string, value: Filter) => {
     const active = filter === value;
 
     return (
       <Pressable
+        key={value}
         onPress={() => {
           Haptics.selectionAsync();
           setFilter(value);
@@ -331,7 +332,7 @@ export default function ManageListScreen() {
     );
   };
 
-  const Header = () => (
+  const listHeader = (
     <View className="px-5 pt-10">
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-4">
@@ -369,9 +370,9 @@ export default function ManageListScreen() {
       ) : null}
 
       <View className="mt-5 flex-row">
-        <FilterChip label="Selected" value="selected" />
-        <FilterChip label="Preset" value="preset" />
-        <FilterChip label="Custom" value="custom" />
+        {renderFilterChip("Selected", "selected")}
+        {renderFilterChip("Preset", "preset")}
+        {renderFilterChip("Custom", "custom")}
       </View>
 
       {filter === "custom" ? (
@@ -570,7 +571,7 @@ export default function ManageListScreen() {
         }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        ListHeaderComponent={<Header />}
+        ListHeaderComponent={listHeader}
         contentContainerStyle={{ paddingBottom: 116 }}
         ListEmptyComponent={
           <View className="mx-5 rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
