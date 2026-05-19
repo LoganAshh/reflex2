@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Alert,
   ScrollView,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,6 +28,7 @@ type ChipListProps<T extends { id: number; name: string; isCustom: 0 | 1 }> = {
   setCustomLocation: (v: string) => void;
 
   onAddCustom: (type: "habits" | "cues" | "locations") => void;
+  onInputFocus: () => void;
 };
 
 function getTypeIcon(
@@ -54,6 +57,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
   customLocation,
   setCustomLocation,
   onAddCustom,
+  onInputFocus,
 }: ChipListProps<T>) {
   const value =
     type === "habits"
@@ -143,6 +147,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
             placeholderTextColor="#9CA3AF"
             className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-black"
             returnKeyType="done"
+            onFocus={onInputFocus}
             onSubmitEditing={() => {
               if (canAdd) onAddCustom(type);
             }}
@@ -192,6 +197,8 @@ export default function OnboardingScreen() {
     completeOnboarding,
   } = useData();
 
+  const scrollViewRef = useRef<ScrollView | null>(null);
+
   const [habitIds, setHabitIds] = useState<number[]>([]);
   const [cueIds, setCueIds] = useState<number[]>([]);
   const [locationIds, setLocationIds] = useState<number[]>([]);
@@ -208,6 +215,15 @@ export default function OnboardingScreen() {
 
   const buzz = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const scrollCustomInputIntoView = () => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: 430,
+        animated: true,
+      });
+    }, 250);
   };
 
   const infoSteps = useMemo(
@@ -359,10 +375,27 @@ export default function OnboardingScreen() {
   const goNext = () => {
     if (!validateBeforeNext()) return;
     setStep((s) => Math.min(totalSteps - 1, s + 1));
+
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    });
   };
 
-  const goBack = () => setStep((s) => Math.max(0, s - 1));
-  const skipToSetup = () => setStep(setupStartIndex);
+  const goBack = () => {
+    setStep((s) => Math.max(0, s - 1));
+
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    });
+  };
+
+  const skipToSetup = () => {
+    setStep(setupStartIndex);
+
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    });
+  };
 
   const onFinish = async () => {
     if (habitIds.length === 0) {
@@ -605,6 +638,7 @@ export default function OnboardingScreen() {
             customLocation={customLocation}
             setCustomLocation={setCustomLocation}
             onAddCustom={onAddCustom}
+            onInputFocus={scrollCustomInputIntoView}
           />
         </View>
       );
@@ -631,6 +665,7 @@ export default function OnboardingScreen() {
             customLocation={customLocation}
             setCustomLocation={setCustomLocation}
             onAddCustom={onAddCustom}
+            onInputFocus={scrollCustomInputIntoView}
           />
         </View>
       );
@@ -656,29 +691,38 @@ export default function OnboardingScreen() {
           customLocation={customLocation}
           setCustomLocation={setCustomLocation}
           onAddCustom={onAddCustom}
+          onInputFocus={scrollCustomInputIntoView}
         />
       </View>
     );
   };
 
   return (
-    <View className="flex-1 bg-white px-5">
-      <ProgressBar />
+    <KeyboardAvoidingView
+      className="flex-1 bg-white"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+    >
+      <View className="flex-1 bg-white px-5">
+        <ProgressBar />
 
-      <ScrollView
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingTop: 12,
-          paddingBottom: 12,
-        }}
-      >
-        {renderContent()}
-      </ScrollView>
+        <ScrollView
+          ref={scrollViewRef}
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingTop: 12,
+            paddingBottom: 160,
+          }}
+        >
+          {renderContent()}
+        </ScrollView>
 
-      <BottomNav />
-    </View>
+        <BottomNav />
+      </View>
+    </KeyboardAvoidingView>
   );
 }
