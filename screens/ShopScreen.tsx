@@ -165,8 +165,6 @@ export default function ShopScreen() {
     );
   }, [actions, filter, selectedActions, allInterleaved]);
 
-  const selectedCount = selectedActionIds.length;
-  const customCount = actions.filter((a) => a.isCustom === 1).length;
   const currentFilterLabel =
     filter === SELECTED
       ? "Selected"
@@ -381,53 +379,7 @@ export default function ShopScreen() {
         </View>
       </View>
 
-      <View className="mt-6 overflow-hidden rounded-[32px] bg-green-600 p-6 shadow-sm">
-        <View className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/20" />
-        <View className="absolute -bottom-12 -left-10 h-28 w-28 rounded-full bg-white/10" />
-
-        <View className="flex-row items-center justify-between">
-          <View className="rounded-full bg-white/20 px-3 py-1.5">
-            <Text className="text-xs font-black uppercase tracking-wide text-white">
-              Replacement actions
-            </Text>
-          </View>
-
-          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white">
-            <Ionicons name="sparkles" size={26} color="#16A34A" />
-          </View>
-        </View>
-
-        <Text className="mt-5 text-3xl font-black leading-9 text-white">
-          Make the better choice easier
-        </Text>
-
-        <Text className="mt-2 text-base font-semibold leading-6 text-green-50">
-          Pick simple actions you actually like, then use them when an urge
-          shows up.
-        </Text>
-
-        <View className="mt-5 flex-row gap-3">
-          <View className="flex-1 rounded-3xl bg-white/20 p-4">
-            <Text className="text-3xl font-black text-white">
-              {selectedCount}
-            </Text>
-            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
-              Selected
-            </Text>
-          </View>
-
-          <View className="flex-1 rounded-3xl bg-white/20 p-4">
-            <Text className="text-3xl font-black text-white">
-              {customCount}
-            </Text>
-            <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
-              Custom
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
+      <View className="mt-6 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
         <View className="flex-row items-center">
           <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
             <Ionicons name="bulb" size={24} color="#854D0E" />
