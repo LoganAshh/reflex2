@@ -142,7 +142,7 @@ function ChipRow<T extends BaseItem>({
 
           onSelect(item.id);
         }}
-        className={`mr-2 rounded-full border px-4 py-2.5 ${
+        className={`mr-2 rounded-full border px-3 py-1.5 ${
           item.kind === "add"
             ? "border-gray-200 bg-white"
             : isSelected
@@ -151,7 +151,7 @@ function ChipRow<T extends BaseItem>({
         }`}
       >
         <Text
-          className={`text-sm font-black ${
+          className={`text-xs font-black ${
             item.kind === "add"
               ? "text-gray-900"
               : isSelected
@@ -167,15 +167,15 @@ function ChipRow<T extends BaseItem>({
   };
 
   return (
-    <View className="mt-4 w-full rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+    <View className="mt-2 w-full rounded-3xl border border-gray-100 bg-white p-3 shadow-sm">
       <View className="flex-row items-center">
-        <View className="h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
-          <Ionicons name={icon} size={23} color="#16A34A" />
+        <View className="h-9 w-9 items-center justify-center rounded-2xl bg-green-100">
+          <Ionicons name={icon} size={19} color="#16A34A" />
         </View>
 
-        <View className="ml-3 flex-1">
-          <Text className="text-base font-black text-gray-900">{title}</Text>
-          <Text className="mt-0.5 text-xs font-semibold text-gray-500">
+        <View className="ml-2 flex-1">
+          <Text className="text-sm font-black text-gray-900">{title}</Text>
+          <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
             {subtitle}
           </Text>
         </View>
@@ -183,7 +183,7 @@ function ChipRow<T extends BaseItem>({
 
       <FlatList
         ref={listRef}
-        className="mt-3"
+        className="mt-2"
         horizontal
         showsHorizontalScrollIndicator={false}
         data={data}
@@ -473,23 +473,6 @@ export default function LogScreen() {
     [selectedLocations, locationAssociationCounts],
   );
 
-  const selectedHabitName = useMemo(() => {
-    return orderedHabits.find((habit) => habit.id === habitId)?.name ?? "Habit";
-  }, [orderedHabits, habitId]);
-
-  const selectedCueName = useMemo(() => {
-    if (cueId == null) return "No cue";
-    return orderedCues.find((cue) => cue.id === cueId)?.name ?? "Cue";
-  }, [orderedCues, cueId]);
-
-  const selectedLocationName = useMemo(() => {
-    if (locationId == null) return "No location";
-    return (
-      orderedLocations.find((location) => location.id === locationId)?.name ??
-      "Location"
-    );
-  }, [orderedLocations, locationId]);
-
   const scrollChipRowsToStart = () => {
     habitListRef.current?.scrollToOffset({ offset: 0, animated: true });
     cueListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -511,7 +494,7 @@ export default function LogScreen() {
         scrollNode,
         () => scrollViewRef.current?.scrollToEnd({ animated: true }),
         (_x, y, _width, height) => {
-          const targetY = Math.max(0, y + height - 280);
+          const targetY = Math.max(0, y + height - 220);
           scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
         },
       );
@@ -628,7 +611,7 @@ export default function LogScreen() {
       setKeyboardHeight(event.endCoordinates.height);
 
       Animated.timing(keyboardLiftAnim, {
-        toValue: -160,
+        toValue: -130,
         duration: 240,
         useNativeDriver: true,
       }).start();
@@ -750,26 +733,26 @@ export default function LogScreen() {
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      className="flex-1 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm"
+      className="flex-1 rounded-3xl border border-gray-100 bg-white p-3 shadow-sm"
     >
       <View className="flex-row items-center justify-between">
         <View
-          className={`h-11 w-11 items-center justify-center rounded-2xl ${iconBg}`}
+          className={`h-9 w-9 items-center justify-center rounded-2xl ${iconBg}`}
         >
-          <Ionicons name={icon} size={23} color="#111827" />
+          <Ionicons name={icon} size={19} color="#111827" />
         </View>
 
         {onPress ? (
-          <View className="rounded-full bg-gray-100 px-2 py-1">
-            <Text className="text-xs font-black text-gray-700">Change</Text>
+          <View className="rounded-full bg-gray-100 px-2 py-0.5">
+            <Text className="text-[10px] font-black text-gray-700">Change</Text>
           </View>
         ) : null}
       </View>
 
-      <Text className="mt-4 text-xs font-black uppercase tracking-wide text-gray-500">
+      <Text className="mt-2 text-[10px] font-black uppercase tracking-wide text-gray-500">
         {label}
       </Text>
-      <Text className="mt-1 text-xl font-black text-gray-900">{value}</Text>
+      <Text className="mt-0.5 text-base font-black text-gray-900">{value}</Text>
     </Pressable>
   );
 
@@ -809,10 +792,11 @@ export default function LogScreen() {
         className="flex-1"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        scrollEnabled={false}
         contentContainerStyle={{
           paddingHorizontal: 20,
-          paddingTop: 42,
-          paddingBottom: keyboardHeight > 0 ? 100 : 28,
+          paddingTop: 34,
+          paddingBottom: keyboardHeight > 0 ? 72 : 16,
         }}
       >
         <Animated.View
@@ -822,88 +806,23 @@ export default function LogScreen() {
         >
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-4">
-              <Text className="text-sm font-black uppercase tracking-widest text-green-700">
+              <Text className="text-xs font-black uppercase tracking-widest text-green-700">
                 Check-in
               </Text>
 
-              <Text className="mt-1 text-3xl font-black text-gray-900">
+              <Text className="mt-0.5 text-2xl font-black text-gray-900">
                 Log the moment
               </Text>
             </View>
 
-            <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
-              <Ionicons name="create" size={29} color="#15803D" />
-            </View>
-          </View>
-
-          <View className="mt-6 overflow-hidden rounded-[32px] bg-green-600 p-6 shadow-sm">
-            <View className="absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/20" />
-            <View className="absolute -bottom-12 -left-10 h-28 w-28 rounded-full bg-white/10" />
-
-            <View className="flex-row items-center justify-between">
-              <View className="rounded-full bg-white/20 px-3 py-1.5">
-                <Text className="text-xs font-black uppercase tracking-wide text-white">
-                  Quick check-in
-                </Text>
-              </View>
-
-              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-white">
-                <Ionicons name="flash" size={26} color="#16A34A" />
-              </View>
-            </View>
-
-            <Text className="mt-5 text-3xl font-black leading-9 text-white">
-              Catch it before autopilot
-            </Text>
-
-            <Text className="mt-2 text-base font-semibold leading-6 text-green-50">
-              Name what happened, save the check-in, then choose what to do
-              next.
-            </Text>
-
-            <View className="mt-5 flex-row gap-3">
-              <View className="flex-1 rounded-3xl bg-white/20 p-4">
-                <Text className="text-3xl font-black text-white">
-                  {logs.length}
-                </Text>
-                <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
-                  Total logs
-                </Text>
-              </View>
-
-              <View className="flex-1 rounded-3xl bg-white/20 p-4">
-                <Text className="text-3xl font-black text-white">
-                  {orderedHabits.length}
-                </Text>
-                <Text className="mt-1 text-xs font-black uppercase tracking-wide text-green-50">
-                  Habits
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View className="mt-5 rounded-[32px] border border-green-100 bg-white p-5 shadow-sm">
-            <View className="flex-row items-center">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-yellow-100">
-                <Ionicons name="bulb" size={24} color="#854D0E" />
-              </View>
-
-              <View className="ml-3 flex-1">
-                <Text className="text-base font-black text-gray-900">
-                  Keep it quick
-                </Text>
-
-                <Text className="mt-1 text-sm leading-5 text-gray-600">
-                  You do not need a perfect entry. The win is noticing the
-                  pattern.
-                </Text>
-              </View>
+            <View className="h-12 w-12 items-center justify-center rounded-full border-4 border-white bg-green-200 shadow-sm">
+              <Ionicons name="create" size={23} color="#15803D" />
             </View>
           </View>
 
           <ChipRow<SelectedHabit>
             title="Habit"
-            subtitle="What urge or habit showed up?"
+            subtitle="What showed up?"
             icon="radio-button-on"
             items={orderedHabits}
             selectedId={habitId}
@@ -929,7 +848,7 @@ export default function LogScreen() {
 
           <ChipRow<SelectedPlace>
             title="Location"
-            subtitle="Where did it happen?"
+            subtitle="Where was it?"
             icon="location"
             items={orderedLocations}
             selectedId={locationId}
@@ -941,23 +860,23 @@ export default function LogScreen() {
             listRef={locationListRef}
           />
 
-          <View className="mt-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+          <View className="mt-2 rounded-3xl border border-gray-100 bg-white p-3 shadow-sm">
             <View className="flex-row items-center justify-between">
               <View className="flex-row flex-1 items-center pr-4">
-                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-100">
+                <View className="h-10 w-10 items-center justify-center rounded-2xl bg-green-100">
                   <Ionicons
                     name={didResist ? "shield-checkmark" : "shield-outline"}
-                    size={25}
+                    size={21}
                     color="#16A34A"
                   />
                 </View>
 
-                <View className="ml-3 flex-1">
-                  <Text className="text-base font-black text-gray-900">
+                <View className="ml-2 flex-1">
+                  <Text className="text-sm font-black text-gray-900">
                     Did you resist?
                   </Text>
-                  <Text className="mt-1 text-sm leading-5 text-gray-500">
-                    Toggle on if you noticed the urge and did not give in.
+                  <Text className="mt-0.5 text-[11px] leading-4 text-gray-500">
+                    Toggle on if you did not give in.
                   </Text>
                 </View>
               </View>
@@ -969,7 +888,7 @@ export default function LogScreen() {
             </View>
           </View>
 
-          <View className="mt-4 flex-row gap-3">
+          <View className="mt-2 flex-row gap-2">
             <ValueCard
               label="Times"
               value={countLabel}
@@ -990,28 +909,28 @@ export default function LogScreen() {
             />
           </View>
 
-          <View className="mt-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+          <View className="mt-2 rounded-3xl border border-gray-100 bg-white p-3 shadow-sm">
             <View className="flex-row items-center justify-between">
               <View className="flex-row flex-1 items-center pr-3">
-                <View className="h-11 w-11 items-center justify-center rounded-2xl bg-blue-100">
-                  <Ionicons name="document-text" size={23} color="#111827" />
+                <View className="h-9 w-9 items-center justify-center rounded-2xl bg-blue-100">
+                  <Ionicons name="document-text" size={19} color="#111827" />
                 </View>
 
-                <View className="ml-3 flex-1">
-                  <Text className="text-base font-black text-gray-900">
+                <View className="ml-2 flex-1">
+                  <Text className="text-sm font-black text-gray-900">
                     Notes
                   </Text>
-                  <Text className="mt-0.5 text-xs font-semibold text-gray-500">
-                    Optional context for later
+                  <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
+                    Optional context
                   </Text>
                 </View>
               </View>
 
               <Pressable
                 onPress={onShowNotes}
-                className="rounded-2xl border border-gray-200 bg-white px-4 py-2.5"
+                className="rounded-2xl border border-gray-200 bg-white px-3 py-1.5"
               >
-                <Text className="text-sm font-black text-gray-900">
+                <Text className="text-xs font-black text-gray-900">
                   {showNotes ? "Hide" : "Add"}
                 </Text>
               </Pressable>
@@ -1025,7 +944,7 @@ export default function LogScreen() {
                   onChangeText={setNotes}
                   placeholder="Anything useful to remember..."
                   placeholderTextColor="#9CA3AF"
-                  className="mt-4 min-h-[46px] w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900"
+                  className="mt-2 min-h-[38px] w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900"
                   returnKeyType="done"
                   blurOnSubmit
                   onSubmitEditing={() => Keyboard.dismiss()}
@@ -1035,28 +954,9 @@ export default function LogScreen() {
             ) : null}
           </View>
 
-          <View className="mt-4 rounded-[28px] bg-gray-900 p-4">
-            <View className="flex-row items-center">
-              <View className="h-10 w-10 items-center justify-center rounded-2xl bg-green-400">
-                <Ionicons name="checkmark" size={23} color="#111827" />
-              </View>
-
-              <View className="ml-3 flex-1">
-                <Text className="text-sm font-black text-white">
-                  Ready to save
-                </Text>
-
-                <Text className="mt-1 text-sm leading-5 text-gray-300">
-                  {selectedHabitName} • {selectedCueName} •{" "}
-                  {selectedLocationName}
-                </Text>
-              </View>
-            </View>
-          </View>
-
           {errorMsg ? (
-            <View className="mt-4 rounded-[28px] border border-red-200 bg-red-50 px-4 py-3">
-              <Text className="text-sm font-black text-red-700">
+            <View className="mt-2 rounded-3xl border border-red-200 bg-red-50 px-4 py-2">
+              <Text className="text-xs font-black text-red-700">
                 {errorMsg}
               </Text>
             </View>
@@ -1065,13 +965,13 @@ export default function LogScreen() {
           <Pressable
             onPress={onSave}
             disabled={saving}
-            className={`mt-4 w-full rounded-3xl px-5 py-4 shadow-sm ${
+            className={`mt-3 w-full rounded-3xl px-5 py-3 shadow-sm ${
               saving ? "bg-green-300" : "bg-green-600"
             }`}
           >
             <View className="flex-row items-center justify-center">
-              <Ionicons name="save" size={22} color="#FFFFFF" />
-              <Text className="ml-2 text-center text-lg font-black text-white">
+              <Ionicons name="save" size={20} color="#FFFFFF" />
+              <Text className="ml-2 text-center text-base font-black text-white">
                 {saving ? "Saving..." : "Save Check-In"}
               </Text>
             </View>
