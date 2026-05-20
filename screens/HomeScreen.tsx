@@ -269,8 +269,19 @@ export default function HomeScreen() {
       yesterdayStart,
     );
 
-    const bestCleanStreakDays = getBestCleanStreakDays(logsForStats);
-    const previousBestCleanStreakDays = getBestCleanStreakDays(logsBeforeToday);
+    const historicalBestCleanStreakDays = getBestCleanStreakDays(logsForStats);
+    const previousHistoricalBestCleanStreakDays =
+      getBestCleanStreakDays(logsBeforeToday);
+
+    const bestCleanStreakDays = Math.max(
+      historicalBestCleanStreakDays,
+      daysSinceGiveIn,
+    );
+
+    const previousBestCleanStreakDays = Math.max(
+      previousHistoricalBestCleanStreakDays,
+      previousDaysSinceGiveIn,
+    );
 
     return {
       todayLogs,
