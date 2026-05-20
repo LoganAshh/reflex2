@@ -586,13 +586,13 @@ export default function HomeScreen() {
             />
 
             <StreakCard
-              label="All-time rate"
-              value={`${stats.allTimeResistRate}%`}
-              sub="Overall progress"
+              label="Week rate"
+              value={`${stats.weekResistRate}%`}
+              sub="Resistance this week"
               icon="ribbon"
               percentIncrease={getPercentIncrease(
-                stats.allTimeResistRate,
-                stats.previousAllTimeResistRate,
+                stats.weekResistRate,
+                stats.previousWeekResistRate,
               )}
             />
           </View>
