@@ -139,10 +139,14 @@ export default function ShopScreen() {
     setFilter(selectedActionIds.length > 0 ? SELECTED : ALL);
     setText("");
     setNewCategory("Physical");
-    filterScrollOffsetRef.current = 0;
     Keyboard.dismiss();
+
     actionListRef.current?.scrollToOffset({ offset: 0, animated: true });
     filterScrollRef.current?.scrollTo({ x: 0, animated: true });
+
+    setTimeout(() => {
+      filterScrollOffsetRef.current = 0;
+    }, 350);
   }, [route.params?.resetToken, selectedActionIds.length]);
 
   const selectedActions = useMemo(() => {
