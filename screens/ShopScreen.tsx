@@ -114,8 +114,7 @@ export default function ShopScreen() {
     null,
   );
   const [editTitle, setEditTitle] = useState("");
-  const [editCategory, setEditCategory] =
-    useState<PresetCategory>("Physical");
+  const [editCategory, setEditCategory] = useState<PresetCategory>("Physical");
 
   const actionListRef = useRef<FlatList<ReplacementAction> | null>(null);
   const filterScrollRef = useRef<ScrollView | null>(null);
@@ -189,6 +188,8 @@ export default function ShopScreen() {
   const onAdd = async () => {
     const title = text.trim();
     if (!title) return;
+
+    Keyboard.dismiss();
 
     try {
       await addAction({
