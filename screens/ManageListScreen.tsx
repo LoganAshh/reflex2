@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -78,6 +78,8 @@ export default function ManageListScreen() {
   const [pendingAddedItem, setPendingAddedItem] =
     useState<PendingAddedItem | null>(null);
 
+  const didSetInitialFilter = useRef(false);
+
   const { items, selectedIds, title, singularTitle } = useMemo(() => {
     if (type === "habits") {
       return {
@@ -112,6 +114,19 @@ export default function ManageListScreen() {
     selectedCues,
     selectedLocations,
   ]);
+
+  useEffect(() => {
+    if (didSetInitialFilter.current) return;
+
+    didSetInitialFilter.current = true;
+
+    if (type !== "habits" && selectedIds.size === 0) {
+      setFilter("preset");
+      return;
+    }
+
+    setFilter("selected");
+  }, [type, selectedIds.size]);
 
   useEffect(() => {
     if (!pendingAddedItem) return;
@@ -194,6 +209,10 @@ export default function ManageListScreen() {
         token: Date.now(),
       });
     }
+
+    if (wasSelected && next.length === 0 && type !== "habits") {
+      setFilter("preset");
+    }
   };
 
   const onAdd = async () => {
@@ -262,22 +281,32 @@ export default function ManageListScreen() {
           onPress: async () => {
             if (!editingItem) return;
 
+            const deletedId = editingItem.id;
+
             const result =
               type === "habits"
-                ? await deleteCustomHabit(editingItem.id)
+                ? await deleteCustomHabit(deletedId)
                 : type === "cues"
-                  ? await deleteCustomCue(editingItem.id)
-                  : await deleteCustomLocation(editingItem.id);
+                  ? await deleteCustomCue(deletedId)
+                  : await deleteCustomLocation(deletedId);
 
             await Haptics.notificationAsync(
               Haptics.NotificationFeedbackType.Success,
             );
 
-            if (returnSelection?.id === editingItem.id) {
+            if (returnSelection?.id === deletedId) {
               setReturnSelection(null);
             }
 
             closeEdit();
+
+            if (
+              type !== "habits" &&
+              selectedIds.has(deletedId) &&
+              selectedIds.size === 1
+            ) {
+              setFilter("preset");
+            }
 
             if (result === "hidden") {
               Alert.alert(
@@ -360,7 +389,7 @@ export default function ManageListScreen() {
                 Tip: Start small
               </Text>
 
-              <Text className="mt-1 text-sm leading-5 text-gray-500">
+              <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
                 It’s usually easier to focus on one or two habits at first. You
                 can always add more later.
               </Text>
