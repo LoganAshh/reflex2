@@ -762,90 +762,170 @@ export function DataProvider({ children }: DataProviderProps) {
   }) => {
     const [habit, cue, location, action] = await Promise.all([
       getHabitById(input.habitId),
-      input.cueId == null ? null : getCueById(input.cueId),
-      input.locationId == null ? null : getLocationById(input.locationId),
+      input.cueId == null ? Promise.resolve(null) : getCueById(input.cueId),
+      input.locationId == null
+        ? Promise.resolve(null)
+        : getLocationById(input.locationId),
       input.selectedActionId == null
-        ? null
+        ? Promise.resolve(null)
         : getActionById(input.selectedActionId),
     ]);
 
+    if (!habit) {
+      throw new Error("Selected habit was not found.");
+    }
+
     return {
-      habitName: habit?.name ?? null,
+      habitName: habit.name,
       cueName: cue?.name ?? null,
       locationName: location?.name ?? null,
       selectedActionTitle: action?.title ?? null,
     };
   };
 
-  const addLog: DataContextType["addLog"] = async (input: AddLogInput) => {
+  const addLog: DataContextType["addLog"] = async (input) => {
+    const habitId = input.habitId;
+    if (!Number.isFinite(habitId)) return null;
+
+    const intensityIn = input.intensity ?? null;
+    const intensity: number | null =
+      intensityIn == null
+        ? null
+        : Math.min(10, Math.max(1, Math.round(intensityIn)));
+
+    const countIn = input.count ?? 1;
+    const count = Math.min(10, Math.max(0, Math.round(countIn)));
+
+    const didResist: 0 | 1 = input.didResist ? 1 : 0;
+
+    const selectedActionId =
+      input.selectedActionId == null || !Number.isFinite(input.selectedActionId)
+        ? null
+        : input.selectedActionId;
+
     const names = await getLogNames({
-      habitId: input.habitId,
-      cueId: input.cueId,
-      locationId: input.locationId,
-      selectedActionId: input.selectedActionId,
+      habitId,
+      cueId: input.cueId ?? null,
+      locationId: input.locationId ?? null,
+      selectedActionId,
     });
 
-    const logId = await insertLog({
-      ...input,
-      ...names,
+    const newLogId = await insertLog({
+      habitId,
+      cueId: input.cueId ?? null,
+      locationId: input.locationId ?? null,
+      intensity,
+      count,
+      didResist,
+      notes: input.notes?.trim() ?? null,
+      selectedActionId,
+      habitName: names.habitName,
+      cueName: names.cueName,
+      locationName: names.locationName,
+      selectedActionTitle: names.selectedActionTitle,
     });
 
-    await refresh();
-    return logId;
+    setLogs(await loadLogs());
+    return newLogId > 0 ? newLogId : null;
   };
 
-  const updateLog: DataContextType["updateLog"] = async (
-    id,
-    input: UpdateLogInput,
-  ) => {
+  const updateLog: DataContextType["updateLog"] = async (logId, input) => {
+    if (!Number.isFinite(logId)) return;
+    if (!Number.isFinite(input.habitId)) return;
+    if (!Number.isFinite(input.createdAt)) return;
+
+    const intensityIn = input.intensity ?? null;
+    const intensity: number | null =
+      intensityIn == null
+        ? null
+        : Math.min(10, Math.max(1, Math.round(intensityIn)));
+
+    const countIn = input.count ?? 1;
+    const count = Math.min(10, Math.max(0, Math.round(countIn)));
+
+    const selectedActionId =
+      input.selectedActionId == null || !Number.isFinite(input.selectedActionId)
+        ? null
+        : input.selectedActionId;
+
     const names = await getLogNames({
       habitId: input.habitId,
-      cueId: input.cueId,
-      locationId: input.locationId,
-      selectedActionId: input.selectedActionId,
+      cueId: input.cueId ?? null,
+      locationId: input.locationId ?? null,
+      selectedActionId,
     });
 
-    await updateLogInDb(id, {
-      ...input,
-      ...names,
+    await updateLogInDb({
+      logId,
+      habitId: input.habitId,
+      cueId: input.cueId ?? null,
+      locationId: input.locationId ?? null,
+      intensity,
+      count,
+      didResist: input.didResist ? 1 : 0,
+      notes: input.notes?.trim() ?? null,
+      createdAt: Math.round(input.createdAt),
+      selectedActionId,
+      habitName: names.habitName,
+      cueName: names.cueName,
+      locationName: names.locationName,
+      selectedActionTitle: names.selectedActionTitle,
     });
 
-    await refresh();
+    setLogs(await loadLogs());
   };
 
-  const deleteLog: DataContextType["deleteLog"] = async (id) => {
-    await deleteLogInDb(id);
-    await refresh();
+  const deleteLog: DataContextType["deleteLog"] = async (logId) => {
+    if (!Number.isFinite(logId)) return;
+    await deleteLogInDb(logId);
+    setLogs(await loadLogs());
   };
 
   const updateLogSelectedAction: DataContextType["updateLogSelectedAction"] =
-    async (id, actionId) => {
-      const action = actionId == null ? null : await getActionById(actionId);
+    async (logId, selectedActionId) => {
+      if (!Number.isFinite(logId)) return;
 
-      await updateLogSelectedActionInDb(id, actionId, action?.title ?? null);
-      await refresh();
+      const cleanSelectedActionId =
+        selectedActionId == null || !Number.isFinite(selectedActionId)
+          ? null
+          : selectedActionId;
+
+      const action =
+        cleanSelectedActionId == null
+          ? null
+          : await getActionById(cleanSelectedActionId);
+
+      await updateLogSelectedActionInDb(
+        logId,
+        cleanSelectedActionId,
+        action?.title ?? null,
+      );
+      setLogs(await loadLogs());
     };
 
-  const addAction: DataContextType["addAction"] = async (
-    input: AddActionInput,
-  ) => {
-    const cleanTitle = input.title.trim();
-    if (!cleanTitle) return;
+  const addAction: DataContextType["addAction"] = async (input) => {
+    const title = input.title.trim();
+    if (!title) return;
 
     const existingActions = await loadActions();
     const duplicate = existingActions.find(
-      (a) => normalizeName(a.title) === normalizeName(cleanTitle),
+      (a) => normalizeName(a.title) === normalizeName(title),
     );
     if (duplicate) {
-      throw new Error(`"${cleanTitle}" already exists.`);
+      throw new Error(`"${title}" already exists.`);
     }
 
+    const category = input.category?.trim() ?? null;
+    const isCustom: 0 | 1 = (input.isCustom ?? true) ? 1 : 0;
+
     await insertAction({
-      ...input,
-      title: cleanTitle,
+      title,
+      category,
+      isCustom,
     });
 
-    await refresh();
+    setActions(await loadActions());
+    setSelectedActionIds(await loadSelectedActionIds());
   };
 
   const renameCustomAction: DataContextType["renameCustomAction"] = async (
@@ -853,10 +933,14 @@ export function DataProvider({ children }: DataProviderProps) {
     title,
     category,
   ) => {
-    const clean = title.trim();
-    if (!clean || !Number.isFinite(actionId)) return;
-    assertUniqueActionTitle(await loadActions(), actionId, clean);
-    await renameCustomActionInDb(actionId, clean, category);
+    const cleanTitle = title.trim();
+    if (!cleanTitle || !Number.isFinite(actionId)) return;
+    assertUniqueActionTitle(await loadActions(), actionId, cleanTitle);
+    await renameCustomActionInDb(
+      actionId,
+      cleanTitle,
+      category?.trim() || null,
+    );
     await refresh();
   };
 
@@ -892,108 +976,111 @@ export function DataProvider({ children }: DataProviderProps) {
     };
 
   const exportData: DataContextType["exportData"] = async () => {
-    const backup = {
-      app: "Reflex",
-      exportedAt: Date.now(),
-      version: 1,
-      habits,
-      cues,
-      locations,
-      selectedHabits: selectedHabits.map((h) => h.id),
-      selectedCues: selectedCues.map((c) => c.id),
-      selectedLocations: selectedLocations.map((l) => l.id),
-      logs,
-      actions,
-      selectedActionIds,
-      profileName,
-      profilePhotoUri: "",
-      hasCompletedLocalProfile,
-      hasOnboarded,
-      appLockEnabled,
-      dailyReminder,
-    };
-
-    const uri = `${FileSystem.cacheDirectory}reflex-backup-${Date.now()}.json`;
-    await FileSystem.writeAsStringAsync(uri, JSON.stringify(backup, null, 2));
-
-    if (!(await Sharing.isAvailableAsync())) {
+    const canShare = await Sharing.isAvailableAsync();
+    if (!canShare) {
       throw new Error("Sharing is not available on this device.");
     }
 
-    await Sharing.shareAsync(uri, {
+    const payload = {
+      app: "Reflex",
+      exportedAt: new Date().toISOString(),
+      localProfile: {
+        name: profileName,
+        photoUri: profilePhotoUri,
+        isComplete: hasCompletedLocalProfile,
+      },
+      settings: {
+        appLockEnabled,
+        dailyReminder,
+      },
+      hasOnboarded,
+      habits,
+      cues,
+      locations,
+      selectedHabits,
+      selectedCues,
+      selectedLocations,
+      logs,
+      actions,
+      selectedActionIds,
+    };
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const file = new FileSystem.File(
+      FileSystem.Paths.cache,
+      `reflex-backup-${timestamp}.json`,
+    );
+
+    await file.write(JSON.stringify(payload, null, 2));
+
+    await Sharing.shareAsync(file.uri, {
       mimeType: "application/json",
-      dialogTitle: "Export Reflex Backup",
+      dialogTitle: "Export Reflex data",
       UTI: "public.json",
     });
   };
 
-  const importData: DataContextType["importData"] = async (rawJson) => {
-    const parsed = validateBackupPayload(JSON.parse(rawJson));
+  const importData: DataContextType["importData"] = async (fileUri) => {
+    const file = new FileSystem.File(fileUri);
+    const text = await file.text();
+    const parsed = validateBackupPayload(JSON.parse(text));
 
     const importedHabits = sanitizeNamedEntities(asArray(parsed.habits));
     const importedCues = sanitizeNamedEntities(asArray(parsed.cues));
     const importedLocations = sanitizeNamedEntities(asArray(parsed.locations));
     const importedActions = sanitizeActions(asArray(parsed.actions));
-    const validLogs = sanitizeLogs(asArray(parsed.logs));
+    const importedLogs = sanitizeLogs(asArray(parsed.logs));
 
     if (importedHabits.length === 0) {
-      throw new Error("That backup does not include any habits.");
+      throw new Error("That backup does not contain any valid habits.");
     }
 
-    const habitIds = new Set(importedHabits.map((h) => h.id));
-    const cueIds = new Set(importedCues.map((c) => c.id));
-    const locationIds = new Set(importedLocations.map((l) => l.id));
-    const actionIds = new Set(importedActions.map((a) => a.id));
+    const habitIds = new Set(importedHabits.map((item) => item.id));
+    const cueIds = new Set(importedCues.map((item) => item.id));
+    const locationIds = new Set(importedLocations.map((item) => item.id));
+    const actionIds = new Set(importedActions.map((item) => item.id));
 
     const selectedHabitIds = sanitizeSelectedIds(
       asArray(parsed.selectedHabits),
-      "habitId",
+      "id",
     ).filter((id) => habitIds.has(id));
     const selectedCueIds = sanitizeSelectedIds(
       asArray(parsed.selectedCues),
-      "cueId",
+      "id",
     ).filter((id) => cueIds.has(id));
     const selectedLocationIds = sanitizeSelectedIds(
       asArray(parsed.selectedLocations),
-      "locationId",
+      "id",
     ).filter((id) => locationIds.has(id));
     const importedSelectedActionIds = sanitizeSelectedIds(
       asArray(parsed.selectedActionIds),
       "actionId",
     ).filter((id) => actionIds.has(id));
 
-    const settings = isRecord(parsed.dailyReminder)
-      ? parsed.dailyReminder
-      : null;
-
-    const restoredDailyReminder: DailyReminderSettings = settings
+    const validLogs = importedLogs.filter((log) => habitIds.has(log.habitId));
+    const profile = isRecord(parsed.localProfile) ? parsed.localProfile : {};
+    const settings = isRecord(parsed.settings) ? parsed.settings : {};
+    const restoredProfileName = cleanString(profile.name);
+    const restoredProfileDone =
+      cleanBoolean(profile.isComplete) && restoredProfileName.length > 0;
+    const restoredAppLockEnabled = cleanBoolean(settings.appLockEnabled);
+    const restoredDailyReminder = isRecord(settings.dailyReminder)
       ? {
-          option:
-            settings.option === "morning" ||
-            settings.option === "afternoon" ||
-            settings.option === "evening" ||
-            settings.option === "off"
-              ? settings.option
-              : "off",
+          option: ["off", "morning", "evening", "custom"].includes(
+            settings.dailyReminder.option as string,
+          )
+            ? (settings.dailyReminder.option as DailyReminderSettings["option"])
+            : "off",
           hour: Math.min(
             23,
-            Math.max(0, cleanInt(settings.hour, DEFAULT_DAILY_REMINDER.hour)),
+            Math.max(0, cleanInt(settings.dailyReminder.hour, 20)),
           ),
           minute: Math.min(
             59,
-            Math.max(
-              0,
-              cleanInt(settings.minute, DEFAULT_DAILY_REMINDER.minute),
-            ),
+            Math.max(0, cleanInt(settings.dailyReminder.minute, 0)),
           ),
         }
       : DEFAULT_DAILY_REMINDER;
-
-    const restoredProfileName = cleanString(parsed.profileName);
-    const restoredProfileDone =
-      cleanBoolean(parsed.hasCompletedLocalProfile) &&
-      restoredProfileName.length > 0;
-    const restoredAppLockEnabled = cleanBoolean(parsed.appLockEnabled);
     const restoredHasOnboarded = cleanBoolean(parsed.hasOnboarded);
     const previousPhoto = (profilePhotoUri ?? "").trim();
 
@@ -1165,24 +1252,12 @@ export function DataProvider({ children }: DataProviderProps) {
 
     await cancelDailyReminderNotification();
 
-    const [freshHabits, freshCues, freshLocations, freshActions] =
-      await Promise.all([
-        loadHabits(),
-        loadCues(),
-        loadLocations(),
-        loadActions(),
-      ]);
-
-    setHabits(freshHabits);
-    setCues(freshCues);
-    setLocations(freshLocations);
-    setActions(freshActions);
+    setHasOnboarded(false);
     setProfileName("");
     setProfilePhotoUri(null);
     setHasCompletedLocalProfile(false);
     setAppLockEnabledState(false);
     setDailyReminderState(DEFAULT_DAILY_REMINDER);
-    setHasOnboarded(false);
 
     await refresh();
   };
