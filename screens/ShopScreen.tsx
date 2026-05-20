@@ -108,6 +108,7 @@ export default function ShopScreen() {
   } = useData();
 
   const [filter, setFilter] = useState<Filter>(ALL);
+  const [searchText, setSearchText] = useState("");
   const [text, setText] = useState("");
   const [newCategory, setNewCategory] = useState<PresetCategory>("Physical");
   const [editingAction, setEditingAction] = useState<ReplacementAction | null>(
@@ -137,6 +138,7 @@ export default function ShopScreen() {
 
     handledResetTokenRef.current = resetToken;
     setFilter(selectedActionIds.length > 0 ? SELECTED : ALL);
+    setSearchText("");
     setText("");
     setNewCategory("Physical");
     Keyboard.dismiss();
@@ -161,7 +163,7 @@ export default function ShopScreen() {
 
   const allInterleaved = useMemo(() => interleaveAll(actions), [actions]);
 
-  const filtered = useMemo(() => {
+  const categoryFiltered = useMemo(() => {
     if (filter === SELECTED) return selectedActions;
     if (filter === ALL) return allInterleaved;
     if (filter === CUSTOM) return actions.filter((a) => a.isCustom === 1);
@@ -170,6 +172,18 @@ export default function ShopScreen() {
       (a) => a.isCustom === 0 && (a.category ?? "") === filter,
     );
   }, [actions, filter, selectedActions, allInterleaved]);
+
+  const filtered = useMemo(() => {
+    const cleanSearch = searchText.trim().toLowerCase();
+    if (!cleanSearch) return categoryFiltered;
+
+    return categoryFiltered.filter((action) => {
+      const title = action.title.toLowerCase();
+      const category = (action.category ?? "").toLowerCase();
+
+      return title.includes(cleanSearch) || category.includes(cleanSearch);
+    });
+  }, [categoryFiltered, searchText]);
 
   const currentFilterLabel =
     filter === SELECTED
@@ -303,6 +317,7 @@ export default function ShopScreen() {
         onPress={() => {
           Haptics.selectionAsync().catch(() => {});
           setFilter(value);
+          actionListRef.current?.scrollToOffset({ offset: 0, animated: true });
         }}
         className={`mr-2 flex-row items-center rounded-full border px-4 py-2.5 ${
           selected
@@ -462,11 +477,13 @@ export default function ShopScreen() {
       </Text>
 
       <Text className="mt-2 text-sm leading-5 text-gray-500">
-        {filter === SELECTED
-          ? "No selected actions yet. Choose a few easy actions from All."
-          : filter === CUSTOM
-            ? "No custom actions yet. Add one above."
-            : "No actions in this category yet."}
+        {searchText.trim()
+          ? "No actions match your search."
+          : filter === SELECTED
+            ? "No selected actions yet. Choose a few easy actions from All."
+            : filter === CUSTOM
+              ? "No custom actions yet. Add one above."
+              : "No actions in this category yet."}
       </Text>
     </View>
   );
@@ -581,21 +598,63 @@ export default function ShopScreen() {
         </View>
       ) : null}
 
-      <View className="mx-5 mb-4 mt-6 flex-row items-center justify-between">
-        <View>
-          <Text className="text-2xl font-black text-black">
-            {currentFilterLabel}
-          </Text>
+      <View className="mx-5 mb-4 mt-6">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 pr-4">
+            <Text className="text-2xl font-black text-black">
+              {currentFilterLabel}
+            </Text>
 
-          <Text className="mt-1 text-sm font-semibold text-gray-500">
-            Tap “Select” to add or remove an action.
-          </Text>
+            <Text className="mt-1 text-sm font-semibold text-gray-500">
+              {searchText.trim()
+                ? `Showing matches for “${searchText.trim()}”.`
+                : "Tap “Select” to add or remove an action."}
+            </Text>
+          </View>
+
+          <View className="rounded-full border border-gray-200 bg-white px-3 py-2 shadow-sm">
+            <Text className="text-sm font-black text-green-600">
+              {filtered.length}
+            </Text>
+          </View>
         </View>
 
-        <View className="rounded-full border border-gray-200 bg-white px-3 py-2 shadow-sm">
-          <Text className="text-sm font-black text-green-600">
-            {filtered.length}
-          </Text>
+        <View className="mt-4 h-14 flex-row items-center rounded-3xl border border-gray-200 bg-gray-50 px-4 shadow-sm">
+          <Ionicons name="search" size={20} color="#000000" />
+
+          <View className="ml-3 h-8 flex-1 justify-center">
+            <TextInput
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholder={`Search ${currentFilterLabel.toLowerCase()}...`}
+              placeholderTextColor="#9CA3AF"
+              className="h-8 p-0 text-base font-semibold text-black"
+              style={{
+                lineHeight: 20,
+                transform: [{ translateY: -1 }],
+              }}
+              returnKeyType="search"
+              blurOnSubmit
+              multiline={false}
+              textAlignVertical="center"
+              onSubmitEditing={() => Keyboard.dismiss()}
+            />
+          </View>
+
+          <View className="ml-2 h-8 w-8">
+            {searchText.trim() ? (
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setSearchText("");
+                  Keyboard.dismiss();
+                }}
+                className="h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white"
+              >
+                <Ionicons name="close" size={17} color="#000000" />
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       </View>
     </View>
