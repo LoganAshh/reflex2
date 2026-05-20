@@ -114,7 +114,8 @@ export default function ShopScreen() {
     null,
   );
   const [editTitle, setEditTitle] = useState("");
-  const [editCategory, setEditCategory] = useState<PresetCategory>("Physical");
+  const [editCategory, setEditCategory] =
+    useState<PresetCategory>("Physical");
 
   const actionListRef = useRef<FlatList<ReplacementAction> | null>(null);
   const filterScrollRef = useRef<ScrollView | null>(null);
@@ -202,8 +203,6 @@ export default function ShopScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
         () => {},
       );
-
-      Alert.alert("Added ✅", `"${title}" is now in your actions list.`);
     } catch (e: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
         () => {},
