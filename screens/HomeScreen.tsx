@@ -483,7 +483,8 @@ export default function HomeScreen() {
             </Text>
 
             <Text className="mt-2 text-center text-base font-bold leading-6 text-gray-500">
-              Start by logging one urge.
+              Every time you get the urge to do the habit, log it here. Start by
+              logging one urge.
             </Text>
 
             <Pressable

@@ -157,6 +157,9 @@ export default function UrgeHelpScreen() {
   const [savingAction, setSavingAction] = useState(false);
   const [keepQuickActionFallbackOpen, setKeepQuickActionFallbackOpen] =
     useState(false);
+  const [pendingQuickActionId, setPendingQuickActionId] = useState<
+    number | null
+  >(null);
   const allowExitRef = useRef(false);
 
   const quickActions = useMemo(() => {
@@ -195,6 +198,12 @@ export default function UrgeHelpScreen() {
     });
   }, [actions]);
 
+  const quickActionIds = useMemo(() => {
+    return quickActions
+      .map((quickAction) => quickAction.actionId)
+      .filter((id): id is number => id != null);
+  }, [quickActions]);
+
   const selectedActions = useMemo(() => {
     if (selectedActionIds.length === 0) return [];
     const byId = new Map(actions.map((a) => [a.id, a] as const));
@@ -209,8 +218,28 @@ export default function UrgeHelpScreen() {
   );
 
   useEffect(() => {
-    setSelectedActionId(currentLog?.selectedActionId ?? null);
-  }, [currentLog?.selectedActionId]);
+    const nextSelectedActionId = currentLog?.selectedActionId ?? null;
+
+    setSelectedActionId(nextSelectedActionId);
+
+    if (nextSelectedActionId == null) {
+      setPendingQuickActionId(null);
+      return;
+    }
+
+    if (
+      keepQuickActionFallbackOpen &&
+      pendingQuickActionId != null &&
+      nextSelectedActionId !== pendingQuickActionId
+    ) {
+      setPendingQuickActionId(null);
+      setKeepQuickActionFallbackOpen(false);
+    }
+  }, [
+    currentLog?.selectedActionId,
+    keepQuickActionFallbackOpen,
+    pendingQuickActionId,
+  ]);
 
   usePreventRemove(mode === "guided", ({ data }) => {
     if (allowExitRef.current) {
@@ -256,7 +285,8 @@ export default function UrgeHelpScreen() {
     currentStep.title === "Do a Replacement Action";
 
   const shouldShowQuickActionFallback =
-    !hasSelectedActions || keepQuickActionFallbackOpen;
+    (!hasSelectedActions && quickActionIds.length > 0) ||
+    keepQuickActionFallbackOpen;
 
   const titleClassName = isReplacementActionStep
     ? "mt-5 text-center text-[25px] font-black leading-[30px] text-black"
@@ -275,6 +305,8 @@ export default function UrgeHelpScreen() {
   const onChooseAction = async (actionId: number | null) => {
     try {
       setSavingAction(true);
+      setPendingQuickActionId(null);
+      setKeepQuickActionFallbackOpen(false);
       await updateLogSelectedAction(logId, actionId);
       setSelectedActionId(actionId);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -290,16 +322,31 @@ export default function UrgeHelpScreen() {
       setSavingAction(true);
       setKeepQuickActionFallbackOpen(true);
 
-      if (!selectedActionIds.includes(actionId)) {
-        await toggleSelectedAction(actionId);
+      if (selectedActionId === actionId) {
+        await updateLogSelectedAction(logId, null);
+        setSelectedActionId(null);
+        setPendingQuickActionId(null);
+      } else {
+        await updateLogSelectedAction(logId, actionId);
+        setSelectedActionId(actionId);
+        setPendingQuickActionId(actionId);
       }
 
-      await updateLogSelectedAction(logId, actionId);
-      setSelectedActionId(actionId);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } finally {
       setSavingAction(false);
     }
+  };
+
+  const completeLogAndExit = async () => {
+    const actionToSave = pendingQuickActionId;
+
+    if (actionToSave != null && !selectedActionIds.includes(actionToSave)) {
+      await toggleSelectedAction(actionToSave);
+    }
+
+    allowExitRef.current = true;
+    navigation.goBack();
   };
 
   const goBackToLog = () => {
@@ -325,7 +372,7 @@ export default function UrgeHelpScreen() {
     }
 
     if (currentStep.kind === "done") {
-      goBackToLog();
+      await completeLogAndExit();
       return;
     }
 
@@ -408,7 +455,9 @@ export default function UrgeHelpScreen() {
 
                       <Ionicons
                         name={
-                          isSelected ? "checkmark-circle" : "add-circle-outline"
+                          isSelected
+                            ? "remove-circle-outline"
+                            : "add-circle-outline"
                         }
                         size={21}
                         color={isSelected ? "#FFFFFF" : "#000000"}
