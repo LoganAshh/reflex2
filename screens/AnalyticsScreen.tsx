@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { RootTabParamList } from "../App";
 import { useData, type LogEntry } from "../data/DataContext";
@@ -265,8 +265,41 @@ function ListBlock({
   );
 }
 
+function EmptyActionRow({
+  icon,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="mt-3 flex-row items-center rounded-3xl border border-gray-200 bg-white p-4"
+    >
+      <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+        <Ionicons name={icon} size={22} color="#000000" />
+      </View>
+
+      <View className="ml-3 flex-1">
+        <Text className="text-sm font-black text-black">{title}</Text>
+        <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-500">
+          {subtitle}
+        </Text>
+      </View>
+
+      <Ionicons name="chevron-forward" size={19} color="#9CA3AF" />
+    </Pressable>
+  );
+}
+
 export default function AnalyticsScreen() {
   const route = useRoute<AnalyticsRoute>();
+  const navigation = useNavigation<any>();
   const {
     logs,
     habits,
@@ -833,219 +866,272 @@ export default function AnalyticsScreen() {
           </View>
         </View>
 
-        <ScrollView
-          ref={habitTabsScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mt-3"
-        >
-          {habitTabs.map((t) => (
-            <Pressable
-              key={t}
-              onPress={async () => {
-                await lightHaptic();
-                setActiveTab(t);
-              }}
-              className={`mr-2 rounded-full border px-3 py-1.5 ${
-                t === activeTab
-                  ? "border-green-600 bg-green-600"
-                  : "border-gray-200 bg-white"
-              }`}
+        {!hasAnyLogs ? (
+          <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+            <View className="items-center">
+              <View className="h-16 w-16 items-center justify-center rounded-full border border-gray-200 bg-white">
+                <Ionicons name="analytics" size={30} color="#000000" />
+              </View>
+
+              <Text className="mt-5 text-center text-2xl font-black text-black">
+                Your patterns will appear after a few logs.
+              </Text>
+
+              <Text className="mt-2 text-center text-sm font-semibold leading-5 text-gray-500">
+                Start with a few simple check-ins. Reflex will turn them into
+                useful patterns once there is enough data.
+              </Text>
+            </View>
+
+            <View className="mt-3">
+              <EmptyActionRow
+                icon="create"
+                title="Log an urge"
+                subtitle="Add your first check-in so analytics has something to read."
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                  navigation.navigate("Log");
+                }}
+              />
+
+              <EmptyActionRow
+                icon="alert-circle"
+                title="Add cues"
+                subtitle="Track what was happening right before the urge hit."
+                onPress={async () => {
+                  await lightHaptic();
+                  navigation.navigate("ManageList", { type: "cues" });
+                }}
+              />
+
+              <EmptyActionRow
+                icon="location"
+                title="Add locations"
+                subtitle="Track where urges happen so patterns become easier to spot."
+                onPress={async () => {
+                  await lightHaptic();
+                  navigation.navigate("ManageList", { type: "locations" });
+                }}
+              />
+            </View>
+          </View>
+        ) : (
+          <>
+            <ScrollView
+              ref={habitTabsScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mt-3"
             >
-              <Text
-                className={`text-xs font-black ${
-                  t === activeTab ? "text-white" : "text-black"
-                }`}
-                numberOfLines={1}
-              >
-                {t}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+              {habitTabs.map((t) => (
+                <Pressable
+                  key={t}
+                  onPress={async () => {
+                    await lightHaptic();
+                    setActiveTab(t);
+                  }}
+                  className={`mr-2 rounded-full border px-3 py-1.5 ${
+                    t === activeTab
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-black ${
+                      t === activeTab ? "text-white" : "text-black"
+                    }`}
+                    numberOfLines={1}
+                  >
+                    {t}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
 
-        <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
-          <View className="mb-2 flex-row items-center justify-between">
-            <View>
-              <Text className="text-base font-black text-black">
-                Give-in calendar
-              </Text>
-              <Text className="mt-0.5 text-xs font-semibold text-gray-500">
-                Tap a day to view or edit logs.
-              </Text>
-            </View>
+            <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
+              <View className="mb-2 flex-row items-center justify-between">
+                <View>
+                  <Text className="text-base font-black text-black">
+                    Give-in calendar
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold text-gray-500">
+                    Tap a day to view or edit logs.
+                  </Text>
+                </View>
 
-            <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="calendar" size={19} color="#000000" />
-            </View>
-          </View>
-
-          <AnalyticsCalendar
-            monthLabel={calendar.monthLabel}
-            weeks={calendar.weeks}
-            onPreviousMonth={async () => {
-              await lightHaptic();
-              setMonthOffset((v) => v - 1);
-            }}
-            onNextMonth={async () => {
-              await lightHaptic();
-              setMonthOffset((v) => v + 1);
-            }}
-            onOpenDay={openDayModal}
-          />
-        </View>
-
-        <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="text-xl font-black text-black">
-                {patternTitle}
-              </Text>
-
-              <Text className="mt-1 text-sm font-semibold text-gray-500">
-                Your most common triggers this week.
-              </Text>
-            </View>
-
-            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="search" size={24} color="#000000" />
-            </View>
-          </View>
-
-          <ListBlock
-            title="Most Common Cues"
-            items={data.topCues}
-            empty="Add cues in your logs to see patterns."
-            icon="alert-circle"
-          />
-
-          <ListBlock
-            title="Most Common Locations"
-            items={data.topLocations}
-            empty="Add locations in your logs to see patterns."
-            icon="location"
-          />
-
-          <ListBlock
-            title="Most Common Times"
-            items={data.topTimes}
-            empty="Log a few check-ins and this will populate."
-            icon="time"
-          />
-        </View>
-
-        <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text className="text-xl font-black text-black">
-                More insights
-              </Text>
-
-              <Text className="mt-1 text-sm font-semibold text-gray-500">
-                Small numbers still reveal useful patterns.
-              </Text>
-            </View>
-
-            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="sparkles" size={24} color="#000000" />
-            </View>
-          </View>
-
-          <View className="mt-5 flex-row gap-3">
-            <StatCard
-              label="Logs this week"
-              value={`${extraAnalytics.weeklyTotal}`}
-              icon="create"
-            />
-
-            <StatCard
-              label="Resist rate"
-              value={`${extraAnalytics.weeklyResistRate}%`}
-              sub="This week"
-              icon="shield-checkmark"
-            />
-          </View>
-
-          <View className="mt-3 flex-row gap-3">
-            <StatCard
-              label="Gave in"
-              value={`${extraAnalytics.weeklyGaveIn}`}
-              sub="This week"
-              icon="trending-down"
-            />
-
-            <StatCard
-              label="Active days"
-              value={`${extraAnalytics.activeDays30}`}
-              sub="Last 30 days"
-              icon="flame"
-            />
-          </View>
-
-          <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-            <View className="flex-row items-center">
-              <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                <Ionicons name="pie-chart" size={23} color="#000000" />
+                <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                  <Ionicons name="calendar" size={19} color="#000000" />
+                </View>
               </View>
 
-              <Text className="ml-3 flex-1 text-base font-black text-black">
-                Outcome breakdown
-              </Text>
-            </View>
-
-            <View className="mt-4 flex-row gap-3">
-              <MiniStat
-                label="Resisted"
-                value={`${extraAnalytics.allResisted}`}
-                icon="shield-checkmark"
-              />
-
-              <MiniStat
-                label="Gave in"
-                value={`${extraAnalytics.allGiveIn}`}
-                icon="close-circle"
-              />
-
-              <MiniStat
-                label="Rate"
-                value={`${extraAnalytics.overallResistRate}%`}
-                icon="pulse"
+              <AnalyticsCalendar
+                monthLabel={calendar.monthLabel}
+                weeks={calendar.weeks}
+                onPreviousMonth={async () => {
+                  await lightHaptic();
+                  setMonthOffset((v) => v - 1);
+                }}
+                onNextMonth={async () => {
+                  await lightHaptic();
+                  setMonthOffset((v) => v + 1);
+                }}
+                onOpenDay={openDayModal}
               />
             </View>
-          </View>
 
-          <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-            <View className="flex-row items-center">
-              <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                <Ionicons name="pulse" size={23} color="#000000" />
+            <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <View>
+                  <Text className="text-xl font-black text-black">
+                    {patternTitle}
+                  </Text>
+
+                  <Text className="mt-1 text-sm font-semibold text-gray-500">
+                    Your most common triggers this week.
+                  </Text>
+                </View>
+
+                <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                  <Ionicons name="search" size={24} color="#000000" />
+                </View>
               </View>
 
-              <Text className="ml-3 flex-1 text-base font-black text-black">
-                Intensity trends
-              </Text>
-            </View>
-
-            <View className="mt-4 flex-row gap-3">
-              <MiniStat
-                label="Average"
-                value={formatAvg(extraAnalytics.avgIntensity)}
-                icon="analytics"
+              <ListBlock
+                title="Most Common Cues"
+                items={data.topCues}
+                empty="Add cues in your logs to see patterns."
+                icon="alert-circle"
               />
 
-              <MiniStat
-                label="Resisted"
-                value={formatAvg(extraAnalytics.avgResistedIntensity)}
-                icon="shield-checkmark"
+              <ListBlock
+                title="Most Common Locations"
+                items={data.topLocations}
+                empty="Add locations in your logs to see patterns."
+                icon="location"
               />
 
-              <MiniStat
-                label="Gave in"
-                value={formatAvg(extraAnalytics.avgGaveInIntensity)}
-                icon="alert"
+              <ListBlock
+                title="Most Common Times"
+                items={data.topTimes}
+                empty="Log a few check-ins and this will populate."
+                icon="time"
               />
             </View>
-          </View>
-        </View>
+
+            <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <View>
+                  <Text className="text-xl font-black text-black">
+                    More insights
+                  </Text>
+
+                  <Text className="mt-1 text-sm font-semibold text-gray-500">
+                    Small numbers still reveal useful patterns.
+                  </Text>
+                </View>
+
+                <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                  <Ionicons name="sparkles" size={24} color="#000000" />
+                </View>
+              </View>
+
+              <View className="mt-5 flex-row gap-3">
+                <StatCard
+                  label="Logs this week"
+                  value={`${extraAnalytics.weeklyTotal}`}
+                  icon="create"
+                />
+
+                <StatCard
+                  label="Resist rate"
+                  value={`${extraAnalytics.weeklyResistRate}%`}
+                  sub="This week"
+                  icon="shield-checkmark"
+                />
+              </View>
+
+              <View className="mt-3 flex-row gap-3">
+                <StatCard
+                  label="Gave in"
+                  value={`${extraAnalytics.weeklyGaveIn}`}
+                  sub="This week"
+                  icon="trending-down"
+                />
+
+                <StatCard
+                  label="Active days"
+                  value={`${extraAnalytics.activeDays30}`}
+                  sub="Last 30 days"
+                  icon="flame"
+                />
+              </View>
+
+              <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+                <View className="flex-row items-center">
+                  <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                    <Ionicons name="pie-chart" size={23} color="#000000" />
+                  </View>
+
+                  <Text className="ml-3 flex-1 text-base font-black text-black">
+                    Outcome breakdown
+                  </Text>
+                </View>
+
+                <View className="mt-4 flex-row gap-3">
+                  <MiniStat
+                    label="Resisted"
+                    value={`${extraAnalytics.allResisted}`}
+                    icon="shield-checkmark"
+                  />
+
+                  <MiniStat
+                    label="Gave in"
+                    value={`${extraAnalytics.allGiveIn}`}
+                    icon="close-circle"
+                  />
+
+                  <MiniStat
+                    label="Rate"
+                    value={`${extraAnalytics.overallResistRate}%`}
+                    icon="pulse"
+                  />
+                </View>
+              </View>
+
+              <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+                <View className="flex-row items-center">
+                  <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                    <Ionicons name="pulse" size={23} color="#000000" />
+                  </View>
+
+                  <Text className="ml-3 flex-1 text-base font-black text-black">
+                    Intensity trends
+                  </Text>
+                </View>
+
+                <View className="mt-4 flex-row gap-3">
+                  <MiniStat
+                    label="Average"
+                    value={formatAvg(extraAnalytics.avgIntensity)}
+                    icon="analytics"
+                  />
+
+                  <MiniStat
+                    label="Resisted"
+                    value={formatAvg(extraAnalytics.avgResistedIntensity)}
+                    icon="shield-checkmark"
+                  />
+
+                  <MiniStat
+                    label="Gave in"
+                    value={formatAvg(extraAnalytics.avgGaveInIntensity)}
+                    icon="alert"
+                  />
+                </View>
+              </View>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       <DayLogsModal
