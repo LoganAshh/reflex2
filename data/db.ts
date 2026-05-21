@@ -170,7 +170,7 @@ export async function seedDefaultCuesIfEmpty() {
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Loneliness', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Tired', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Celebration', 0);
-    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Habit / routine', 0);
+    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Routine', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Craving', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Avoidance', 0);
   `);
