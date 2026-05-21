@@ -130,6 +130,7 @@ export default function HomeScreen() {
   const handledResetTokenRef = useRef<number | null>(null);
 
   const displayName = useMemo(() => getFirstName(profileName), [profileName]);
+  const isBrandNew = logs.length === 0;
 
   useEffect(() => {
     const resetToken = route.params?.resetToken;
@@ -449,7 +450,7 @@ export default function HomeScreen() {
           </Text>
 
           <Text className="mt-1 text-3xl font-black text-black">
-            {logs.length === 0
+            {isBrandNew
               ? `Welcome, ${displayName}`
               : `Welcome back, ${displayName}`}
           </Text>
@@ -470,187 +471,222 @@ export default function HomeScreen() {
         )}
       </View>
 
-      <View className="mt-6 flex-row gap-3">
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            navigation.navigate("Log");
-          }}
-          className="flex-1 rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
-        >
-          <View className="flex-row items-center justify-center">
-            <Ionicons name="add-circle" size={22} color="#FFFFFF" />
-            <Text className="ml-2 text-center text-base font-black text-white">
-              Log Check-In
+      {isBrandNew ? (
+        <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+          <View className="items-center">
+            <View className="h-16 w-16 items-center justify-center rounded-full border border-gray-200 bg-white">
+              <Ionicons name="create" size={30} color="#000000" />
+            </View>
+
+            <Text className="mt-5 text-center text-2xl font-black text-black">
+              No logs yet.
             </Text>
-          </View>
-        </Pressable>
 
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            navigation.navigate("Shop");
-          }}
-          className="rounded-3xl border border-gray-200 bg-gray-50 px-5 py-4 shadow-sm"
-        >
-          <Ionicons name="bag-handle" size={24} color="#000000" />
-        </Pressable>
-      </View>
-
-      <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
-        <View className="flex-row items-center justify-between">
-          <View>
-            <Text className="text-xl font-black text-black">Dashboard</Text>
-            <Text className="mt-1 text-sm font-bold text-gray-500">
-              Pick a habit to focus the stats.
+            <Text className="mt-2 text-center text-base font-bold leading-6 text-gray-500">
+              Start by logging one urge.
             </Text>
-          </View>
 
-          <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
-            <Ionicons name="stats-chart" size={24} color="#000000" />
-          </View>
-        </View>
-
-        <ScrollView
-          ref={habitChipsScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mt-5"
-        >
-          <Chip
-            label="Overall"
-            selected={selectedHabitId === null}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setSelectedHabitId(null);
-            }}
-          />
-
-          {habitOptions.map((habit: Habit) => (
-            <Chip
-              key={habit.id}
-              label={habit.name}
-              selected={selectedHabitId === habit.id}
+            <Pressable
               onPress={() => {
-                Haptics.selectionAsync();
-                setSelectedHabitId(habit.id);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                navigation.navigate("Log");
               }}
-            />
-          ))}
-        </ScrollView>
-
-        <View className="mt-5 flex-row gap-3">
-          <StatTile
-            label="Logs today"
-            value={`${stats.todayLogs}`}
-            icon="create"
-            percentIncrease={getPercentIncrease(
-              stats.todayLogs,
-              stats.previousTodayLogs,
-            )}
-          />
-
-          <StatTile
-            label="This week"
-            value={`${stats.weekLogs}`}
-            icon="calendar"
-            percentIncrease={getPercentIncrease(
-              stats.weekLogs,
-              stats.previousWeekLogs,
-            )}
-          />
-        </View>
-
-        <View className="mt-3 flex-row gap-3">
-          <StatTile
-            label="Resists today"
-            value={`${stats.todayResists}`}
-            icon="shield-checkmark"
-            percentIncrease={getPercentIncrease(
-              stats.todayResists,
-              stats.previousTodayResists,
-            )}
-          />
-
-          <StatTile
-            label="Week resists"
-            value={`${stats.weekResists}`}
-            icon="trophy"
-            percentIncrease={getPercentIncrease(
-              stats.weekResists,
-              stats.previousWeekResists,
-            )}
-          />
-        </View>
-
-        {selectedHabitId === null ? (
-          <View className="mt-3 flex-row gap-3">
-            <StreakCard
-              label="Today rate"
-              value={`${stats.todayResistRate}%`}
-              sub="Resistance today"
-              icon="pulse"
-              percentIncrease={getPercentIncrease(
-                stats.todayResistRate,
-                stats.previousTodayResistRate,
-              )}
-            />
-
-            <StreakCard
-              label="Week rate"
-              value={`${stats.weekResistRate}%`}
-              sub="Resistance this week"
-              icon="ribbon"
-              percentIncrease={getPercentIncrease(
-                stats.weekResistRate,
-                stats.previousWeekResistRate,
-              )}
-            />
+              className="mt-6 w-full rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+            >
+              <View className="flex-row items-center justify-center">
+                <Ionicons name="add-circle" size={22} color="#FFFFFF" />
+                <Text className="ml-2 text-center text-base font-black text-white">
+                  Log your first urge
+                </Text>
+              </View>
+            </Pressable>
           </View>
-        ) : (
-          <View className="mt-3 flex-row gap-3">
-            <StreakCard
-              label="Current streak"
-              value={`${stats.daysSinceGiveIn}`}
-              sub="Days since giving in"
-              icon="flame"
-              percentIncrease={getPercentIncrease(
-                stats.daysSinceGiveIn,
-                stats.previousDaysSinceGiveIn,
-              )}
-            />
+        </View>
+      ) : (
+        <>
+          <View className="mt-6 flex-row gap-3">
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                navigation.navigate("Log");
+              }}
+              className="flex-1 rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+            >
+              <View className="flex-row items-center justify-center">
+                <Ionicons name="add-circle" size={22} color="#FFFFFF" />
+                <Text className="ml-2 text-center text-base font-black text-white">
+                  Log Check-In
+                </Text>
+              </View>
+            </Pressable>
 
-            <StreakCard
-              label="Best streak"
-              value={`${stats.bestCleanStreakDays}`}
-              sub="Your record"
-              icon="medal"
-              percentIncrease={getPercentIncrease(
-                stats.bestCleanStreakDays,
-                stats.previousBestCleanStreakDays,
-              )}
-            />
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                navigation.navigate("Shop");
+              }}
+              className="rounded-3xl border border-gray-200 bg-gray-50 px-5 py-4 shadow-sm"
+            >
+              <Ionicons name="bag-handle" size={24} color="#000000" />
+            </Pressable>
           </View>
-        )}
 
-        <View className="mt-5 rounded-3xl border border-gray-200 bg-white p-4">
-          <View className="flex-row items-center">
-            <View className="h-10 w-10 items-center justify-center rounded-3xl border border-gray-200 bg-white">
-              <Ionicons name="bulb" size={22} color="#000000" />
+          <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+            <View className="flex-row items-center justify-between">
+              <View>
+                <Text className="text-xl font-black text-black">Dashboard</Text>
+                <Text className="mt-1 text-sm font-bold text-gray-500">
+                  Pick a habit to focus the stats.
+                </Text>
+              </View>
+
+              <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+                <Ionicons name="stats-chart" size={24} color="#000000" />
+              </View>
             </View>
 
-            <View className="ml-3 flex-1">
-              <Text className="text-sm font-black text-black">
-                {positiveFeedbackTitle}
-              </Text>
+            <ScrollView
+              ref={habitChipsScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mt-5"
+            >
+              <Chip
+                label="Overall"
+                selected={selectedHabitId === null}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedHabitId(null);
+                }}
+              />
 
-              <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
-                {positiveFeedbackText}
-              </Text>
+              {habitOptions.map((habit: Habit) => (
+                <Chip
+                  key={habit.id}
+                  label={habit.name}
+                  selected={selectedHabitId === habit.id}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setSelectedHabitId(habit.id);
+                  }}
+                />
+              ))}
+            </ScrollView>
+
+            <View className="mt-5 flex-row gap-3">
+              <StatTile
+                label="Logs today"
+                value={`${stats.todayLogs}`}
+                icon="create"
+                percentIncrease={getPercentIncrease(
+                  stats.todayLogs,
+                  stats.previousTodayLogs,
+                )}
+              />
+
+              <StatTile
+                label="This week"
+                value={`${stats.weekLogs}`}
+                icon="calendar"
+                percentIncrease={getPercentIncrease(
+                  stats.weekLogs,
+                  stats.previousWeekLogs,
+                )}
+              />
+            </View>
+
+            <View className="mt-3 flex-row gap-3">
+              <StatTile
+                label="Resists today"
+                value={`${stats.todayResists}`}
+                icon="shield-checkmark"
+                percentIncrease={getPercentIncrease(
+                  stats.todayResists,
+                  stats.previousTodayResists,
+                )}
+              />
+
+              <StatTile
+                label="Week resists"
+                value={`${stats.weekResists}`}
+                icon="trophy"
+                percentIncrease={getPercentIncrease(
+                  stats.weekResists,
+                  stats.previousWeekResists,
+                )}
+              />
+            </View>
+
+            {selectedHabitId === null ? (
+              <View className="mt-3 flex-row gap-3">
+                <StreakCard
+                  label="Today rate"
+                  value={`${stats.todayResistRate}%`}
+                  sub="Resistance today"
+                  icon="pulse"
+                  percentIncrease={getPercentIncrease(
+                    stats.todayResistRate,
+                    stats.previousTodayResistRate,
+                  )}
+                />
+
+                <StreakCard
+                  label="Week rate"
+                  value={`${stats.weekResistRate}%`}
+                  sub="Resistance this week"
+                  icon="ribbon"
+                  percentIncrease={getPercentIncrease(
+                    stats.weekResistRate,
+                    stats.previousWeekResistRate,
+                  )}
+                />
+              </View>
+            ) : (
+              <View className="mt-3 flex-row gap-3">
+                <StreakCard
+                  label="Current streak"
+                  value={`${stats.daysSinceGiveIn}`}
+                  sub="Days since giving in"
+                  icon="flame"
+                  percentIncrease={getPercentIncrease(
+                    stats.daysSinceGiveIn,
+                    stats.previousDaysSinceGiveIn,
+                  )}
+                />
+
+                <StreakCard
+                  label="Best streak"
+                  value={`${stats.bestCleanStreakDays}`}
+                  sub="Your record"
+                  icon="medal"
+                  percentIncrease={getPercentIncrease(
+                    stats.bestCleanStreakDays,
+                    stats.previousBestCleanStreakDays,
+                  )}
+                />
+              </View>
+            )}
+
+            <View className="mt-5 rounded-3xl border border-gray-200 bg-white p-4">
+              <View className="flex-row items-center">
+                <View className="h-10 w-10 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+                  <Ionicons name="bulb" size={22} color="#000000" />
+                </View>
+
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-black text-black">
+                    {positiveFeedbackTitle}
+                  </Text>
+
+                  <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
+                    {positiveFeedbackText}
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
-        </View>
-      </View>
+        </>
+      )}
     </ScrollView>
   );
 }
