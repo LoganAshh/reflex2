@@ -12,6 +12,12 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { useData, type ReplacementAction } from "../data/DataContext";
 
+const QUICK_ACTION_TITLES = [
+  "Go for a 5-min walk",
+  "Read one page of a book",
+  "Call a friend",
+] as const;
+
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type HelpRoute = RouteProp<RootStackParamList, "UrgeHelp">;
 
@@ -125,19 +131,69 @@ function ProgressBar({
   );
 }
 
+function getQuickActionIcon(title: string): keyof typeof Ionicons.glyphMap {
+  if (title === "Go for a 5-min walk") return "walk";
+  if (title === "Read one page of a book") return "book";
+  if (title === "Call a friend") return "call";
+  return "flash";
+}
+
 export default function UrgeHelpScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<HelpRoute>();
   const { logId } = route.params;
 
-  const { actions, selectedActionIds, updateLogSelectedAction, logs } =
-    useData();
+  const {
+    actions,
+    selectedActionIds,
+    updateLogSelectedAction,
+    toggleSelectedAction,
+    logs,
+  } = useData();
 
   const [mode, setMode] = useState<"decision" | "guided">("decision");
   const [stepIndex, setStepIndex] = useState(0);
   const [selectedActionId, setSelectedActionId] = useState<number | null>(null);
   const [savingAction, setSavingAction] = useState(false);
+  const [keepQuickActionFallbackOpen, setKeepQuickActionFallbackOpen] =
+    useState(false);
   const allowExitRef = useRef(false);
+
+  const quickActions = useMemo(() => {
+    const normalize = (value: string) =>
+      value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const aliases = new Map<string, string[]>([
+      [
+        "Go for a 5-min walk",
+        ["go for a 5-min walk", "go for a 5 min walk", "walk for 5 minutes"],
+      ],
+      [
+        "Read one page of a book",
+        ["read one page of a book", "read 1 page of a book", "read one page"],
+      ],
+      ["Call a friend", ["call a friend", "phone a friend"]],
+    ]);
+
+    return QUICK_ACTION_TITLES.map((title) => {
+      const normalizedAliases = (aliases.get(title) ?? [title]).map(normalize);
+      const matchingAction =
+        actions.find((action) => {
+          const normalizedTitle = normalize(action.title);
+          return normalizedAliases.includes(normalizedTitle);
+        }) ?? null;
+
+      return {
+        title,
+        actionId: matchingAction?.id ?? null,
+      };
+    });
+  }, [actions]);
 
   const selectedActions = useMemo(() => {
     if (selectedActionIds.length === 0) return [];
@@ -199,6 +255,9 @@ export default function UrgeHelpScreen() {
   const isReplacementActionStep =
     currentStep.title === "Do a Replacement Action";
 
+  const shouldShowQuickActionFallback =
+    !hasSelectedActions || keepQuickActionFallbackOpen;
+
   const titleClassName = isReplacementActionStep
     ? "mt-5 text-center text-[25px] font-black leading-[30px] text-black"
     : "mt-8 text-center text-4xl font-black leading-[44px] text-black";
@@ -216,6 +275,25 @@ export default function UrgeHelpScreen() {
   const onChooseAction = async (actionId: number | null) => {
     try {
       setSavingAction(true);
+      await updateLogSelectedAction(logId, actionId);
+      setSelectedActionId(actionId);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } finally {
+      setSavingAction(false);
+    }
+  };
+
+  const onChooseQuickAction = async (actionId: number | null) => {
+    if (actionId == null) return;
+
+    try {
+      setSavingAction(true);
+      setKeepQuickActionFallbackOpen(true);
+
+      if (!selectedActionIds.includes(actionId)) {
+        await toggleSelectedAction(actionId);
+      }
+
       await updateLogSelectedAction(logId, actionId);
       setSelectedActionId(actionId);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -280,17 +358,70 @@ export default function UrgeHelpScreen() {
           </View>
         </View>
 
-        {!hasSelectedActions ? (
+        {shouldShowQuickActionFallback ? (
           <>
             <View className="mt-3 rounded-[20px] border border-gray-200 bg-white p-3">
               <Text className="text-xs font-semibold leading-4 text-gray-500">
-                You do not have any selected replacement actions yet.
+                No selected actions yet. Choose one of the 3 recommended actions
+                below, or go to Shop for more options.
               </Text>
+            </View>
+
+            <View className="mt-3">
+              {quickActions.map((quickAction) => {
+                const isSelected = selectedActionId === quickAction.actionId;
+                const canSelect = quickAction.actionId != null;
+
+                return (
+                  <Pressable
+                    key={quickAction.title}
+                    onPress={() => onChooseQuickAction(quickAction.actionId)}
+                    disabled={savingAction || !canSelect}
+                    className={`mb-2 rounded-3xl border p-3 ${
+                      isSelected
+                        ? "border-green-600 bg-green-600"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <View className="flex-row items-center">
+                      <View
+                        className={`h-10 w-10 items-center justify-center rounded-2xl border ${
+                          isSelected
+                            ? "border-white/30 bg-white/20"
+                            : "border-gray-200 bg-white"
+                        }`}
+                      >
+                        <Ionicons
+                          name={getQuickActionIcon(quickAction.title)}
+                          size={20}
+                          color={isSelected ? "#FFFFFF" : "#000000"}
+                        />
+                      </View>
+
+                      <Text
+                        className={`ml-3 flex-1 text-sm font-black ${
+                          isSelected ? "text-white" : "text-black"
+                        }`}
+                      >
+                        {quickAction.title}
+                      </Text>
+
+                      <Ionicons
+                        name={
+                          isSelected ? "checkmark-circle" : "add-circle-outline"
+                        }
+                        size={21}
+                        color={isSelected ? "#FFFFFF" : "#000000"}
+                      />
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
 
             <Pressable
               onPress={goToShop}
-              className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-3 shadow-sm"
+              className="mt-1 w-full rounded-3xl border border-gray-200 bg-white px-5 py-3 shadow-sm"
               style={({ pressed }) => ({
                 shadowColor: "#000",
                 shadowOffset: { width: 0, height: pressed ? 1 : 4 },
@@ -303,14 +434,10 @@ export default function UrgeHelpScreen() {
               <View className="flex-row items-center justify-center">
                 <Ionicons name="bag-handle" size={19} color="#000000" />
                 <Text className="ml-2 text-center text-sm font-black text-black">
-                  Go to Shop
+                  More actions in Shop
                 </Text>
               </View>
             </Pressable>
-
-            <Text className="mt-2 text-center text-xs font-semibold text-gray-500">
-              Select actions in Shop, then tap Back to return.
-            </Text>
           </>
         ) : (
           <>
