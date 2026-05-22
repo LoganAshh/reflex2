@@ -272,6 +272,7 @@ export default function ManageListScreen() {
   };
 
   const closeEdit = () => {
+    Keyboard.dismiss();
     setEditingItem(null);
     setEditText("");
     setEditColor("#16A34A");
@@ -284,6 +285,8 @@ export default function ManageListScreen() {
     if (!name) return;
 
     try {
+      Keyboard.dismiss();
+
       if (type === "habits") await updateHabit(editingItem.id, name, editColor);
       else if (type === "cues") await renameCustomCue(editingItem.id, name);
       else await renameCustomLocation(editingItem.id, name);
@@ -542,7 +545,7 @@ export default function ManageListScreen() {
                 multiline={false}
                 returnKeyType="done"
                 blurOnSubmit
-                onSubmitEditing={onSaveEdit}
+                onSubmitEditing={() => Keyboard.dismiss()}
               />
             )}
 
