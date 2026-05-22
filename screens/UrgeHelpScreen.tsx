@@ -18,6 +18,8 @@ const QUICK_ACTION_TITLES = [
   "Call a friend",
 ] as const;
 
+const SELECTED_ACTION_BOX_MAX_HEIGHT = 110;
+
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type HelpRoute = RouteProp<RootStackParamList, "UrgeHelp">;
 
@@ -160,6 +162,8 @@ export default function UrgeHelpScreen() {
   const [pendingQuickActionId, setPendingQuickActionId] = useState<
     number | null
   >(null);
+  const [selectedActionsContentHeight, setSelectedActionsContentHeight] =
+    useState(0);
   const allowExitRef = useRef(false);
 
   const quickActions = useMemo(() => {
@@ -216,6 +220,9 @@ export default function UrgeHelpScreen() {
     () => logs.find((l) => l.id === logId) ?? null,
     [logs, logId],
   );
+
+  const hasSelectedActionsOverflow =
+    selectedActionsContentHeight > SELECTED_ACTION_BOX_MAX_HEIGHT + 4;
 
   useEffect(() => {
     const nextSelectedActionId = currentLog?.selectedActionId ?? null;
@@ -492,9 +499,12 @@ export default function UrgeHelpScreen() {
           <>
             <ScrollView
               className="mt-3"
-              style={{ maxHeight: 110 }}
+              style={{ maxHeight: SELECTED_ACTION_BOX_MAX_HEIGHT }}
               nestedScrollEnabled
-              showsVerticalScrollIndicator
+              showsVerticalScrollIndicator={hasSelectedActionsOverflow}
+              onContentSizeChange={(_, height) => {
+                setSelectedActionsContentHeight(height);
+              }}
             >
               <View className="flex-row flex-wrap gap-2 pb-1">
                 <Pressable
@@ -549,12 +559,14 @@ export default function UrgeHelpScreen() {
               </View>
             </ScrollView>
 
-            <View className="mt-2 flex-row items-center justify-center">
-              <Ionicons name="chevron-down" size={14} color="#6B7280" />
-              <Text className="ml-1 text-xs font-bold text-gray-500">
-                Scroll inside the box to see more options
-              </Text>
-            </View>
+            {hasSelectedActionsOverflow ? (
+              <View className="mt-2 flex-row items-center justify-center">
+                <Ionicons name="chevron-down" size={14} color="#6B7280" />
+                <Text className="ml-1 text-xs font-bold text-gray-500">
+                  Scroll inside the box to see more options
+                </Text>
+              </View>
+            ) : null}
           </>
         )}
 
