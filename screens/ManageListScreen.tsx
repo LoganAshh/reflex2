@@ -139,6 +139,10 @@ export default function ManageListScreen() {
     selectedLocations,
   ]);
 
+  const editingIsCustom = editingItem?.isCustom === 1;
+  const editingPresetHabit =
+    type === "habits" && !!editingItem && !editingIsCustom;
+
   useEffect(() => {
     if (didSetInitialFilter.current) return;
 
@@ -276,7 +280,7 @@ export default function ManageListScreen() {
   const onSaveEdit = async () => {
     if (!editingItem) return;
 
-    const name = editText.trim();
+    const name = editingPresetHabit ? editingItem.name : editText.trim();
     if (!name) return;
 
     try {
@@ -509,24 +513,38 @@ export default function ManageListScreen() {
                 </Text>
 
                 <Text className="mt-1 text-sm leading-5 text-gray-500">
-                  {type === "habits"
-                    ? "Change the name and color shown around the app."
-                    : "Rename it, or delete it from future logging."}
+                  {editingPresetHabit
+                    ? "Change the color shown around the app."
+                    : type === "habits"
+                      ? "Change the name and color shown around the app."
+                      : "Rename it, or delete it from future logging."}
                 </Text>
               </View>
             </View>
 
-            <TextInput
-              value={editText}
-              onChangeText={setEditText}
-              placeholder={singularTitle}
-              placeholderTextColor="#9CA3AF"
-              className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
-              multiline={false}
-              returnKeyType="done"
-              blurOnSubmit
-              onSubmitEditing={onSaveEdit}
-            />
+            {editingPresetHabit ? (
+              <View className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
+                  Preset habit
+                </Text>
+
+                <Text className="mt-1 text-base font-black text-black">
+                  {editingItem?.name}
+                </Text>
+              </View>
+            ) : (
+              <TextInput
+                value={editText}
+                onChangeText={setEditText}
+                placeholder={singularTitle}
+                placeholderTextColor="#9CA3AF"
+                className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
+                multiline={false}
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={onSaveEdit}
+              />
+            )}
 
             {type === "habits" ? (
               <View className="mt-5">
