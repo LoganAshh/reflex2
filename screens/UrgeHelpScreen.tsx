@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -247,6 +253,14 @@ export default function UrgeHelpScreen() {
     keepQuickActionFallbackOpen,
     pendingQuickActionId,
   ]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerBackVisible: mode !== "decision",
+      headerLeft: mode === "decision" ? () => null : undefined,
+      gestureEnabled: mode !== "decision",
+    });
+  }, [navigation, mode]);
 
   usePreventRemove(mode === "guided", ({ data }) => {
     if (allowExitRef.current) {
