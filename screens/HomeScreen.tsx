@@ -397,7 +397,7 @@ export default function HomeScreen() {
     percentIncrease?: number | null;
     accentColor?: string;
   }) => (
-    <View className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 p-4">
+    <View className="flex-1 rounded-3xl border border-gray-200 bg-white p-4">
       <View className="flex-row items-center justify-between">
         <View className="h-11 w-11 items-center justify-center rounded-3xl border border-gray-200 bg-white">
           <Ionicons name={icon} size={23} color="#000000" />
