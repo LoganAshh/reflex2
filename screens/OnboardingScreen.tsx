@@ -14,6 +14,8 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useData, type Habit, type Cue, type Place } from "../data/DataContext";
 
+const CHIP_BOX_MAX_HEIGHT = 120;
+
 type ChipListProps<T extends { id: number; name: string; isCustom: 0 | 1 }> = {
   data: T[];
   selected: Set<number>;
@@ -61,6 +63,8 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
   onInputFocus,
   onInputBlur,
 }: ChipListProps<T>) {
+  const [chipContentHeight, setChipContentHeight] = useState(0);
+
   const value =
     type === "habits"
       ? customHabit
@@ -103,7 +107,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
   }, [data]);
 
   const canAdd = value.trim().length > 0;
-  const hasManyOptions = visibleData.length > 8;
+  const hasHiddenOptions = chipContentHeight > CHIP_BOX_MAX_HEIGHT + 4;
 
   return (
     <View className="mt-3 w-full rounded-[26px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
@@ -125,8 +129,11 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
       <View className="mt-3 max-h-[120px] rounded-[20px] border border-gray-200 bg-white p-2">
         <ScrollView
           nestedScrollEnabled
-          showsVerticalScrollIndicator
+          showsVerticalScrollIndicator={hasHiddenOptions}
           keyboardShouldPersistTaps="handled"
+          onContentSizeChange={(_, height) => {
+            setChipContentHeight(height);
+          }}
         >
           <View className="flex-row flex-wrap gap-2 pb-1">
             {visibleData.map((item) => {
@@ -156,7 +163,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
         </ScrollView>
       </View>
 
-      {hasManyOptions ? (
+      {hasHiddenOptions ? (
         <View className="mt-2 flex-row items-center justify-center">
           <Ionicons name="chevron-down" size={14} color="#6B7280" />
           <Text className="ml-1 text-xs font-bold text-gray-500">
@@ -257,6 +264,7 @@ export default function OnboardingScreen() {
   const [customInputFocused, setCustomInputFocused] = useState(false);
 
   const buzz = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
