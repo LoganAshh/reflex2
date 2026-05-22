@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   View,
   Text,
@@ -17,7 +23,11 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -59,9 +69,7 @@ function applyFrequencyOrdering<T extends { id: number }>(
     const aCount = frequencyCounts.get(a.id) ?? 0;
     const bCount = frequencyCounts.get(b.id) ?? 0;
 
-    if (aCount !== bCount) {
-      return bCount - aCount;
-    }
+    if (aCount !== bCount) return bCount - aCount;
 
     return (originalRank.get(a.id) ?? 0) - (originalRank.get(b.id) ?? 0);
   });
@@ -352,9 +360,7 @@ function IntensityPickerModal({
                   }`}
                 >
                   <Text
-                    className={`text-sm font-black ${
-                      selected ? "text-white" : "text-black"
-                    }`}
+                    className={`text-sm font-black ${selected ? "text-white" : "text-black"}`}
                   >
                     {n}
                   </Text>
@@ -399,7 +405,6 @@ function CountPickerModal({
     () => Array.from({ length: 10 }, (_, i) => i + 1),
     [],
   );
-
   const labelFor = (n: number) => (n === 1 ? "1 time" : `${n} times`);
 
   return (
@@ -447,9 +452,7 @@ function CountPickerModal({
                   }`}
                 >
                   <Text
-                    className={`text-sm font-black ${
-                      selected ? "text-white" : "text-black"
-                    }`}
+                    className={`text-sm font-black ${selected ? "text-white" : "text-black"}`}
                   >
                     {labelFor(n)}
                   </Text>
@@ -507,6 +510,14 @@ export default function LogScreen() {
   const scrollViewRef = useRef<ScrollView | null>(null);
   const handledManageListTokenRef = useRef<number | null>(null);
   const handledResetTokenRef = useRef<number | null>(null);
+  const saveInProgressRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      saveInProgressRef.current = false;
+      setSaving(false);
+    }, []),
+  );
 
   const habitFrequencyCounts = useMemo(() => {
     const counts = new Map<number, number>();
@@ -675,7 +686,6 @@ export default function LogScreen() {
     const exists = selectedLocations.some(
       (location) => location.id === selection.id,
     );
-
     if (!exists) return;
 
     setLocationId(selection.id);
@@ -728,9 +738,16 @@ export default function LogScreen() {
     };
   }, [keyboardLiftAnim]);
 
-  const onSave = async () => {
-    if (saving) return;
+  const unlockSave = () => {
+    saveInProgressRef.current = false;
+    setSaving(false);
+  };
 
+  const onSave = async () => {
+    if (saveInProgressRef.current) return;
+
+    saveInProgressRef.current = true;
+    setSaving(true);
     setErrorMsg(null);
 
     if (habitId == null) {
@@ -738,25 +755,27 @@ export default function LogScreen() {
         () => {},
       );
       setErrorMsg("Select a habit before saving.");
+      unlockSave();
       return;
     }
 
     const submittedHabitId = habitId;
     const submittedCueId = cueId;
     const submittedLocationId = locationId;
-    const submittedCount = didResist ? 0 : Math.max(1, count);
+    const submittedIntensity = intensity;
+    const submittedDidResist = didResist;
+    const submittedCount = submittedDidResist ? 0 : Math.max(1, count);
+    const submittedNotes = notes.trim() || undefined;
 
     try {
-      setSaving(true);
-
       const newLogId = await addLog({
         habitId: submittedHabitId,
         cueId: submittedCueId,
         locationId: submittedLocationId,
-        intensity,
+        intensity: submittedIntensity,
         count: submittedCount,
-        didResist,
-        notes: notes.trim() || undefined,
+        didResist: submittedDidResist,
+        notes: submittedNotes,
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
@@ -767,14 +786,16 @@ export default function LogScreen() {
 
       if (newLogId != null) {
         navigation.navigate("UrgeHelp", { logId: newLogId });
+        return;
       }
+
+      unlockSave();
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
         () => {},
       );
       setErrorMsg("Could not save. Try again.");
-    } finally {
-      setSaving(false);
+      unlockSave();
     }
   };
 
@@ -907,9 +928,7 @@ export default function LogScreen() {
         }}
       >
         <Animated.View
-          style={{
-            transform: [{ translateY: keyboardLiftAnim }],
-          }}
+          style={{ transform: [{ translateY: keyboardLiftAnim }] }}
         >
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-4">
