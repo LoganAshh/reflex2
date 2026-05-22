@@ -802,10 +802,7 @@ export default function AnalyticsScreen() {
     };
   }, [filteredLogs, activeTab]);
 
-  const patternTitle =
-    activeTab === "Overall"
-      ? "Weekly patterns"
-      : `Weekly patterns — ${activeTab}`;
+  const patternTitle = "Weekly patterns";
 
   const activeHabitColor =
     activeTab === "Overall"
