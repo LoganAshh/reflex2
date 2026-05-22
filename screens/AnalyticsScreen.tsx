@@ -837,7 +837,7 @@ export default function AnalyticsScreen() {
 
           <View
             className="h-12 w-12 items-center justify-center rounded-full border-4 bg-white shadow-sm"
-            style={{ borderColor: ICON_BUBBLE_BORDER }}
+            style={{ borderColor: activeHabitColor }}
           >
             <Ionicons name="stats-chart" size={23} color={activeHabitColor} />
           </View>
