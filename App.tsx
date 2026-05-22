@@ -59,7 +59,7 @@ export type RootStackParamList = {
   ProfileSetup: undefined;
   Settings: undefined;
   UrgeHelp: { logId: number };
-  ShopPicker: undefined;
+  ShopPicker: { showDoneButton?: boolean } | undefined;
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -393,7 +393,11 @@ function RootStack() {
         <Stack.Screen
           name="ShopPicker"
           component={ShopScreen}
-          options={{ title: "Shop", headerBackTitle: "Back" }}
+          options={{
+            title: "Shop",
+            headerBackTitle: "Back",
+            headerBackVisible: false,
+          }}
         />
       </Stack.Navigator>
     </AppLockGate>

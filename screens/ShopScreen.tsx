@@ -12,9 +12,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
-import type { RootTabParamList } from "../App";
+import type { RootStackParamList, RootTabParamList } from "../App";
 import { useData, type ReplacementAction } from "../data/DataContext";
 
 const SELECTED = "selected" as const;
@@ -29,9 +29,17 @@ const PRESET_CATEGORIES = [
   "Other",
 ] as const;
 
+const STARTER_ACTION_TITLES = [
+  "Take 10 deep breaths",
+  "Go for a 5-min walk",
+  "Put your phone in another room for 10 minutes",
+] as const;
+
 type PresetCategory = (typeof PRESET_CATEGORIES)[number];
 type Filter = typeof SELECTED | typeof ALL | typeof CUSTOM | PresetCategory;
-type ShopRoute = RouteProp<RootTabParamList, "Shop">;
+type ShopRoute =
+  | RouteProp<RootTabParamList, "Shop">
+  | RouteProp<RootStackParamList, "ShopPicker">;
 
 function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
   const customs: ReplacementAction[] = [];
@@ -98,6 +106,7 @@ function getActionIcon(
 
 export default function ShopScreen() {
   const route = useRoute<ShopRoute>();
+  const navigation = useNavigation<any>();
   const {
     actions,
     addAction,
@@ -106,6 +115,9 @@ export default function ShopScreen() {
     renameCustomAction,
     deleteCustomAction,
   } = useData();
+
+  const showDoneButton =
+    route.name === "ShopPicker" && route.params?.showDoneButton === true;
 
   const [filter, setFilter] = useState<Filter>(ALL);
   const [searchText, setSearchText] = useState("");
@@ -132,7 +144,9 @@ export default function ShopScreen() {
   }, [selectedActionIds.length]);
 
   useEffect(() => {
-    const resetToken = route.params?.resetToken;
+    const resetToken =
+      route.name === "Shop" ? route.params?.resetToken : undefined;
+
     if (!resetToken) return;
     if (handledResetTokenRef.current === resetToken) return;
 
@@ -149,7 +163,7 @@ export default function ShopScreen() {
     setTimeout(() => {
       filterScrollOffsetRef.current = 0;
     }, 350);
-  }, [route.params?.resetToken, selectedActionIds.length]);
+  }, [route, selectedActionIds.length]);
 
   const selectedActions = useMemo(() => {
     if (selectedActionIds.length === 0) return [];
@@ -160,6 +174,16 @@ export default function ShopScreen() {
       .map((id) => map.get(id))
       .filter(Boolean) as ReplacementAction[];
   }, [actions, selectedActionIds]);
+
+  const starterActions = useMemo(() => {
+    const actionsByTitle = new Map(
+      actions.map((action) => [action.title.trim().toLowerCase(), action]),
+    );
+
+    return STARTER_ACTION_TITLES.map((title) =>
+      actionsByTitle.get(title.toLowerCase()),
+    ).filter(Boolean) as ReplacementAction[];
+  }, [actions]);
 
   const allInterleaved = useMemo(() => interleaveAll(actions), [actions]);
 
@@ -306,6 +330,12 @@ export default function ShopScreen() {
         },
       ],
     );
+  };
+
+  const onDone = async () => {
+    Keyboard.dismiss();
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    navigation.goBack();
   };
 
   const renderFilterPill = (label: string, value: Filter) => {
@@ -466,27 +496,109 @@ export default function ShopScreen() {
     );
   };
 
-  const EmptyState = () => (
-    <View className="mt-4 rounded-3xl border border-gray-200 bg-gray-50 p-5 shadow-sm">
-      <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
-        <Ionicons name="leaf" size={24} color="#000000" />
+  const StarterActionCard = ({ item }: { item: ReplacementAction }) => {
+    const isSelected = selectedActionIds.includes(item.id);
+
+    return (
+      <Pressable
+        onPress={() => onToggleSelected(item.id)}
+        className="mt-3 rounded-3xl border border-gray-200 bg-white p-4"
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 flex-row items-center pr-3">
+            <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name={getActionIcon(item)} size={22} color="#000000" />
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-sm font-black text-black">
+                {item.title}
+              </Text>
+
+              <Text className="mt-0.5 text-xs font-bold uppercase tracking-wide text-gray-500">
+                Recommended starter
+              </Text>
+            </View>
+          </View>
+
+          <View
+            className={`rounded-2xl border px-4 py-2.5 ${
+              isSelected
+                ? "border-gray-300 bg-white"
+                : "border-green-600 bg-green-600"
+            }`}
+          >
+            <Text
+              className={`font-black ${
+                isSelected ? "text-black" : "text-white"
+              }`}
+            >
+              {isSelected ? "Selected" : "Select"}
+            </Text>
+          </View>
+        </View>
+      </Pressable>
+    );
+  };
+
+  const EmptyState = () => {
+    const showSelectedStarterState =
+      !searchText.trim() &&
+      filter === SELECTED &&
+      selectedActionIds.length === 0;
+
+    if (showSelectedStarterState) {
+      return (
+        <View className="mt-4 rounded-3xl border border-gray-200 bg-gray-50 p-5 shadow-sm">
+          <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+            <Ionicons name="checkmark-circle" size={24} color="#000000" />
+          </View>
+
+          <Text className="mt-4 text-lg font-black text-black">
+            Pick your first 3
+          </Text>
+
+          <Text className="mt-2 text-sm leading-5 text-gray-500">
+            Pick 3 replacement actions you would actually do when an urge hits.
+          </Text>
+
+          {starterActions.length > 0 ? (
+            <View className="mt-1">
+              {starterActions.map((action) => (
+                <StarterActionCard key={action.id} item={action} />
+              ))}
+            </View>
+          ) : (
+            <Text className="mt-4 text-sm leading-5 text-gray-500">
+              Go to All and select a few easy actions to build your backup list.
+            </Text>
+          )}
+        </View>
+      );
+    }
+
+    return (
+      <View className="mt-4 rounded-3xl border border-gray-200 bg-gray-50 p-5 shadow-sm">
+        <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+          <Ionicons name="leaf" size={24} color="#000000" />
+        </View>
+
+        <Text className="mt-4 text-lg font-black text-black">
+          Nothing here yet
+        </Text>
+
+        <Text className="mt-2 text-sm leading-5 text-gray-500">
+          {searchText.trim()
+            ? "No actions match your search."
+            : filter === SELECTED
+              ? "No selected actions yet. Choose a few easy actions from All."
+              : filter === CUSTOM
+                ? "No custom actions yet. Add one above."
+                : "No actions in this category yet."}
+        </Text>
       </View>
-
-      <Text className="mt-4 text-lg font-black text-black">
-        Nothing here yet
-      </Text>
-
-      <Text className="mt-2 text-sm leading-5 text-gray-500">
-        {searchText.trim()
-          ? "No actions match your search."
-          : filter === SELECTED
-            ? "No selected actions yet. Choose a few easy actions from All."
-            : filter === CUSTOM
-              ? "No custom actions yet. Add one above."
-              : "No actions in this category yet."}
-      </Text>
-    </View>
-  );
+    );
+  };
 
   const listHeader = (
     <View>
@@ -748,9 +860,33 @@ export default function ShopScreen() {
           </View>
         }
         contentContainerStyle={{
-          paddingBottom: 28,
+          paddingBottom: showDoneButton ? 116 : 28,
         }}
       />
+
+      {showDoneButton ? (
+        <View className="absolute bottom-0 left-0 right-0 border-t border-gray-200 bg-white px-5 pb-8 pt-4 shadow-lg">
+          <Pressable
+            onPress={onDone}
+            className="w-full rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+            style={({ pressed }) => ({
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: pressed ? 2 : 6 },
+              shadowOpacity: 0.25,
+              shadowRadius: pressed ? 3 : 6,
+              elevation: pressed ? 3 : 8,
+              transform: [{ translateY: pressed ? 2 : 0 }],
+            })}
+          >
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+              <Text className="ml-2 text-center text-lg font-black text-white">
+                Done
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }

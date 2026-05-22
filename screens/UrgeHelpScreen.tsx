@@ -356,7 +356,7 @@ export default function UrgeHelpScreen() {
 
   const goToShop = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("ShopPicker");
+    navigation.navigate("ShopPicker", { showDoneButton: true });
   };
 
   const startGuided = () => {
