@@ -23,6 +23,7 @@ import {
 } from "../components/analytics/AnalyticsModals";
 
 const ICON_BUBBLE_BORDER = "#E5E7EB";
+const BRAND_GREEN = "#16A34A";
 
 function startOfWeekMs(d: Date) {
   const day = d.getDay();
@@ -172,7 +173,7 @@ function StatCard({
   value,
   sub,
   icon,
-  accentColor = "#16A34A",
+  accentColor = BRAND_GREEN,
 }: {
   label: string;
   value: string;
@@ -206,7 +207,7 @@ function MiniStat({
   label,
   value,
   icon,
-  accentColor = "#16A34A",
+  accentColor = BRAND_GREEN,
 }: {
   label: string;
   value: string;
@@ -233,7 +234,7 @@ function ListBlock({
   items,
   empty,
   icon,
-  accentColor = "#16A34A",
+  accentColor = BRAND_GREEN,
 }: {
   title: string;
   items: { name: string; count: number }[];
@@ -806,8 +807,9 @@ export default function AnalyticsScreen() {
 
   const activeHabitColor =
     activeTab === "Overall"
-      ? "#16A34A"
-      : (habits.find((habit) => habit.name === activeTab)?.color ?? "#16A34A");
+      ? BRAND_GREEN
+      : (habits.find((habit) => habit.name === activeTab)?.color ??
+        BRAND_GREEN);
 
   return (
     <>
@@ -825,7 +827,7 @@ export default function AnalyticsScreen() {
           <View className="flex-1 pr-4">
             <Text
               className="text-xs font-black uppercase tracking-widest"
-              style={{ color: activeHabitColor }}
+              style={{ color: BRAND_GREEN }}
             >
               Analytics
             </Text>
@@ -837,9 +839,9 @@ export default function AnalyticsScreen() {
 
           <View
             className="h-12 w-12 items-center justify-center rounded-full border-4 bg-white shadow-sm"
-            style={{ borderColor: activeHabitColor }}
+            style={{ borderColor: BRAND_GREEN }}
           >
-            <Ionicons name="stats-chart" size={23} color={activeHabitColor} />
+            <Ionicons name="stats-chart" size={23} color={BRAND_GREEN} />
           </View>
         </View>
 
