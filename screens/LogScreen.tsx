@@ -91,9 +91,86 @@ function scrollChipToId<T extends { id: number }>(
   });
 }
 
+function InfoBubble({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      className="h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white"
+    >
+      <Ionicons name="information" size={15} color="#6B7280" />
+    </Pressable>
+  );
+}
+
+function InfoModal({
+  visible,
+  title,
+  body,
+  icon,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  body: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable
+        className="flex-1 items-center justify-center bg-black/40 px-6"
+        onPress={onClose}
+      >
+        <Pressable
+          className="w-full rounded-[32px] bg-white p-5"
+          onPress={() => {}}
+        >
+          <View className="flex-row items-center">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name={icon} size={24} color="#000000" />
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-xl font-black text-black">{title}</Text>
+            </View>
+          </View>
+
+          <Text className="mt-4 text-sm font-semibold leading-5 text-gray-600">
+            {body}
+          </Text>
+
+          <Pressable
+            onPress={onClose}
+            className="mt-5 rounded-2xl bg-green-600 px-4 py-3"
+          >
+            <Text className="text-center text-sm font-black text-white">
+              Got it
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 function ChipRow<T extends BaseItem>({
   title,
-  subtitle,
+  info,
+  onInfo,
   icon,
   items,
   selectedId,
@@ -103,7 +180,8 @@ function ChipRow<T extends BaseItem>({
   listRef,
 }: {
   title: string;
-  subtitle: string;
+  info: string;
+  onInfo: () => void;
   icon: keyof typeof Ionicons.glyphMap;
   items: T[];
   selectedId: number | null;
@@ -183,10 +261,9 @@ function ChipRow<T extends BaseItem>({
 
         <View className="ml-2 flex-1">
           <Text className="text-sm font-black text-black">{title}</Text>
-          <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
-            {subtitle}
-          </Text>
         </View>
+
+        <InfoBubble label={info} onPress={onInfo} />
       </View>
 
       <FlatList
@@ -415,6 +492,11 @@ export default function LogScreen() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [infoModal, setInfoModal] = useState<{
+    title: string;
+    body: string;
+    icon: keyof typeof Ionicons.glyphMap;
+  } | null>(null);
 
   const keyboardLiftAnim = useRef(new Animated.Value(0)).current;
   const habitListRef = useRef<FlatList<ChipItem> | null>(null);
@@ -728,6 +810,14 @@ export default function LogScreen() {
       ? "1 time"
       : `${count} times`;
 
+  const openInfo = (
+    title: string,
+    body: string,
+    icon: keyof typeof Ionicons.glyphMap,
+  ) => {
+    setInfoModal({ title, body, icon });
+  };
+
   const ValueCard = ({
     label,
     value,
@@ -796,6 +886,14 @@ export default function LogScreen() {
         onClose={() => setShowCountPicker(false)}
       />
 
+      <InfoModal
+        visible={infoModal != null}
+        title={infoModal?.title ?? ""}
+        body={infoModal?.body ?? ""}
+        icon={infoModal?.icon ?? "information-circle"}
+        onClose={() => setInfoModal(null)}
+      />
+
       <ScrollView
         ref={scrollViewRef}
         className="flex-1"
@@ -831,7 +929,14 @@ export default function LogScreen() {
 
           <ChipRow<SelectedHabit>
             title="Habit"
-            subtitle="What showed up?"
+            info="What showed up?"
+            onInfo={() =>
+              openInfo(
+                "Habit",
+                "Choose the habit or urge you are logging right now.",
+                "radio-button-on",
+              )
+            }
             icon="radio-button-on"
             items={orderedHabits}
             selectedId={habitId}
@@ -845,7 +950,14 @@ export default function LogScreen() {
 
           <ChipRow<SelectedCue>
             title="Cue"
-            subtitle="What triggered it?"
+            info="What triggered it?"
+            onInfo={() =>
+              openInfo(
+                "Cue",
+                "Pick what seemed to trigger the urge. You can leave this as None if you are not sure.",
+                "alert-circle",
+              )
+            }
             icon="alert-circle"
             items={orderedCues}
             selectedId={cueId}
@@ -857,7 +969,14 @@ export default function LogScreen() {
 
           <ChipRow<SelectedPlace>
             title="Location"
-            subtitle="Where was it?"
+            info="Where was it?"
+            onInfo={() =>
+              openInfo(
+                "Location",
+                "Pick where the urge happened. You can leave this as None if the place does not matter.",
+                "location",
+              )
+            }
             icon="location"
             items={orderedLocations}
             selectedId={locationId}
@@ -884,10 +1003,18 @@ export default function LogScreen() {
                   <Text className="text-sm font-black text-black">
                     Did you resist?
                   </Text>
-                  <Text className="mt-0.5 text-[11px] leading-4 text-gray-500">
-                    Toggle on if you did not give in.
-                  </Text>
                 </View>
+
+                <InfoBubble
+                  label="What did you resist?"
+                  onPress={() =>
+                    openInfo(
+                      "Did you resist?",
+                      "Turn this on when you felt the urge but did not give in. Times will automatically become 0.",
+                      didResist ? "shield-checkmark" : "shield-outline",
+                    )
+                  }
+                />
               </View>
 
               <Switch
@@ -927,10 +1054,18 @@ export default function LogScreen() {
 
                 <View className="ml-2 flex-1">
                   <Text className="text-sm font-black text-black">Notes</Text>
-                  <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
-                    Optional context
-                  </Text>
                 </View>
+
+                <InfoBubble
+                  label="What are notes for?"
+                  onPress={() =>
+                    openInfo(
+                      "Notes",
+                      "Add anything that might help you spot patterns later. This is optional.",
+                      "document-text",
+                    )
+                  }
+                />
               </View>
 
               <Pressable
