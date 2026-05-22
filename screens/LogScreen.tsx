@@ -22,6 +22,7 @@ import {
   findNodeHandle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
 import {
   useFocusEffect,
@@ -54,6 +55,55 @@ type ChipItem = {
 
 type BaseItem = { id: number; name: string; color?: string | null };
 
+type TimePreset = {
+  label: string;
+  hour: number;
+  minute: number;
+};
+
+const TIME_PRESETS: TimePreset[] = [
+  { label: "Morning", hour: 8, minute: 0 },
+  { label: "Afternoon", hour: 13, minute: 0 },
+  { label: "Evening", hour: 18, minute: 0 },
+  { label: "Night", hour: 22, minute: 0 },
+];
+
+async function lightHaptic() {
+  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+}
+
+function formatDateButton(date: Date) {
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatTimeButton(date: Date) {
+  return date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function mergeDatePart(current: Date, selectedDate: Date) {
+  const next = new Date(current);
+  next.setFullYear(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate(),
+  );
+  return next;
+}
+
+function mergeTimePart(current: Date, selectedDate: Date) {
+  const next = new Date(current);
+  next.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+  return next;
+}
+
 function applyFrequencyOrdering<T extends { id: number }>(
   items: T[],
   frequencyCounts: Map<number, number>,
@@ -69,7 +119,9 @@ function applyFrequencyOrdering<T extends { id: number }>(
     const aCount = frequencyCounts.get(a.id) ?? 0;
     const bCount = frequencyCounts.get(b.id) ?? 0;
 
-    if (aCount !== bCount) return bCount - aCount;
+    if (aCount !== bCount) {
+      return bCount - aCount;
+    }
 
     return (originalRank.get(a.id) ?? 0) - (originalRank.get(b.id) ?? 0);
   });
@@ -167,6 +219,215 @@ function InfoModal({
           >
             <Text className="text-center text-sm font-black text-white">
               Got it
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function LogDateTimeModal({
+  visible,
+  value,
+  onChange,
+  onClose,
+}: {
+  visible: boolean;
+  value: Date;
+  onChange: (date: Date) => void;
+  onClose: () => void;
+}) {
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const selectedPreset = TIME_PRESETS.find(
+    (preset) =>
+      value.getHours() === preset.hour && value.getMinutes() === preset.minute,
+  );
+
+  const applyTimePreset = async (preset: TimePreset) => {
+    await lightHaptic();
+    const next = new Date(value);
+    next.setHours(preset.hour, preset.minute, 0, 0);
+    onChange(next);
+    setShowTimePicker(false);
+  };
+
+  const closeModal = () => {
+    setShowDatePicker(false);
+    setShowTimePicker(false);
+    onClose();
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={closeModal}
+    >
+      <Pressable
+        className="flex-1 items-center justify-center bg-black/40 px-6"
+        onPress={closeModal}
+      >
+        <Pressable
+          className="w-full rounded-[32px] bg-white p-5"
+          onPress={() => {}}
+        >
+          <View className="flex-row items-center">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="calendar" size={24} color="#000000" />
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-xl font-black text-black">
+                Log date & time
+              </Text>
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                Change when this check-in happened.
+              </Text>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={async () => {
+              await lightHaptic();
+              Keyboard.dismiss();
+              setShowTimePicker(false);
+              setShowDatePicker((current) => !current);
+            }}
+            className="mt-5 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3"
+          >
+            <View>
+              <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
+                Date
+              </Text>
+              <Text className="mt-1 text-sm font-black text-black">
+                {formatDateButton(value)}
+              </Text>
+            </View>
+            <Ionicons name="calendar-outline" size={18} color="#000000" />
+          </Pressable>
+
+          {showDatePicker ? (
+            <View className="mt-3 items-center rounded-2xl border border-gray-200 bg-white px-2 py-3">
+              <DateTimePicker
+                value={value}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(_, selectedDate) => {
+                  if (!selectedDate) return;
+                  onChange(mergeDatePart(value, selectedDate));
+
+                  if (Platform.OS !== "ios") {
+                    setShowDatePicker(false);
+                  }
+                }}
+                textColor="#000000"
+                themeVariant="light"
+              />
+
+              {Platform.OS === "ios" ? (
+                <Pressable
+                  onPress={async () => {
+                    await lightHaptic();
+                    setShowDatePicker(false);
+                  }}
+                  className="mt-2 rounded-2xl bg-green-600 px-5 py-3"
+                >
+                  <Text className="text-sm font-black text-white">Done</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
+          <View className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+            <View className="flex-row flex-wrap">
+              {TIME_PRESETS.map((preset) => {
+                const selected = selectedPreset?.label === preset.label;
+
+                return (
+                  <Pressable
+                    key={preset.label}
+                    onPress={() => applyTimePreset(preset)}
+                    className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
+                      selected
+                        ? "border-green-600 bg-green-600"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text
+                      className={`text-sm font-black ${
+                        selected ? "text-white" : "text-black"
+                      }`}
+                    >
+                      {preset.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Pressable
+              onPress={async () => {
+                await lightHaptic();
+                Keyboard.dismiss();
+                setShowDatePicker(false);
+                setShowTimePicker((current) => !current);
+              }}
+              className="mt-1 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
+            >
+              <View>
+                <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
+                  Exact time
+                </Text>
+                <Text className="mt-1 text-sm font-black text-black">
+                  {formatTimeButton(value)}
+                </Text>
+              </View>
+              <Ionicons name="time-outline" size={18} color="#000000" />
+            </Pressable>
+          </View>
+
+          {showTimePicker ? (
+            <View className="mt-3 items-center rounded-2xl border border-gray-200 bg-white px-2 py-3">
+              <DateTimePicker
+                value={value}
+                mode="time"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(_, selectedDate) => {
+                  if (!selectedDate) return;
+                  onChange(mergeTimePart(value, selectedDate));
+
+                  if (Platform.OS !== "ios") {
+                    setShowTimePicker(false);
+                  }
+                }}
+                textColor="#000000"
+                themeVariant="light"
+              />
+
+              {Platform.OS === "ios" ? (
+                <Pressable
+                  onPress={async () => {
+                    await lightHaptic();
+                    setShowTimePicker(false);
+                  }}
+                  className="mt-2 rounded-2xl bg-green-600 px-5 py-3"
+                >
+                  <Text className="text-sm font-black text-white">Done</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
+          <Pressable
+            onPress={closeModal}
+            className="mt-5 rounded-2xl bg-green-600 px-4 py-3"
+          >
+            <Text className="text-center text-sm font-black text-white">
+              Done
             </Text>
           </Pressable>
         </Pressable>
@@ -360,7 +621,9 @@ function IntensityPickerModal({
                   }`}
                 >
                   <Text
-                    className={`text-sm font-black ${selected ? "text-white" : "text-black"}`}
+                    className={`text-sm font-black ${
+                      selected ? "text-white" : "text-black"
+                    }`}
                   >
                     {n}
                   </Text>
@@ -405,6 +668,7 @@ function CountPickerModal({
     () => Array.from({ length: 10 }, (_, i) => i + 1),
     [],
   );
+
   const labelFor = (n: number) => (n === 1 ? "1 time" : `${n} times`);
 
   return (
@@ -452,7 +716,9 @@ function CountPickerModal({
                   }`}
                 >
                   <Text
-                    className={`text-sm font-black ${selected ? "text-white" : "text-black"}`}
+                    className={`text-sm font-black ${
+                      selected ? "text-white" : "text-black"
+                    }`}
                   >
                     {labelFor(n)}
                   </Text>
@@ -479,8 +745,14 @@ export default function LogScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<LogRoute>();
 
-  const { selectedHabits, selectedCues, selectedLocations, logs, addLog } =
-    useData();
+  const {
+    selectedHabits,
+    selectedCues,
+    selectedLocations,
+    logs,
+    addLog,
+    updateLog,
+  } = useData();
 
   const [habitId, setHabitId] = useState<number | null>(null);
   const [cueId, setCueId] = useState<number | null>(null);
@@ -492,6 +764,8 @@ export default function LogScreen() {
   const [showIntensityPicker, setShowIntensityPicker] = useState(false);
   const [count, setCount] = useState<number>(1);
   const [showCountPicker, setShowCountPicker] = useState(false);
+  const [logDate, setLogDate] = useState(() => new Date());
+  const [showLogDateTimeModal, setShowLogDateTimeModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -626,6 +900,8 @@ export default function LogScreen() {
     setCount(1);
     setShowIntensityPicker(false);
     setShowCountPicker(false);
+    setShowLogDateTimeModal(false);
+    setLogDate(new Date());
 
     requestAnimationFrame(() => {
       Keyboard.dismiss();
@@ -686,6 +962,7 @@ export default function LogScreen() {
     const exists = selectedLocations.some(
       (location) => location.id === selection.id,
     );
+
     if (!exists) return;
 
     setLocationId(selection.id);
@@ -766,6 +1043,7 @@ export default function LogScreen() {
     const submittedDidResist = didResist;
     const submittedCount = submittedDidResist ? 0 : Math.max(1, count);
     const submittedNotes = notes.trim() || undefined;
+    const submittedCreatedAt = logDate.getTime();
 
     try {
       const newLogId = await addLog({
@@ -777,6 +1055,19 @@ export default function LogScreen() {
         didResist: submittedDidResist,
         notes: submittedNotes,
       });
+
+      if (newLogId != null) {
+        await updateLog(newLogId, {
+          habitId: submittedHabitId,
+          cueId: submittedCueId,
+          locationId: submittedLocationId,
+          intensity: submittedIntensity,
+          count: submittedCount,
+          didResist: submittedDidResist,
+          notes: submittedNotes,
+          createdAt: submittedCreatedAt,
+        });
+      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
         () => {},
@@ -907,6 +1198,13 @@ export default function LogScreen() {
         onClose={() => setShowCountPicker(false)}
       />
 
+      <LogDateTimeModal
+        visible={showLogDateTimeModal}
+        value={logDate}
+        onChange={setLogDate}
+        onClose={() => setShowLogDateTimeModal(false)}
+      />
+
       <InfoModal
         visible={infoModal != null}
         title={infoModal?.title ?? ""}
@@ -928,7 +1226,9 @@ export default function LogScreen() {
         }}
       >
         <Animated.View
-          style={{ transform: [{ translateY: keyboardLiftAnim }] }}
+          style={{
+            transform: [{ translateY: keyboardLiftAnim }],
+          }}
         >
           <View className="flex-row items-center justify-between">
             <View className="flex-1 pr-4">
@@ -941,9 +1241,19 @@ export default function LogScreen() {
               </Text>
             </View>
 
-            <View className="h-12 w-12 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
+            <Pressable
+              onPress={async () => {
+                await lightHaptic();
+                Keyboard.dismiss();
+                setShowLogDateTimeModal(true);
+              }}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Change log date and time"
+              className="h-12 w-12 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm"
+            >
               <Ionicons name="create" size={23} color="#000000" />
-            </View>
+            </Pressable>
           </View>
 
           <ChipRow<SelectedHabit>
