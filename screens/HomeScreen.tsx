@@ -561,7 +561,7 @@ export default function HomeScreen() {
 
               <View
                 className="h-12 w-12 items-center justify-center rounded-3xl border bg-white"
-                style={{ borderColor: activeHabitColor }}
+                style={{ borderColor: "#E5E7EB" }}
               >
                 <Ionicons
                   name="stats-chart"
@@ -705,7 +705,7 @@ export default function HomeScreen() {
               <View className="flex-row items-center">
                 <View
                   className="h-10 w-10 items-center justify-center rounded-3xl border bg-white"
-                  style={{ borderColor: activeHabitColor }}
+                  style={{ borderColor: "#E5E7EB" }}
                 >
                   <Ionicons name="bulb" size={22} color={activeHabitColor} />
                 </View>
