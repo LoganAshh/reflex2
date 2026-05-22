@@ -159,10 +159,6 @@ export function AnalyticsCalendar({
           </View>
         ))}
       </View>
-
-      <Text className="mt-3 text-xs text-gray-500">
-        Tap a day to view your log history for that date.
-      </Text>
     </View>
   );
 }
