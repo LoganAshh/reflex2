@@ -862,7 +862,7 @@ export default function AnalyticsScreen() {
             className="h-12 w-12 items-center justify-center rounded-full border-4 bg-white shadow-sm"
             style={{ borderColor: BRAND_GREEN }}
           >
-            <Ionicons name="stats-chart" size={23} color={BRAND_GREEN} />
+            <Ionicons name="stats-chart" size={23} color="#000000" />
           </View>
         </View>
 
