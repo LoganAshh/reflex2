@@ -196,6 +196,7 @@ function StatCard({
       <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-500">
         {label}
       </Text>
+
       {sub ? (
         <Text className="mt-1 text-xs font-semibold text-gray-500">{sub}</Text>
       ) : null}
@@ -359,6 +360,7 @@ export default function AnalyticsScreen() {
 
   const installDayStartMs = useMemo(() => {
     if (!logs || logs.length === 0) return todayStartMs;
+
     let min = logs[0].createdAt;
 
     for (let i = 1; i < logs.length; i++) {
@@ -370,6 +372,7 @@ export default function AnalyticsScreen() {
 
   const selectedActions: BaseItem[] = useMemo(() => {
     const selectedSet = new Set(selectedActionIds);
+
     return actions
       .filter((a) => selectedSet.has(a.id))
       .map((a) => ({ id: a.id, name: a.title }));
@@ -396,6 +399,7 @@ export default function AnalyticsScreen() {
     for (const l of logs) {
       const h = (l.habitName ?? "").trim();
       if (!h) continue;
+
       counts.set(h, (counts.get(h) ?? 0) + 1);
     }
 
@@ -429,8 +433,10 @@ export default function AnalyticsScreen() {
     for (const l of filteredLogs) {
       if (l.createdAt < monthStart || l.createdAt >= monthEnd) continue;
       if (l.didResist === 1) continue;
+
       const k = dayKey(l.createdAt);
       const add = typeof l.count === "number" ? Math.max(0, l.count) : 1;
+
       giveInCounts.set(k, (giveInCounts.get(k) ?? 0) + add);
     }
 
@@ -490,6 +496,7 @@ export default function AnalyticsScreen() {
     }
 
     const weeks: CalendarCell[][] = [];
+
     for (let i = 0; i < cells.length; i += 7) {
       weeks.push(cells.slice(i, i + 7));
     }
@@ -504,6 +511,7 @@ export default function AnalyticsScreen() {
 
   const selectedDayLogs = useMemo(() => {
     if (selectedDayMs == null) return [];
+
     const dayStart = startOfDayMs(selectedDayMs);
     const dayEnd = endOfDayMs(selectedDayMs);
 
@@ -515,6 +523,7 @@ export default function AnalyticsScreen() {
 
   const selectedDayLabel = useMemo(() => {
     if (selectedDayMs == null) return "";
+
     return new Date(selectedDayMs).toLocaleDateString(undefined, {
       weekday: "long",
       month: "long",
@@ -618,6 +627,7 @@ export default function AnalyticsScreen() {
         style: "destructive",
         onPress: async () => {
           const id = editingLog.id;
+
           closeEditModalWithoutHaptic();
           await deleteLog(id);
           await successHaptic();
@@ -642,17 +652,21 @@ export default function AnalyticsScreen() {
     const timeBucket = (ms: number) => {
       const d = new Date(ms);
       const h = d.getHours();
+
       if (h >= 5 && h <= 10) return "Morning";
       if (h >= 11 && h <= 15) return "Midday";
       if (h >= 16 && h <= 20) return "Evening";
+
       return "Night";
     };
 
     for (const l of weekLogs) {
       const cue = (l.cueName ?? "").trim();
       const loc = (l.locationName ?? "").trim();
+
       if (cue) cueCounts.set(cue, (cueCounts.get(cue) ?? 0) + 1);
       if (loc) locCounts.set(loc, (locCounts.get(loc) ?? 0) + 1);
+
       const bucket = timeBucket(l.createdAt);
       timeCounts.set(bucket, (timeCounts.get(bucket) ?? 0) + 1);
     }
@@ -677,6 +691,7 @@ export default function AnalyticsScreen() {
     const allResisted = filteredLogs.filter((l) => l.didResist === 1).length;
     const allGiveIn = filteredLogs.length - allResisted;
     const overallResistRate = percent(allResisted, filteredLogs.length);
+
     let sumIntensity = 0;
     let intensityCount = 0;
 
@@ -689,6 +704,7 @@ export default function AnalyticsScreen() {
 
     const avgIntensity =
       intensityCount > 0 ? sumIntensity / intensityCount : null;
+
     let resistedIntensitySum = 0;
     let resistedIntensityCount = 0;
     let gaveInIntensitySum = 0;
@@ -723,6 +739,7 @@ export default function AnalyticsScreen() {
       const jsDay = new Date(l.createdAt).getDay();
       const idx = (jsDay + 6) % 7;
       const key = weekdayOrder[idx];
+
       weekdayCounts.set(key, (weekdayCounts.get(key) ?? 0) + 1);
     }
 
@@ -748,8 +765,10 @@ export default function AnalyticsScreen() {
       };
 
       curr.total += 1;
+
       if (l.didResist === 1) curr.resisted += 1;
       else curr.gaveIn += 1;
+
       habitMap.set(habit, curr);
     }
 
@@ -775,12 +794,14 @@ export default function AnalyticsScreen() {
 
     for (const l of monthLogs) {
       const k = dayKey(l.createdAt);
+
       if (recentDayCounts.has(k)) {
         recentDayCounts.set(k, (recentDayCounts.get(k) ?? 0) + 1);
       }
     }
 
     let activeDays30 = 0;
+
     for (const v of recentDayCounts.values()) {
       if (v > 0) activeDays30 += 1;
     }
@@ -899,9 +920,13 @@ export default function AnalyticsScreen() {
 
         <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
           <View className="mb-2 flex-row items-center justify-between">
-            <View>
+            <View className="flex-1 pr-3">
               <Text className="text-base font-black text-black">
                 Give-in calendar
+              </Text>
+
+              <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-500">
+                Tap a day to view or edit logs for that day.
               </Text>
             </View>
 
