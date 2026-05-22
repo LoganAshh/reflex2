@@ -10,26 +10,26 @@ export type CalendarCell = {
   isInactive: boolean;
 };
 
-function hexToRgb(hex: string) {
-  const clean = /^#[0-9A-Fa-f]{6}$/.test(hex) ? hex.slice(1) : "16A34A";
-  return {
-    r: parseInt(clean.slice(0, 2), 16),
-    g: parseInt(clean.slice(2, 4), 16),
-    b: parseInt(clean.slice(4, 6), 16),
-  };
+const CALENDAR_BORDER = "#E5E7EB";
+
+function hexToRgba(hex: string, alpha: number) {
+  const cleanHex = hex.replace("#", "");
+
+  if (cleanHex.length !== 6) {
+    return `rgba(22, 163, 74, ${alpha})`;
+  }
+
+  const r = parseInt(cleanHex.slice(0, 2), 16);
+  const g = parseInt(cleanHex.slice(2, 4), 16);
+  const b = parseInt(cleanHex.slice(4, 6), 16);
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function colorForCount(count: number, accentColor: string) {
-  if (count <= 0) return "#F9FAFB";
-
-  const opacity = Math.max(0.16, 1 - Math.min(count, 6) * 0.12);
-  const { r, g, b } = hexToRgb(accentColor);
-
-  const mixedR = Math.round(r * opacity + 255 * (1 - opacity));
-  const mixedG = Math.round(g * opacity + 255 * (1 - opacity));
-  const mixedB = Math.round(b * opacity + 255 * (1 - opacity));
-
-  return `rgb(${mixedR}, ${mixedG}, ${mixedB})`;
+function backgroundForCount(count: number, accentColor: string) {
+  const alphaScale = [1, 0.86, 0.72, 0.56, 0.36, 0.22, 0.12];
+  const idx = Math.min(Math.max(count, 0), alphaScale.length - 1);
+  return hexToRgba(accentColor, alphaScale[idx]);
 }
 
 function textColorForCount(count: number) {
@@ -52,11 +52,15 @@ export function AnalyticsCalendar({
   accentColor?: string;
 }) {
   return (
-    <View className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
+    <View
+      className="mt-5 rounded-2xl bg-white p-4"
+      style={{ borderWidth: 1, borderColor: CALENDAR_BORDER }}
+    >
       <View className="flex-row items-center">
         <Pressable
           onPress={onPreviousMonth}
-          className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
+          className="h-10 w-10 items-center justify-center rounded-full bg-white"
+          style={{ borderWidth: 1, borderColor: CALENDAR_BORDER }}
           hitSlop={10}
         >
           <Text className="text-lg font-bold text-gray-900">‹</Text>
@@ -70,7 +74,8 @@ export function AnalyticsCalendar({
 
         <Pressable
           onPress={onNextMonth}
-          className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
+          className="h-10 w-10 items-center justify-center rounded-full bg-white"
+          style={{ borderWidth: 1, borderColor: CALENDAR_BORDER }}
           hitSlop={10}
         >
           <Text className="text-lg font-bold text-gray-900">›</Text>
@@ -100,31 +105,27 @@ export function AnalyticsCalendar({
               }
 
               const countValue = c.count ?? 0;
-              const bgColor = c.isInactive
+              const backgroundColor = c.isInactive
                 ? "#FFFFFF"
-                : colorForCount(countValue, accentColor);
-              const borderColor = c.isInactive
-                ? "#E5E7EB"
-                : c.isToday
-                  ? "#111827"
-                  : "transparent";
-              const borderWidth = c.isToday && !c.isInactive ? 2 : 1;
+                : backgroundForCount(countValue, accentColor);
+              const borderWidth = c.isToday && !c.isInactive ? 0 : 1;
+              const borderColor = CALENDAR_BORDER;
               const textColor = c.isInactive
                 ? "#9CA3AF"
-                : countValue === 0
-                  ? "#9CA3AF"
-                  : textColorForCount(countValue);
-              const badgeTextColor = countValue <= 3 ? "#FFFFFF" : "#9CA3AF";
-              const badgeBg =
-                countValue <= 3 ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.1)";
+                : textColorForCount(countValue);
+              const badgeBackgroundColor =
+                countValue <= 3
+                  ? "rgba(255, 255, 255, 0.25)"
+                  : "rgba(0, 0, 0, 0.08)";
+              const badgeTextColor = countValue <= 3 ? "#FFFFFF" : "#6B7280";
 
               const tile = (
                 <View
                   className="aspect-square items-center justify-center overflow-hidden rounded-xl"
                   style={{
-                    backgroundColor: bgColor,
-                    borderColor,
+                    backgroundColor,
                     borderWidth,
+                    borderColor,
                   }}
                 >
                   <Text
@@ -137,7 +138,7 @@ export function AnalyticsCalendar({
                   {!c.isInactive ? (
                     <View
                       className="mt-1 rounded-full px-2 py-0.5"
-                      style={{ backgroundColor: badgeBg }}
+                      style={{ backgroundColor: badgeBackgroundColor }}
                     >
                       <Text
                         className="text-[10px] font-semibold"

@@ -22,6 +22,8 @@ import {
   EditLogModal,
 } from "../components/analytics/AnalyticsModals";
 
+const ICON_BUBBLE_BORDER = "#E5E7EB";
+
 function startOfWeekMs(d: Date) {
   const day = d.getDay();
   const diffToMonday = (day + 6) % 7;
@@ -183,7 +185,7 @@ function StatCard({
       <View className="flex-row items-start justify-between">
         <View
           className="h-10 w-10 items-center justify-center rounded-2xl border bg-white"
-          style={{ borderColor: accentColor }}
+          style={{ borderColor: ICON_BUBBLE_BORDER }}
         >
           <Ionicons name={icon} size={21} color={accentColor} />
         </View>
@@ -215,7 +217,7 @@ function MiniStat({
     <View className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 p-3">
       <View
         className="h-9 w-9 items-center justify-center rounded-xl border bg-white"
-        style={{ borderColor: accentColor }}
+        style={{ borderColor: ICON_BUBBLE_BORDER }}
       >
         <Ionicons name={icon} size={19} color={accentColor} />
       </View>
@@ -244,7 +246,7 @@ function ListBlock({
       <View className="flex-row items-center">
         <View
           className="h-11 w-11 items-center justify-center rounded-2xl border bg-white"
-          style={{ borderColor: accentColor }}
+          style={{ borderColor: ICON_BUBBLE_BORDER }}
         >
           <Ionicons name={icon} size={23} color={accentColor} />
         </View>
@@ -838,7 +840,7 @@ export default function AnalyticsScreen() {
 
           <View
             className="h-12 w-12 items-center justify-center rounded-full border-4 bg-white shadow-sm"
-            style={{ borderColor: activeHabitColor }}
+            style={{ borderColor: ICON_BUBBLE_BORDER }}
           >
             <Ionicons name="stats-chart" size={23} color={activeHabitColor} />
           </View>
@@ -848,7 +850,7 @@ export default function AnalyticsScreen() {
           <View className="flex-row items-center">
             <View
               className="h-9 w-9 items-center justify-center rounded-2xl border bg-white"
-              style={{ borderColor: activeHabitColor }}
+              style={{ borderColor: ICON_BUBBLE_BORDER }}
             >
               <Ionicons name="bulb" size={19} color={activeHabitColor} />
             </View>
@@ -906,7 +908,7 @@ export default function AnalyticsScreen() {
 
             <View
               className="h-9 w-9 items-center justify-center rounded-2xl border bg-white"
-              style={{ borderColor: activeHabitColor }}
+              style={{ borderColor: ICON_BUBBLE_BORDER }}
             >
               <Ionicons name="calendar" size={19} color={activeHabitColor} />
             </View>
@@ -940,8 +942,11 @@ export default function AnalyticsScreen() {
               </Text>
             </View>
 
-            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="search" size={24} color="#000000" />
+            <View
+              className="h-12 w-12 items-center justify-center rounded-2xl border bg-white"
+              style={{ borderColor: ICON_BUBBLE_BORDER }}
+            >
+              <Ionicons name="search" size={24} color={activeHabitColor} />
             </View>
           </View>
 
@@ -982,8 +987,11 @@ export default function AnalyticsScreen() {
               </Text>
             </View>
 
-            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="sparkles" size={24} color="#000000" />
+            <View
+              className="h-12 w-12 items-center justify-center rounded-2xl border bg-white"
+              style={{ borderColor: ICON_BUBBLE_BORDER }}
+            >
+              <Ionicons name="sparkles" size={24} color={activeHabitColor} />
             </View>
           </View>
 
@@ -1024,8 +1032,11 @@ export default function AnalyticsScreen() {
 
           <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
             <View className="flex-row items-center">
-              <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                <Ionicons name="pie-chart" size={23} color="#000000" />
+              <View
+                className="h-11 w-11 items-center justify-center rounded-2xl border bg-white"
+                style={{ borderColor: ICON_BUBBLE_BORDER }}
+              >
+                <Ionicons name="pie-chart" size={23} color={activeHabitColor} />
               </View>
 
               <Text className="ml-3 flex-1 text-base font-black text-black">
@@ -1059,8 +1070,11 @@ export default function AnalyticsScreen() {
 
           <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
             <View className="flex-row items-center">
-              <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                <Ionicons name="pulse" size={23} color="#000000" />
+              <View
+                className="h-11 w-11 items-center justify-center rounded-2xl border bg-white"
+                style={{ borderColor: ICON_BUBBLE_BORDER }}
+              >
+                <Ionicons name="pulse" size={23} color={activeHabitColor} />
               </View>
 
               <Text className="ml-3 flex-1 text-base font-black text-black">
