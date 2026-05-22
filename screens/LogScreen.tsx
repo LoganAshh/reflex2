@@ -151,10 +151,12 @@ function scrollChipToId<T extends { id: number }>(
   });
 }
 
-function InfoBubble({
+function HelperIcon({
+  icon,
   label,
   onPress,
 }: {
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
 }) {
@@ -164,9 +166,9 @@ function InfoBubble({
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className="h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white"
+      className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white"
     >
-      <Ionicons name="information" size={15} color="#6B7280" />
+      <Ionicons name={icon} size={19} color="#000000" />
     </Pressable>
   );
 }
@@ -438,9 +440,8 @@ function LogDateTimeModal({
 
 function ChipRow<T extends BaseItem>({
   title,
-  info,
-  onInfo,
   icon,
+  onInfo,
   items,
   selectedId,
   onSelect,
@@ -449,9 +450,8 @@ function ChipRow<T extends BaseItem>({
   listRef,
 }: {
   title: string;
-  info: string;
-  onInfo: () => void;
   icon: keyof typeof Ionicons.glyphMap;
+  onInfo: () => void;
   items: T[];
   selectedId: number | null;
   onSelect: (id: number | null) => void;
@@ -524,15 +524,11 @@ function ChipRow<T extends BaseItem>({
   return (
     <View className="mt-2 w-full rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
       <View className="flex-row items-center">
-        <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-          <Ionicons name={icon} size={19} color="#000000" />
-        </View>
+        <HelperIcon icon={icon} label={`${title} helper`} onPress={onInfo} />
 
         <View className="ml-2 flex-1">
           <Text className="text-sm font-black text-black">{title}</Text>
         </View>
-
-        <InfoBubble label={info} onPress={onInfo} />
       </View>
 
       <FlatList
@@ -1258,7 +1254,7 @@ export default function LogScreen() {
 
           <ChipRow<SelectedHabit>
             title="Habit"
-            info="What showed up?"
+            icon="radio-button-on"
             onInfo={() =>
               openInfo(
                 "Habit",
@@ -1266,7 +1262,6 @@ export default function LogScreen() {
                 "radio-button-on",
               )
             }
-            icon="radio-button-on"
             items={orderedHabits}
             selectedId={habitId}
             onSelect={(id) => {
@@ -1279,7 +1274,7 @@ export default function LogScreen() {
 
           <ChipRow<SelectedCue>
             title="Cue"
-            info="What triggered it?"
+            icon="alert-circle"
             onInfo={() =>
               openInfo(
                 "Cue",
@@ -1287,7 +1282,6 @@ export default function LogScreen() {
                 "alert-circle",
               )
             }
-            icon="alert-circle"
             items={orderedCues}
             selectedId={cueId}
             onSelect={setCueId}
@@ -1298,7 +1292,7 @@ export default function LogScreen() {
 
           <ChipRow<SelectedPlace>
             title="Location"
-            info="Where was it?"
+            icon="location"
             onInfo={() =>
               openInfo(
                 "Location",
@@ -1306,7 +1300,6 @@ export default function LogScreen() {
                 "location",
               )
             }
-            icon="location"
             items={orderedLocations}
             selectedId={locationId}
             onSelect={setLocationId}
@@ -1320,22 +1313,9 @@ export default function LogScreen() {
           <View className="mt-2 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
             <View className="flex-row items-center justify-between">
               <View className="flex-row flex-1 items-center pr-4">
-                <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                  <Ionicons
-                    name={didResist ? "shield-checkmark" : "shield-outline"}
-                    size={21}
-                    color="#000000"
-                  />
-                </View>
-
-                <View className="ml-2 flex-1">
-                  <Text className="text-sm font-black text-black">
-                    Did you resist?
-                  </Text>
-                </View>
-
-                <InfoBubble
-                  label="What did you resist?"
+                <HelperIcon
+                  icon={didResist ? "shield-checkmark" : "shield-outline"}
+                  label="Did you resist helper"
                   onPress={() =>
                     openInfo(
                       "Did you resist?",
@@ -1344,6 +1324,12 @@ export default function LogScreen() {
                     )
                   }
                 />
+
+                <View className="ml-2 flex-1">
+                  <Text className="text-sm font-black text-black">
+                    Did you resist?
+                  </Text>
+                </View>
               </View>
 
               <Switch
@@ -1377,16 +1363,9 @@ export default function LogScreen() {
           <View className="mt-2 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
             <View className="flex-row items-center justify-between">
               <View className="flex-row flex-1 items-center pr-3">
-                <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                  <Ionicons name="document-text" size={19} color="#000000" />
-                </View>
-
-                <View className="ml-2 flex-1">
-                  <Text className="text-sm font-black text-black">Notes</Text>
-                </View>
-
-                <InfoBubble
-                  label="What are notes for?"
+                <HelperIcon
+                  icon="document-text"
+                  label="Notes helper"
                   onPress={() =>
                     openInfo(
                       "Notes",
@@ -1395,6 +1374,10 @@ export default function LogScreen() {
                     )
                   }
                 />
+
+                <View className="ml-2 flex-1">
+                  <Text className="text-sm font-black text-black">Notes</Text>
+                </View>
               </View>
 
               <Pressable
