@@ -151,6 +151,20 @@ function scrollChipToId<T extends { id: number }>(
   });
 }
 
+function HeaderInfoBubble({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel="Log screen information"
+      className="ml-1.5 h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white"
+    >
+      <Ionicons name="information" size={13} color="#6B7280" />
+    </Pressable>
+  );
+}
+
 function HelperIcon({
   icon,
   label,
@@ -1232,9 +1246,21 @@ export default function LogScreen() {
                 Check-in
               </Text>
 
-              <Text className="mt-0.5 text-2xl font-black text-black">
-                Log the moment
-              </Text>
+              <View className="mt-0.5 flex-row items-center">
+                <Text className="text-2xl font-black text-black">
+                  Log the moment
+                </Text>
+
+                <HeaderInfoBubble
+                  onPress={() =>
+                    openInfo(
+                      "Hidden shortcuts",
+                      "Tap the top-right icon to change the date and time of this check-in. Tap the icon beside each section to learn what that section is for.",
+                      "information-circle",
+                    )
+                  }
+                />
+              </View>
             </View>
 
             <Pressable
