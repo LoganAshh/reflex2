@@ -31,6 +31,21 @@ type Filter = "selected" | "preset" | "custom";
 type ManageItem = Habit | Cue | Place;
 type PendingAddedItem = { type: ManageListType; name: string };
 
+const HABIT_COLOR_OPTIONS = [
+  "#16A34A",
+  "#2563EB",
+  "#F97316",
+  "#92400E",
+  "#DB2777",
+  "#7C3AED",
+  "#7F1D1D",
+  "#64748B",
+  "#DC2626",
+  "#BE123C",
+  "#EAB308",
+  "#0EA5E9",
+] as const;
+
 function getScreenIcon(type: ManageListType): keyof typeof Ionicons.glyphMap {
   if (type === "habits") return "radio-button-on";
   if (type === "cues") return "alert-circle";
@@ -41,6 +56,14 @@ function getFilterIcon(filter: Filter): keyof typeof Ionicons.glyphMap {
   if (filter === "selected") return "checkmark-circle";
   if (filter === "preset") return "sparkles";
   return "create";
+}
+
+function getHabitColor(item: ManageItem) {
+  if ("color" in item && typeof item.color === "string") {
+    return item.color;
+  }
+
+  return "#16A34A";
 }
 
 export default function ManageListScreen() {
@@ -59,9 +82,9 @@ export default function ManageListScreen() {
     setSelectedCues,
     setSelectedLocations,
     addCustomHabit,
+    updateHabit,
     addCustomCue,
     addCustomLocation,
-    renameCustomHabit,
     renameCustomCue,
     renameCustomLocation,
     deleteCustomHabit,
@@ -73,6 +96,7 @@ export default function ManageListScreen() {
   const [filter, setFilter] = useState<Filter>("selected");
   const [editingItem, setEditingItem] = useState<ManageItem | null>(null);
   const [editText, setEditText] = useState("");
+  const [editColor, setEditColor] = useState("#16A34A");
   const [returnSelection, setReturnSelection] =
     useState<ManageListSelection | null>(null);
   const [pendingAddedItem, setPendingAddedItem] =
@@ -236,39 +260,39 @@ export default function ManageListScreen() {
   };
 
   const openEdit = (item: ManageItem) => {
-    if (!item.isCustom) return;
+    if (type !== "habits" && !item.isCustom) return;
+
     setEditingItem(item);
     setEditText(item.name);
+    setEditColor(getHabitColor(item));
   };
 
   const closeEdit = () => {
     setEditingItem(null);
     setEditText("");
+    setEditColor("#16A34A");
   };
 
-  const onRename = async () => {
+  const onSaveEdit = async () => {
     if (!editingItem) return;
 
     const name = editText.trim();
     if (!name) return;
 
     try {
-      if (type === "habits") await renameCustomHabit(editingItem.id, name);
+      if (type === "habits") await updateHabit(editingItem.id, name, editColor);
       else if (type === "cues") await renameCustomCue(editingItem.id, name);
       else await renameCustomLocation(editingItem.id, name);
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       closeEdit();
     } catch (e: any) {
-      Alert.alert(
-        "Could not rename",
-        e?.message ?? "That name is already used.",
-      );
+      Alert.alert("Could not save", e?.message ?? "That name is already used.");
     }
   };
 
   const onDelete = () => {
-    if (!editingItem) return;
+    if (!editingItem || !editingItem.isCustom) return;
 
     Alert.alert(
       `Delete ${singularTitle}?`,
@@ -366,7 +390,7 @@ export default function ManageListScreen() {
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-4">
           <Text className="text-sm font-black uppercase tracking-widest text-green-600">
-            Manage list
+            Manage
           </Text>
 
           <Text className="mt-1 text-3xl font-black text-black">{title}</Text>
@@ -377,26 +401,23 @@ export default function ManageListScreen() {
         </View>
       </View>
 
-      {type === "habits" ? (
-        <View className="mt-5 rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
-          <View className="flex-row items-center">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="bulb" size={24} color="#000000" />
-            </View>
+      <View className="mt-5 rounded-3xl border border-gray-200 bg-gray-50 p-4 shadow-sm">
+        <View className="flex-row items-center">
+          <View className="h-10 w-10 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+            <Ionicons name="bulb" size={21} color="#000000" />
+          </View>
 
-            <View className="ml-3 flex-1">
-              <Text className="text-base font-black text-black">
-                Tip: Start small
-              </Text>
+          <View className="ml-3 flex-1">
+            <Text className="text-sm font-black text-black">
+              Choose what appears
+            </Text>
 
-              <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
-                It’s usually easier to focus on one or two habits at first. You
-                can always add more later.
-              </Text>
-            </View>
+            <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
+              Selected items show up on your Log screen.
+            </Text>
           </View>
         </View>
-      ) : null}
+      </View>
 
       <View className="mt-5 flex-row">
         {renderFilterChip("Selected", "selected")}
@@ -407,11 +428,13 @@ export default function ManageListScreen() {
       {filter === "custom" ? (
         <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="flex-row items-center justify-between">
-            <View className="flex-1 pr-3">
-              <Text className="text-xl font-black text-black">Add new</Text>
+            <View className="flex-1 pr-4">
+              <Text className="text-xl font-black text-black">
+                Add custom {singularTitle}
+              </Text>
 
               <Text className="mt-1 text-sm font-semibold text-gray-500">
-                Create a custom {singularTitle} that fits your life.
+                Add something specific to your own routine.
               </Text>
             </View>
 
@@ -482,11 +505,13 @@ export default function ManageListScreen() {
 
               <View className="ml-3 flex-1">
                 <Text className="text-xl font-black text-black">
-                  Edit custom {singularTitle}
+                  Edit {singularTitle}
                 </Text>
 
                 <Text className="mt-1 text-sm leading-5 text-gray-500">
-                  Rename it, or delete it from future logging.
+                  {type === "habits"
+                    ? "Change the name and color shown around the app."
+                    : "Rename it, or delete it from future logging."}
                 </Text>
               </View>
             </View>
@@ -494,32 +519,68 @@ export default function ManageListScreen() {
             <TextInput
               value={editText}
               onChangeText={setEditText}
-              placeholder={`Custom ${singularTitle}`}
+              placeholder={singularTitle}
               placeholderTextColor="#9CA3AF"
               className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
               multiline={false}
               returnKeyType="done"
               blurOnSubmit
-              onSubmitEditing={onRename}
+              onSubmitEditing={onSaveEdit}
             />
 
+            {type === "habits" ? (
+              <View className="mt-5">
+                <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
+                  Habit color
+                </Text>
+
+                <View className="mt-3 flex-row flex-wrap gap-3">
+                  {HABIT_COLOR_OPTIONS.map((color) => {
+                    const selected = editColor === color;
+
+                    return (
+                      <Pressable
+                        key={color}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setEditColor(color);
+                        }}
+                        className="h-11 w-11 items-center justify-center rounded-full border bg-white"
+                        style={{
+                          borderColor: selected ? color : "#E5E7EB",
+                          borderWidth: selected ? 3 : 1,
+                        }}
+                      >
+                        <View
+                          className="h-7 w-7 rounded-full"
+                          style={{ backgroundColor: color }}
+                        />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+
             <Pressable
-              onPress={onRename}
+              onPress={onSaveEdit}
               className="mt-4 rounded-3xl bg-green-600 py-4 active:bg-green-700"
             >
               <Text className="text-center text-base font-black text-white">
-                Save Rename
+                Save Changes
               </Text>
             </Pressable>
 
-            <Pressable
-              onPress={onDelete}
-              className="mt-3 rounded-3xl border border-red-200 bg-red-50 py-4 active:bg-red-100"
-            >
-              <Text className="text-center text-base font-black text-red-600">
-                Delete Custom Item
-              </Text>
-            </Pressable>
+            {editingItem?.isCustom ? (
+              <Pressable
+                onPress={onDelete}
+                className="mt-3 rounded-3xl border border-red-200 bg-red-50 py-4 active:bg-red-100"
+              >
+                <Text className="text-center text-base font-black text-red-600">
+                  Delete Custom Item
+                </Text>
+              </Pressable>
+            ) : null}
 
             <Pressable
               onPress={closeEdit}
@@ -539,6 +600,8 @@ export default function ManageListScreen() {
         renderItem={({ item }) => {
           const isSelected = selectedIds.has(item.id);
           const isCustom = item.isCustom === 1;
+          const habitColor =
+            type === "habits" ? getHabitColor(item) : "#16A34A";
 
           return (
             <View
@@ -550,11 +613,16 @@ export default function ManageListScreen() {
             >
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 flex-row items-center pr-3">
-                  <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                  <View
+                    className="h-12 w-12 items-center justify-center rounded-2xl border bg-white"
+                    style={{
+                      borderColor: type === "habits" ? habitColor : "#E5E7EB",
+                    }}
+                  >
                     <Ionicons
                       name={isCustom ? "create" : "sparkles"}
                       size={24}
-                      color="#000000"
+                      color={type === "habits" ? habitColor : "#000000"}
                     />
                   </View>
 
@@ -569,7 +637,7 @@ export default function ManageListScreen() {
                   </View>
                 </View>
 
-                {isCustom ? (
+                {type === "habits" || isCustom ? (
                   <Pressable
                     onPress={() => openEdit(item)}
                     className="mr-3 rounded-2xl border border-gray-300 bg-white px-4 py-2.5"

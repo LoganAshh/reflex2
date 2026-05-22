@@ -5,6 +5,7 @@ export type Habit = {
   name: string;
   isCustom: 0 | 1;
   hidden: 0 | 1;
+  color: string;
 };
 export type Cue = { id: number; name: string; isCustom: 0 | 1; hidden: 0 | 1 };
 export type Place = {
@@ -119,6 +120,7 @@ export type DataContextType = {
   addCustomLocation: (name: string, autoSelect?: boolean) => Promise<void>;
 
   renameCustomHabit: (habitId: number, name: string) => Promise<void>;
+  updateHabit: (habitId: number, name: string, color: string) => Promise<void>;
   renameCustomCue: (cueId: number, name: string) => Promise<void>;
   renameCustomLocation: (locationId: number, name: string) => Promise<void>;
   deleteCustomHabit: (habitId: number) => Promise<"deleted" | "hidden">;

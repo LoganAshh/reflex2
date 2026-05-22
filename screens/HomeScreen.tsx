@@ -132,6 +132,13 @@ export default function HomeScreen() {
   const displayName = useMemo(() => getFirstName(profileName), [profileName]);
   const isBrandNew = logs.length === 0;
 
+  const activeHabitColor = useMemo(() => {
+    if (selectedHabitId == null) return "#16A34A";
+    return (
+      habits.find((habit) => habit.id === selectedHabitId)?.color ?? "#16A34A"
+    );
+  }, [habits, selectedHabitId]);
+
   useEffect(() => {
     const resetToken = route.params?.resetToken;
     if (!resetToken) return;
@@ -342,11 +349,13 @@ export default function HomeScreen() {
     value,
     icon,
     percentIncrease,
+    accentColor = "#16A34A",
   }: {
     label: string;
     value: string;
     icon: keyof typeof Ionicons.glyphMap;
     percentIncrease?: number | null;
+    accentColor?: string;
   }) => (
     <View className="flex-1 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
       <View className="flex-row items-start justify-between">
@@ -355,7 +364,10 @@ export default function HomeScreen() {
         </View>
 
         {percentIncrease != null ? (
-          <View className="rounded-full bg-green-600 px-2 py-1">
+          <View
+            className="rounded-full px-2 py-1"
+            style={{ backgroundColor: accentColor }}
+          >
             <Text className="text-xs font-black text-white">
               ↑ {percentIncrease}%
             </Text>
@@ -376,12 +388,14 @@ export default function HomeScreen() {
     sub,
     icon,
     percentIncrease,
+    accentColor = "#16A34A",
   }: {
     label: string;
     value: string;
     sub: string;
     icon: keyof typeof Ionicons.glyphMap;
     percentIncrease?: number | null;
+    accentColor?: string;
   }) => (
     <View className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 p-4">
       <View className="flex-row items-center justify-between">
@@ -390,7 +404,10 @@ export default function HomeScreen() {
         </View>
 
         {percentIncrease != null ? (
-          <View className="rounded-full bg-green-600 px-2 py-1">
+          <View
+            className="rounded-full px-2 py-1"
+            style={{ backgroundColor: accentColor }}
+          >
             <Text className="text-xs font-black text-white">
               ↑ {percentIncrease}%
             </Text>
@@ -415,10 +432,11 @@ export default function HomeScreen() {
   }) => (
     <Pressable
       onPress={onPress}
-      className={[
-        "mr-2 rounded-full border px-4 py-2.5",
-        selected ? "border-green-600 bg-green-600" : "border-gray-200 bg-white",
-      ].join(" ")}
+      className="mr-2 rounded-full border px-4 py-2.5"
+      style={{
+        borderColor: selected ? activeHabitColor : "#E5E7EB",
+        backgroundColor: selected ? activeHabitColor : "#FFFFFF",
+      }}
     >
       <Text
         className={[
@@ -541,8 +559,15 @@ export default function HomeScreen() {
                 </Text>
               </View>
 
-              <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
-                <Ionicons name="stats-chart" size={24} color="#000000" />
+              <View
+                className="h-12 w-12 items-center justify-center rounded-3xl border bg-white"
+                style={{ borderColor: activeHabitColor }}
+              >
+                <Ionicons
+                  name="stats-chart"
+                  size={24}
+                  color={activeHabitColor}
+                />
               </View>
             </View>
 
@@ -576,6 +601,7 @@ export default function HomeScreen() {
 
             <View className="mt-5 flex-row gap-3">
               <StatTile
+                accentColor={activeHabitColor}
                 label="Logs today"
                 value={`${stats.todayLogs}`}
                 icon="create"
@@ -586,6 +612,7 @@ export default function HomeScreen() {
               />
 
               <StatTile
+                accentColor={activeHabitColor}
                 label="This week"
                 value={`${stats.weekLogs}`}
                 icon="calendar"
@@ -598,6 +625,7 @@ export default function HomeScreen() {
 
             <View className="mt-3 flex-row gap-3">
               <StatTile
+                accentColor={activeHabitColor}
                 label="Resists today"
                 value={`${stats.todayResists}`}
                 icon="shield-checkmark"
@@ -608,6 +636,7 @@ export default function HomeScreen() {
               />
 
               <StatTile
+                accentColor={activeHabitColor}
                 label="Week resists"
                 value={`${stats.weekResists}`}
                 icon="trophy"
@@ -621,6 +650,7 @@ export default function HomeScreen() {
             {selectedHabitId === null ? (
               <View className="mt-3 flex-row gap-3">
                 <StreakCard
+                  accentColor={activeHabitColor}
                   label="Today rate"
                   value={`${stats.todayResistRate}%`}
                   sub="Resistance today"
@@ -632,6 +662,7 @@ export default function HomeScreen() {
                 />
 
                 <StreakCard
+                  accentColor={activeHabitColor}
                   label="Week rate"
                   value={`${stats.weekResistRate}%`}
                   sub="Resistance this week"
@@ -645,6 +676,7 @@ export default function HomeScreen() {
             ) : (
               <View className="mt-3 flex-row gap-3">
                 <StreakCard
+                  accentColor={activeHabitColor}
                   label="Current streak"
                   value={`${stats.daysSinceGiveIn}`}
                   sub="Days since giving in"
@@ -656,6 +688,7 @@ export default function HomeScreen() {
                 />
 
                 <StreakCard
+                  accentColor={activeHabitColor}
                   label="Best streak"
                   value={`${stats.bestCleanStreakDays}`}
                   sub="Your record"
@@ -670,8 +703,11 @@ export default function HomeScreen() {
 
             <View className="mt-5 rounded-3xl border border-gray-200 bg-white p-4">
               <View className="flex-row items-center">
-                <View className="h-10 w-10 items-center justify-center rounded-3xl border border-gray-200 bg-white">
-                  <Ionicons name="bulb" size={22} color="#000000" />
+                <View
+                  className="h-10 w-10 items-center justify-center rounded-3xl border bg-white"
+                  style={{ borderColor: activeHabitColor }}
+                >
+                  <Ionicons name="bulb" size={22} color={activeHabitColor} />
                 </View>
 
                 <View className="ml-3 flex-1">

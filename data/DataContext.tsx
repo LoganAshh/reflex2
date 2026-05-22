@@ -59,6 +59,7 @@ import {
   getLocationById,
   getActionById,
   renameCustomHabitInDb,
+  updateHabitInDb,
   renameCustomCueInDb,
   renameCustomLocationInDb,
   renameCustomActionInDb,
@@ -111,6 +112,7 @@ type BackupNamedEntity = {
   name: string;
   isCustom: 0 | 1;
   hidden: 0 | 1;
+  color: string;
 };
 
 type BackupActionEntity = {
@@ -153,6 +155,11 @@ function cleanString(value: unknown) {
 function cleanNullableString(value: unknown) {
   const clean = cleanString(value);
   return clean.length > 0 ? clean : null;
+}
+
+function cleanColor(value: unknown) {
+  const clean = cleanString(value);
+  return /^#[0-9A-Fa-f]{6}$/.test(clean) ? clean.toUpperCase() : "#16A34A";
 }
 
 function cleanInt(value: unknown, fallback = 0) {
@@ -216,6 +223,7 @@ function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
       name,
       isCustom: cleanIsCustom(item.isCustom),
       hidden: cleanIsCustom(item.hidden),
+      color: cleanColor(item.color),
     });
   }
 
@@ -707,6 +715,18 @@ export function DataProvider({ children }: DataProviderProps) {
     await refresh();
   };
 
+  const updateHabit: DataContextType["updateHabit"] = async (
+    habitId,
+    name,
+    color,
+  ) => {
+    const clean = name.trim();
+    if (!clean || !Number.isFinite(habitId)) return;
+    assertUniqueName(await loadHabits(), habitId, clean);
+    await updateHabitInDb(habitId, clean, cleanColor(color));
+    await refresh();
+  };
+
   const renameCustomCue: DataContextType["renameCustomCue"] = async (
     cueId,
     name,
@@ -1093,8 +1113,8 @@ export function DataProvider({ children }: DataProviderProps) {
 
     for (const habit of importedHabits) {
       await db.runAsync(
-        `INSERT OR IGNORE INTO habits (id, name, isCustom, hidden) VALUES (?, ?, ?, ?);`,
-        [habit.id, habit.name, habit.isCustom, habit.hidden],
+        `INSERT OR IGNORE INTO habits (id, name, isCustom, hidden, color) VALUES (?, ?, ?, ?, ?);`,
+        [habit.id, habit.name, habit.isCustom, habit.hidden, habit.color],
       );
     }
 
@@ -1290,6 +1310,7 @@ export function DataProvider({ children }: DataProviderProps) {
       addCustomCue,
       addCustomLocation,
       renameCustomHabit,
+      updateHabit,
       renameCustomCue,
       renameCustomLocation,
       deleteCustomHabit,

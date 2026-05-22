@@ -12,6 +12,23 @@ import type {
 
 export const db = SQLite.openDatabaseSync("reflex.db");
 
+const DEFAULT_HABIT_COLOR = "#16A34A";
+
+const PRESET_HABIT_COLORS: Record<string, string> = {
+  "Social Media": "#2563EB",
+  "Junk Food": "#F97316",
+  Caffeine: "#92400E",
+  Shopping: "#DB2777",
+  "Video Games": "#7C3AED",
+  Alcohol: "#7F1D1D",
+  Nicotine: "#64748B",
+  Streaming: "#DC2626",
+  Porn: "#BE123C",
+  Weed: "#16A34A",
+  Gambling: "#EAB308",
+  Prescriptions: "#0EA5E9",
+};
+
 export function normalizeName(value: string) {
   return value.trim().toLowerCase();
 }
@@ -29,6 +46,11 @@ export async function ensureLocalSchemaColumns() {
   };
 
   await ensureColumn("habits", "hidden", "hidden INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(
+    "habits",
+    "color",
+    `color TEXT NOT NULL DEFAULT '${DEFAULT_HABIT_COLOR}'`,
+  );
   await ensureColumn("cues", "hidden", "hidden INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(
     "locations",
@@ -63,6 +85,13 @@ export async function ensureLocalSchemaColumns() {
     SET selectedActionTitle = (SELECT title FROM actions WHERE actions.id = logs.selectedActionId)
     WHERE selectedActionTitle IS NULL AND selectedActionId IS NOT NULL;
   `);
+
+  for (const [name, color] of Object.entries(PRESET_HABIT_COLORS)) {
+    await db.runAsync(
+      `UPDATE habits SET color = ? WHERE name = ? AND isCustom = 0 AND (color IS NULL OR color = ?);`,
+      [color, name, DEFAULT_HABIT_COLOR],
+    );
+  }
 }
 
 export async function initDb() {
@@ -73,7 +102,8 @@ export async function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
       isCustom INTEGER NOT NULL DEFAULT 0,
-      hidden INTEGER NOT NULL DEFAULT 0
+      hidden INTEGER NOT NULL DEFAULT 0,
+      color TEXT NOT NULL DEFAULT '#16A34A'
     );
 
     CREATE TABLE IF NOT EXISTS user_habits (
@@ -146,18 +176,18 @@ export async function initDb() {
 
 export async function seedDefaultHabitsIfEmpty() {
   await db.execAsync(`
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Social Media', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Junk Food', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Caffeine', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Shopping', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Video Games', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Alcohol', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Nicotine', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Streaming', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Porn', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Weed', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Gambling', 0);
-    INSERT OR IGNORE INTO habits (name, isCustom) VALUES ('Prescriptions', 0);
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Social Media', 0, '#2563EB');
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Junk Food', 0, '#F97316');
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Caffeine', 0, '#92400E');
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Shopping', 0, '#DB2777');
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Video Games', 0, '#7C3AED');
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Alcohol', 0, '#7F1D1D');
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Nicotine', 0, '#64748B');
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Streaming', 0, '#DC2626');
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Porn', 0, '#BE123C');
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Weed', 0, '#16A34A');
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Gambling', 0, '#EAB308');
+    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Prescriptions', 0, '#0EA5E9');
   `);
 }
 
@@ -170,7 +200,7 @@ export async function seedDefaultCuesIfEmpty() {
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Loneliness', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Tired', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Celebration', 0);
-    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Routine', 0);
+    INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Habit / routine', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Craving', 0);
     INSERT OR IGNORE INTO cues (name, isCustom) VALUES ('Avoidance', 0);
   `);
@@ -407,8 +437,8 @@ export async function replaceSelectedLocations(locationIds: number[]) {
 
 export async function insertCustomHabit(name: string) {
   const result = await db.runAsync(
-    `INSERT OR IGNORE INTO habits (name, isCustom) VALUES (?, 1);`,
-    [name],
+    `INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES (?, 1, ?);`,
+    [name, DEFAULT_HABIT_COLOR],
   );
 
   return Number(result.lastInsertRowId ?? 0);
@@ -588,6 +618,16 @@ export async function renameCustomHabitInDb(id: number, name: string) {
   await db.runAsync(
     `UPDATE habits SET name = ? WHERE id = ? AND isCustom = 1 AND hidden = 0;`,
     [name, id],
+  );
+}
+
+export async function updateHabitInDb(id: number, name: string, color: string) {
+  await db.runAsync(
+    `UPDATE habits
+     SET name = CASE WHEN isCustom = 1 THEN ? ELSE name END,
+         color = ?
+     WHERE id = ? AND hidden = 0;`,
+    [name, color, id],
   );
 }
 
