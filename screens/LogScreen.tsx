@@ -39,9 +39,10 @@ type ChipItem = {
   label: string;
   id: number | null;
   kind: "value" | "none" | "add";
+  color?: string | null;
 };
 
-type BaseItem = { id: number; name: string };
+type BaseItem = { id: number; name: string; color?: string | null };
 
 function applyFrequencyOrdering<T extends { id: number }>(
   items: T[],
@@ -120,6 +121,7 @@ function ChipRow<T extends BaseItem>({
       label: x.name,
       id: x.id,
       kind: "value" as const,
+      color: typeof x.color === "string" ? x.color : null,
     })),
     { key: "add", label: "+ Add", id: null, kind: "add" as const },
   ];
@@ -132,6 +134,11 @@ function ChipRow<T extends BaseItem>({
           ? item.id === selectedId
           : false;
 
+    const selectedColor =
+      item.kind === "value" && typeof item.color === "string"
+        ? item.color
+        : "#16A34A";
+
     return (
       <Pressable
         onPress={() => {
@@ -143,12 +150,13 @@ function ChipRow<T extends BaseItem>({
           onSelect(item.id);
         }}
         className={`mr-2 rounded-full border px-3 py-1.5 ${
-          item.kind === "add"
-            ? "border-gray-200 bg-white"
-            : isSelected
-              ? "border-green-600 bg-green-600"
-              : "border-gray-200 bg-white"
+          item.kind === "add" || !isSelected ? "border-gray-200 bg-white" : ""
         }`}
+        style={
+          item.kind !== "add" && isSelected
+            ? { borderColor: selectedColor, backgroundColor: selectedColor }
+            : undefined
+        }
       >
         <Text
           className={`text-xs font-black ${
@@ -189,7 +197,7 @@ function ChipRow<T extends BaseItem>({
         data={data}
         keyExtractor={(x) => x.key}
         renderItem={renderItem}
-        extraData={selectedId}
+        extraData={{ selectedId, items }}
         keyboardShouldPersistTaps="handled"
         onScrollToIndexFailed={(info) => {
           setTimeout(() => {
