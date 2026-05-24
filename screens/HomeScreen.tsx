@@ -121,6 +121,43 @@ function getBestCleanStreakDays(
   return best;
 }
 
+function getAverageCleanStreakDays(
+  logs: { createdAt: number; didResist: number }[],
+  startDayMs: number | null,
+  endDayMs: number,
+) {
+  if (startDayMs == null || startDayMs >= endDayMs) return 0;
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const giveInDaySet = new Set(
+    logs
+      .filter((l) => l.didResist !== 1)
+      .map((l) => startOfDayMs(new Date(l.createdAt))),
+  );
+
+  const streaks: number[] = [];
+  let current = 0;
+
+  for (let day = startDayMs; day < endDayMs; day += dayMs) {
+    if (giveInDaySet.has(day)) {
+      if (current > 0) {
+        streaks.push(current);
+      }
+      current = 0;
+    } else {
+      current += 1;
+    }
+  }
+
+  if (current > 0) {
+    streaks.push(current);
+  }
+
+  if (streaks.length === 0) return 0;
+
+  return streaks.reduce((acc, value) => acc + value, 0) / streaks.length;
+}
+
 type Nav = BottomTabNavigationProp<RootTabParamList, "Home">;
 type HomeRoute = RouteProp<RootTabParamList, "Home">;
 
@@ -199,10 +236,9 @@ export default function HomeScreen() {
     const dayMs = 24 * 60 * 60 * 1000;
     const todayStart = startOfDayMs(now);
     const tomorrowStart = todayStart + dayMs;
-    const yesterdayStart = todayStart - dayMs;
 
     const weekStart = startOfWeekMs(now);
-    const previousWeekStart = weekStart - 7 * dayMs;
+    const daysSoFarThisWeek = Math.floor((todayStart - weekStart) / dayMs) + 1;
 
     const sortedLogsForStats = [...logsForStats].sort(
       (a, b) => a.createdAt - b.createdAt,
@@ -217,61 +253,37 @@ export default function HomeScreen() {
       (l) => l.createdAt >= todayStart && l.createdAt < tomorrowStart,
     );
 
-    const yesterdaysLogs = logsForStats.filter(
-      (l) => l.createdAt >= yesterdayStart && l.createdAt < todayStart,
-    );
-
     const weekLogsArr = logsForStats.filter((l) => l.createdAt >= weekStart);
-    const previousWeekLogsArr = logsForStats.filter(
-      (l) => l.createdAt >= previousWeekStart && l.createdAt < weekStart,
-    );
 
     const todayLogs = todaysLogs.length;
-    const previousTodayLogs = yesterdaysLogs.length;
 
     const todayResists = todaysLogs.reduce(
       (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
       0,
     );
-    const previousTodayResists = yesterdaysLogs.reduce(
-      (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
-      0,
-    );
 
     const weekLogs = weekLogsArr.length;
-    const previousWeekLogs = previousWeekLogsArr.length;
 
     const weekResists = weekLogsArr.reduce(
-      (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
-      0,
-    );
-    const previousWeekResists = previousWeekLogsArr.reduce(
       (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
       0,
     );
 
     const weekResistRate =
       weekLogs > 0 ? Math.round((weekResists / weekLogs) * 100) : 0;
-    const previousWeekResistRate =
-      previousWeekLogs > 0
-        ? Math.round((previousWeekResists / previousWeekLogs) * 100)
-        : 0;
 
     const todayResistRate =
       todayLogs > 0 ? Math.round((todayResists / todayLogs) * 100) : 0;
-    const previousTodayResistRate =
-      previousTodayLogs > 0
-        ? Math.round((previousTodayResists / previousTodayLogs) * 100)
-        : 0;
 
     const logsBeforeToday = logsForStats.filter(
       (l) => l.createdAt < todayStart,
     );
 
     const daysSinceGiveIn = getDaysSinceGiveIn(logsForStats, todayStart);
+
     const previousDaysSinceGiveIn = getDaysSinceGiveIn(
       logsBeforeToday,
-      yesterdayStart,
+      todayStart - dayMs,
     );
 
     const historicalBestCleanStreakDays = getBestCleanStreakDays(logsForStats);
@@ -330,6 +342,13 @@ export default function HomeScreen() {
       comparisonDays > 0 ? comparisonTotalResists / comparisonDays : 0;
     const averageGiveIns =
       comparisonDays > 0 ? comparisonTotalGiveIns / comparisonDays : 0;
+    const averageWeekToDateLogs = averageLogs * daysSoFarThisWeek;
+    const averageWeekToDateResists = averageResists * daysSoFarThisWeek;
+    const averageCleanStreakDays = getAverageCleanStreakDays(
+      comparisonLogs,
+      comparisonStart,
+      todayStart,
+    );
 
     const cleanDaysStart =
       firstLogDay == null ? weekStart : Math.max(weekStart, firstLogDay);
@@ -363,17 +382,13 @@ export default function HomeScreen() {
       averageLogs,
       averageResists,
       averageGiveIns,
+      averageWeekToDateLogs,
+      averageWeekToDateResists,
+      averageCleanStreakDays,
       comparisonDays,
-      previousTodayLogs,
-      previousWeekLogs,
-      previousTodayResists,
-      previousWeekResists,
       weekResistRate,
-      previousWeekResistRate,
       todayResistRate,
-      previousTodayResistRate,
       daysSinceGiveIn,
-      previousDaysSinceGiveIn,
       bestCleanStreakDays,
       previousBestCleanStreakDays,
       cleanDaysThisWeek,
@@ -725,7 +740,7 @@ export default function HomeScreen() {
                     icon="shield-checkmark"
                     percentIncrease={getPercentIncrease(
                       stats.todayResists,
-                      stats.previousTodayResists,
+                      stats.averageResists,
                     )}
                   />
 
@@ -736,7 +751,7 @@ export default function HomeScreen() {
                     icon="create"
                     percentIncrease={getPercentIncrease(
                       stats.todayLogs,
-                      stats.previousTodayLogs,
+                      stats.averageLogs,
                     )}
                   />
                 </View>
@@ -749,7 +764,7 @@ export default function HomeScreen() {
                     icon="trophy"
                     percentIncrease={getPercentIncrease(
                       stats.weekResists,
-                      stats.previousWeekResists,
+                      stats.averageWeekToDateResists,
                     )}
                   />
 
@@ -760,7 +775,7 @@ export default function HomeScreen() {
                     icon="calendar"
                     percentIncrease={getPercentIncrease(
                       stats.weekLogs,
-                      stats.previousWeekLogs,
+                      stats.averageWeekToDateLogs,
                     )}
                   />
                 </View>
@@ -786,7 +801,7 @@ export default function HomeScreen() {
                     icon="flame"
                     percentIncrease={getPercentIncrease(
                       stats.daysSinceGiveIn,
-                      stats.previousDaysSinceGiveIn,
+                      stats.averageCleanStreakDays,
                     )}
                   />
                 </View>
@@ -799,7 +814,7 @@ export default function HomeScreen() {
                     icon="shield-checkmark"
                     percentIncrease={getPercentIncrease(
                       stats.todayResists,
-                      stats.previousTodayResists,
+                      stats.averageResists,
                     )}
                   />
 
@@ -810,7 +825,7 @@ export default function HomeScreen() {
                     icon="create"
                     percentIncrease={getPercentIncrease(
                       stats.todayLogs,
-                      stats.previousTodayLogs,
+                      stats.averageLogs,
                     )}
                   />
                 </View>
