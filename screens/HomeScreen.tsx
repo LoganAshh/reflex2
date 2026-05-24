@@ -456,16 +456,9 @@ export default function HomeScreen() {
       };
     }
 
-    if (stats.todayLogs > 0) {
-      return {
-        title: "You Stayed Engaged",
-        text: "You showed up! That means you noticed the moment instead of ignoring it, which is the first step toward changing the pattern.",
-      };
-    }
-
     return {
-      title: "No Logs Today",
-      text: `Nothing has been logged yet today. Your usual baseline is ${averageLogsText} logs per day from ${comparisonText}.`,
+      title: "You Stayed Engaged",
+      text: "You stayed engaged! That means you noticed the moment instead of ignoring it, which is the first step toward changing the pattern.",
     };
   }, [
     stats.averageGiveIns,
