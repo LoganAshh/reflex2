@@ -485,31 +485,33 @@ export default function HomeScreen() {
     percentIncrease?: number | null;
     accentColor?: string;
   }) => (
-    <View className="flex-1 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+    <View className="flex-1 rounded-3xl border border-gray-200 bg-white p-3 shadow-sm">
       <View className="flex-row items-start justify-between">
-        <View className="h-10 w-10 items-center justify-center rounded-3xl border border-gray-200 bg-white">
-          <Ionicons name={icon} size={21} color="#000000" />
+        <View className="h-9 w-9 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+          <Ionicons name={icon} size={19} color="#000000" />
         </View>
 
         {percentIncrease != null ? (
           <View
-            className="rounded-full px-2 py-1"
+            className="rounded-full px-2 py-0.5"
             style={{ backgroundColor: accentColor }}
           >
-            <Text className="text-xs font-black text-white">
+            <Text className="text-[11px] font-black text-white">
               ↑ {percentIncrease}%
             </Text>
           </View>
         ) : null}
       </View>
 
-      <Text className="mt-4 text-3xl font-black text-black">{value}</Text>
-      <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-500">
+      <Text className="mt-3 text-2xl font-black text-black">{value}</Text>
+      <Text className="mt-0.5 text-[11px] font-black uppercase tracking-wide text-gray-500">
         {label}
       </Text>
 
       {sub ? (
-        <Text className="mt-1 text-xs font-semibold text-gray-500">{sub}</Text>
+        <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
+          {sub}
+        </Text>
       ) : null}
     </View>
   );
@@ -525,7 +527,7 @@ export default function HomeScreen() {
   }) => (
     <Pressable
       onPress={onPress}
-      className="mr-2 rounded-full border px-4 py-2.5"
+      className="mr-2 rounded-full border px-3.5 py-2"
       style={{
         borderColor: selected ? activeHabitColor : "#E5E7EB",
         backgroundColor: selected ? activeHabitColor : "#FFFFFF",
@@ -616,13 +618,13 @@ export default function HomeScreen() {
         </View>
       ) : (
         <>
-          <View className="mt-6 flex-row gap-3">
+          <View className="mt-5 flex-row gap-3">
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
                 navigation.navigate("Log");
               }}
-              className="flex-1 rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+              className="flex-1 rounded-3xl bg-green-600 px-5 py-3.5 shadow-sm"
             >
               <View className="flex-row items-center justify-center">
                 <Ionicons name="add-circle" size={22} color="#FFFFFF" />
@@ -637,28 +639,28 @@ export default function HomeScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
                 navigation.navigate("Shop");
               }}
-              className="rounded-3xl border border-gray-200 bg-gray-50 px-5 py-4 shadow-sm"
+              className="rounded-3xl border border-gray-200 bg-gray-50 px-5 py-3.5 shadow-sm"
             >
               <Ionicons name="bag-handle" size={24} color="#000000" />
             </Pressable>
           </View>
 
-          <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+          <View className="mt-5 rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
             <View className="flex-row items-center justify-between">
               <View>
-                <Text className="text-xl font-black text-black">Dashboard</Text>
-                <Text className="mt-1 text-sm font-bold text-gray-500">
+                <Text className="text-lg font-black text-black">Dashboard</Text>
+                <Text className="mt-0.5 text-xs font-bold text-gray-500">
                   Pick a habit to focus the stats.
                 </Text>
               </View>
 
               <View
-                className="h-12 w-12 items-center justify-center rounded-3xl border bg-white"
+                className="h-10 w-10 items-center justify-center rounded-3xl border bg-white"
                 style={{ borderColor: "#E5E7EB" }}
               >
                 <Ionicons
                   name="stats-chart"
-                  size={24}
+                  size={21}
                   color={activeHabitColor}
                 />
               </View>
@@ -668,7 +670,7 @@ export default function HomeScreen() {
               ref={habitChipsScrollRef}
               horizontal
               showsHorizontalScrollIndicator={false}
-              className="mt-5"
+              className="mt-4"
             >
               <Chip
                 label="Overall"
@@ -692,13 +694,13 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
 
-            <View className="mt-5 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+            <View className="mt-4 rounded-3xl border border-gray-200 bg-white p-3 shadow-sm">
               <View className="flex-row items-center">
                 <View
-                  className="h-10 w-10 items-center justify-center rounded-3xl border bg-white"
+                  className="h-9 w-9 items-center justify-center rounded-3xl border bg-white"
                   style={{ borderColor: "#E5E7EB" }}
                 >
-                  <Ionicons name="bulb" size={22} color={activeHabitColor} />
+                  <Ionicons name="bulb" size={20} color={activeHabitColor} />
                 </View>
 
                 <View className="ml-3 flex-1">
@@ -706,7 +708,7 @@ export default function HomeScreen() {
                     {positiveFeedback.title}
                   </Text>
 
-                  <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
+                  <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-500">
                     {positiveFeedback.text}
                   </Text>
                 </View>
@@ -715,7 +717,7 @@ export default function HomeScreen() {
 
             {selectedHabitId === null ? (
               <>
-                <View className="mt-5 flex-row gap-3">
+                <View className="mt-4 flex-row gap-3">
                   <StatTile
                     accentColor={activeHabitColor}
                     label="Resists today"
@@ -765,7 +767,7 @@ export default function HomeScreen() {
               </>
             ) : (
               <>
-                <View className="mt-5 flex-row gap-3">
+                <View className="mt-4 flex-row gap-3">
                   <StatTile
                     accentColor={activeHabitColor}
                     label="Clean days"
