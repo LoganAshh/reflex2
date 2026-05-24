@@ -599,6 +599,27 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
 
+            <View className="mt-5 rounded-3xl border border-gray-200 bg-white p-4">
+              <View className="flex-row items-center">
+                <View
+                  className="h-10 w-10 items-center justify-center rounded-3xl border bg-white"
+                  style={{ borderColor: "#E5E7EB" }}
+                >
+                  <Ionicons name="bulb" size={22} color={activeHabitColor} />
+                </View>
+
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-black text-black">
+                    {positiveFeedbackTitle}
+                  </Text>
+
+                  <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
+                    {positiveFeedbackText}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
             <View className="mt-5 flex-row gap-3">
               <StatTile
                 accentColor={activeHabitColor}
@@ -700,27 +721,6 @@ export default function HomeScreen() {
                 />
               </View>
             )}
-
-            <View className="mt-5 rounded-3xl border border-gray-200 bg-white p-4">
-              <View className="flex-row items-center">
-                <View
-                  className="h-10 w-10 items-center justify-center rounded-3xl border bg-white"
-                  style={{ borderColor: "#E5E7EB" }}
-                >
-                  <Ionicons name="bulb" size={22} color={activeHabitColor} />
-                </View>
-
-                <View className="ml-3 flex-1">
-                  <Text className="text-sm font-black text-black">
-                    {positiveFeedbackTitle}
-                  </Text>
-
-                  <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
-                    {positiveFeedbackText}
-                  </Text>
-                </View>
-              </View>
-            </View>
           </View>
         </>
       )}
