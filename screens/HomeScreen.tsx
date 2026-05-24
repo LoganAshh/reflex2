@@ -264,27 +264,9 @@ export default function HomeScreen() {
         ? Math.round((previousTodayResists / previousTodayLogs) * 100)
         : 0;
 
-    const allTimeLogs = logsForStats.length;
-    const allTimeResists = logsForStats.reduce(
-      (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
-      0,
-    );
-    const allTimeResistRate =
-      allTimeLogs > 0 ? Math.round((allTimeResists / allTimeLogs) * 100) : 0;
-
     const logsBeforeToday = logsForStats.filter(
       (l) => l.createdAt < todayStart,
     );
-
-    const previousAllTimeLogs = logsBeforeToday.length;
-    const previousAllTimeResists = logsBeforeToday.reduce(
-      (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
-      0,
-    );
-    const previousAllTimeResistRate =
-      previousAllTimeLogs > 0
-        ? Math.round((previousAllTimeResists / previousAllTimeLogs) * 100)
-        : 0;
 
     const daysSinceGiveIn = getDaysSinceGiveIn(logsForStats, todayStart);
     const previousDaysSinceGiveIn = getDaysSinceGiveIn(
@@ -363,12 +345,9 @@ export default function HomeScreen() {
     );
 
     let cleanDaysThisWeek = 0;
-    let daysCountedForCleanDays = 0;
 
     if (firstLogDay != null) {
       for (let day = cleanDaysStart; day <= todayStart; day += dayMs) {
-        daysCountedForCleanDays += 1;
-
         if (!cleanDaysGiveInDaySet.has(day)) {
           cleanDaysThisWeek += 1;
         }
@@ -393,14 +372,11 @@ export default function HomeScreen() {
       previousWeekResistRate,
       todayResistRate,
       previousTodayResistRate,
-      allTimeResistRate,
-      previousAllTimeResistRate,
       daysSinceGiveIn,
       previousDaysSinceGiveIn,
       bestCleanStreakDays,
       previousBestCleanStreakDays,
       cleanDaysThisWeek,
-      daysCountedForCleanDays,
     };
   }, [logs, selectedHabitId]);
 
@@ -417,12 +393,19 @@ export default function HomeScreen() {
             } before today`
           : "your previous days";
 
-    if (stats.todayLogs > 0 && stats.todayGiveIns === 0) {
+    if (stats.todayGiveIns === 0) {
+      if (stats.todayLogs > 0) {
+        return {
+          title: "You Didn’t Give In",
+          text: `Excellent work! You logged ${stats.todayLogs} ${
+            stats.todayLogs === 1 ? "urge" : "urges"
+          } today and did not give in once. That means today’s give-in count is 0, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
+        };
+      }
+
       return {
         title: "You Didn’t Give In",
-        text: `Excellent work! You logged ${stats.todayLogs} ${
-          stats.todayLogs === 1 ? "urge" : "urges"
-        } today and did not give in once. That means today’s give-in count is 0, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
+        text: `Excellent work! You have not given in today. Today’s give-in count is 0, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
       };
     }
 
