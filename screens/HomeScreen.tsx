@@ -196,12 +196,13 @@ export default function HomeScreen() {
         : logs.filter((l) => l.habitId === selectedHabitId);
 
     const now = new Date();
+    const dayMs = 24 * 60 * 60 * 1000;
     const todayStart = startOfDayMs(now);
-    const tomorrowStart = todayStart + 24 * 60 * 60 * 1000;
-    const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+    const tomorrowStart = todayStart + dayMs;
+    const yesterdayStart = todayStart - dayMs;
 
     const weekStart = startOfWeekMs(now);
-    const previousWeekStart = weekStart - 7 * 24 * 60 * 60 * 1000;
+    const previousWeekStart = weekStart - 7 * dayMs;
 
     const todaysLogs = logsForStats.filter(
       (l) => l.createdAt >= todayStart && l.createdAt < tomorrowStart,
@@ -297,7 +298,7 @@ export default function HomeScreen() {
     );
 
     const todayGiveIns = todayLogs - todayResists;
-    const twoWeeksAgoStart = todayStart - 14 * 24 * 60 * 60 * 1000;
+    const twoWeeksAgoStart = todayStart - 14 * dayMs;
 
     const firstLogBeforeToday = logsBeforeToday.reduce<number | null>(
       (earliest, log) => {
@@ -316,10 +317,7 @@ export default function HomeScreen() {
       : firstLogBeforeToday;
 
     const comparisonDays = comparisonStart
-      ? Math.max(
-          1,
-          Math.round((todayStart - comparisonStart) / (24 * 60 * 60 * 1000)),
-        )
+      ? Math.max(1, Math.round((todayStart - comparisonStart) / dayMs))
       : 0;
 
     const comparisonLogs = comparisonStart
@@ -341,6 +339,22 @@ export default function HomeScreen() {
       comparisonDays > 0 ? comparisonTotalResists / comparisonDays : 0;
     const averageGiveIns =
       comparisonDays > 0 ? comparisonTotalGiveIns / comparisonDays : 0;
+
+    const weekGiveInDaySet = new Set(
+      weekLogsArr
+        .filter((l) => l.didResist !== 1)
+        .map((l) => startOfDayMs(new Date(l.createdAt))),
+    );
+
+    const daysSoFarThisWeek = Math.floor((todayStart - weekStart) / dayMs) + 1;
+
+    let cleanDaysThisWeek = 0;
+
+    for (let day = weekStart; day <= todayStart; day += dayMs) {
+      if (!weekGiveInDaySet.has(day)) {
+        cleanDaysThisWeek += 1;
+      }
+    }
 
     return {
       todayLogs,
@@ -366,6 +380,8 @@ export default function HomeScreen() {
       previousDaysSinceGiveIn,
       bestCleanStreakDays,
       previousBestCleanStreakDays,
+      cleanDaysThisWeek,
+      daysSoFarThisWeek,
     };
   }, [logs, selectedHabitId]);
 
@@ -470,12 +486,14 @@ export default function HomeScreen() {
     label,
     value,
     icon,
+    sub,
     percentIncrease,
     accentColor = "#16A34A",
   }: {
     label: string;
     value: string;
     icon: keyof typeof Ionicons.glyphMap;
+    sub?: string;
     percentIncrease?: number | null;
     accentColor?: string;
   }) => (
@@ -501,45 +519,10 @@ export default function HomeScreen() {
       <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-500">
         {label}
       </Text>
-    </View>
-  );
 
-  const StreakCard = ({
-    label,
-    value,
-    sub,
-    icon,
-    percentIncrease,
-    accentColor = "#16A34A",
-  }: {
-    label: string;
-    value: string;
-    sub: string;
-    icon: keyof typeof Ionicons.glyphMap;
-    percentIncrease?: number | null;
-    accentColor?: string;
-  }) => (
-    <View className="flex-1 rounded-3xl border border-gray-200 bg-white p-4">
-      <View className="flex-row items-center justify-between">
-        <View className="h-11 w-11 items-center justify-center rounded-3xl border border-gray-200 bg-white">
-          <Ionicons name={icon} size={23} color="#000000" />
-        </View>
-
-        {percentIncrease != null ? (
-          <View
-            className="rounded-full px-2 py-1"
-            style={{ backgroundColor: accentColor }}
-          >
-            <Text className="text-xs font-black text-white">
-              ↑ {percentIncrease}%
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      <Text className="mt-4 text-3xl font-black text-black">{value}</Text>
-      <Text className="mt-1 text-sm font-black text-black">{label}</Text>
-      <Text className="mt-1 text-xs font-semibold text-gray-500">{sub}</Text>
+      {sub ? (
+        <Text className="mt-1 text-xs font-semibold text-gray-500">{sub}</Text>
+      ) : null}
     </View>
   );
 
@@ -742,106 +725,80 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <View className="mt-5 flex-row gap-3">
-              <StatTile
-                accentColor={activeHabitColor}
-                label="Logs today"
-                value={`${stats.todayLogs}`}
-                icon="create"
-                percentIncrease={getPercentIncrease(
-                  stats.todayLogs,
-                  stats.previousTodayLogs,
-                )}
-              />
-
-              <StatTile
-                accentColor={activeHabitColor}
-                label="This week"
-                value={`${stats.weekLogs}`}
-                icon="calendar"
-                percentIncrease={getPercentIncrease(
-                  stats.weekLogs,
-                  stats.previousWeekLogs,
-                )}
-              />
-            </View>
-
-            <View className="mt-3 flex-row gap-3">
-              <StatTile
-                accentColor={activeHabitColor}
-                label="Resists today"
-                value={`${stats.todayResists}`}
-                icon="shield-checkmark"
-                percentIncrease={getPercentIncrease(
-                  stats.todayResists,
-                  stats.previousTodayResists,
-                )}
-              />
-
-              <StatTile
-                accentColor={activeHabitColor}
-                label="Week resists"
-                value={`${stats.weekResists}`}
-                icon="trophy"
-                percentIncrease={getPercentIncrease(
-                  stats.weekResists,
-                  stats.previousWeekResists,
-                )}
-              />
-            </View>
-
             {selectedHabitId === null ? (
-              <View className="mt-3 flex-row gap-3">
-                <StreakCard
+              <View className="mt-5 flex-row gap-3">
+                <StatTile
                   accentColor={activeHabitColor}
-                  label="Today rate"
-                  value={`${stats.todayResistRate}%`}
-                  sub="Resistance today"
-                  icon="pulse"
+                  label="Resists today"
+                  value={`${stats.todayResists}`}
+                  icon="shield-checkmark"
                   percentIncrease={getPercentIncrease(
-                    stats.todayResistRate,
-                    stats.previousTodayResistRate,
+                    stats.todayResists,
+                    stats.previousTodayResists,
                   )}
                 />
 
-                <StreakCard
+                <StatTile
                   accentColor={activeHabitColor}
-                  label="Week rate"
-                  value={`${stats.weekResistRate}%`}
-                  sub="Resistance this week"
-                  icon="ribbon"
+                  label="Logs today"
+                  value={`${stats.todayLogs}`}
+                  icon="create"
                   percentIncrease={getPercentIncrease(
-                    stats.weekResistRate,
-                    stats.previousWeekResistRate,
+                    stats.todayLogs,
+                    stats.previousTodayLogs,
                   )}
                 />
               </View>
             ) : (
-              <View className="mt-3 flex-row gap-3">
-                <StreakCard
-                  accentColor={activeHabitColor}
-                  label="Current streak"
-                  value={`${stats.daysSinceGiveIn}`}
-                  sub="Days since giving in"
-                  icon="flame"
-                  percentIncrease={getPercentIncrease(
-                    stats.daysSinceGiveIn,
-                    stats.previousDaysSinceGiveIn,
-                  )}
-                />
+              <>
+                <View className="mt-5 flex-row gap-3">
+                  <StatTile
+                    accentColor={activeHabitColor}
+                    label="Clean days"
+                    value={`${stats.cleanDaysThisWeek}`}
+                    sub="This Week"
+                    icon="sunny"
+                  />
 
-                <StreakCard
-                  accentColor={activeHabitColor}
-                  label="Best streak"
-                  value={`${stats.bestCleanStreakDays}`}
-                  sub="Your record"
-                  icon="medal"
-                  percentIncrease={getPercentIncrease(
-                    stats.bestCleanStreakDays,
-                    stats.previousBestCleanStreakDays,
-                  )}
-                />
-              </View>
+                  <StatTile
+                    accentColor={activeHabitColor}
+                    label="Streak"
+                    value={`${stats.daysSinceGiveIn}`}
+                    sub={`Best: ${stats.bestCleanStreakDays} ${
+                      stats.bestCleanStreakDays === 1 ? "day" : "days"
+                    }`}
+                    icon="flame"
+                    percentIncrease={getPercentIncrease(
+                      stats.daysSinceGiveIn,
+                      stats.previousDaysSinceGiveIn,
+                    )}
+                  />
+                </View>
+
+                <View className="mt-3 flex-row gap-3">
+                  <StatTile
+                    accentColor={activeHabitColor}
+                    label="Resists today"
+                    value={`${stats.todayResists}`}
+                    icon="shield-checkmark"
+                    percentIncrease={getPercentIncrease(
+                      stats.todayResists,
+                      stats.previousTodayResists,
+                    )}
+                  />
+
+                  <StatTile
+                    accentColor={activeHabitColor}
+                    label="Logs today"
+                    value={`${stats.todayLogs}`}
+                    icon="create"
+                    percentIncrease={getPercentIncrease(
+                      stats.todayLogs,
+                      stats.previousTodayLogs,
+                    )}
+                  />
+                </View>
+              </>
             )}
           </View>
         </>
