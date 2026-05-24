@@ -204,6 +204,15 @@ export default function HomeScreen() {
     const weekStart = startOfWeekMs(now);
     const previousWeekStart = weekStart - 7 * dayMs;
 
+    const sortedLogsForStats = [...logsForStats].sort(
+      (a, b) => a.createdAt - b.createdAt,
+    );
+
+    const firstLogDay =
+      sortedLogsForStats.length > 0
+        ? startOfDayMs(new Date(sortedLogsForStats[0].createdAt))
+        : null;
+
     const todaysLogs = logsForStats.filter(
       (l) => l.createdAt >= todayStart && l.createdAt < tomorrowStart,
     );
@@ -340,19 +349,29 @@ export default function HomeScreen() {
     const averageGiveIns =
       comparisonDays > 0 ? comparisonTotalGiveIns / comparisonDays : 0;
 
-    const weekGiveInDaySet = new Set(
-      weekLogsArr
+    const cleanDaysStart =
+      firstLogDay == null ? weekStart : Math.max(weekStart, firstLogDay);
+
+    const cleanDaysLogs = logsForStats.filter(
+      (l) => l.createdAt >= cleanDaysStart && l.createdAt < tomorrowStart,
+    );
+
+    const cleanDaysGiveInDaySet = new Set(
+      cleanDaysLogs
         .filter((l) => l.didResist !== 1)
         .map((l) => startOfDayMs(new Date(l.createdAt))),
     );
 
-    const daysSoFarThisWeek = Math.floor((todayStart - weekStart) / dayMs) + 1;
-
     let cleanDaysThisWeek = 0;
+    let daysCountedForCleanDays = 0;
 
-    for (let day = weekStart; day <= todayStart; day += dayMs) {
-      if (!weekGiveInDaySet.has(day)) {
-        cleanDaysThisWeek += 1;
+    if (firstLogDay != null) {
+      for (let day = cleanDaysStart; day <= todayStart; day += dayMs) {
+        daysCountedForCleanDays += 1;
+
+        if (!cleanDaysGiveInDaySet.has(day)) {
+          cleanDaysThisWeek += 1;
+        }
       }
     }
 
@@ -381,7 +400,7 @@ export default function HomeScreen() {
       bestCleanStreakDays,
       previousBestCleanStreakDays,
       cleanDaysThisWeek,
-      daysSoFarThisWeek,
+      daysCountedForCleanDays,
     };
   }, [logs, selectedHabitId]);
 
@@ -704,7 +723,7 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
 
-            <View className="mt-5 rounded-3xl border border-gray-200 bg-white p-4">
+            <View className="mt-5 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
               <View className="flex-row items-center">
                 <View
                   className="h-10 w-10 items-center justify-center rounded-3xl border bg-white"
