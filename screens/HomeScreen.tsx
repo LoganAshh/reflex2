@@ -399,13 +399,13 @@ export default function HomeScreen() {
           title: "You Didn’t Give In",
           text: `Excellent work! You logged ${stats.todayLogs} ${
             stats.todayLogs === 1 ? "urge" : "urges"
-          } today and did not give in once. That means today’s give-in count is 0, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
+          } today with 0 give-ins, below your usual ${averageGiveInsText} per day from ${comparisonText}.`,
         };
       }
 
       return {
         title: "You Didn’t Give In",
-        text: `Excellent work! You have not given in today. Today’s give-in count is 0, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
+        text: `Excellent work! You have 0 give-ins today, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
       };
     }
 
@@ -414,7 +414,7 @@ export default function HomeScreen() {
         title: "You Gave In Less than Usual",
         text: `Great job! You gave in ${stats.todayGiveIns} ${
           stats.todayGiveIns === 1 ? "time" : "times"
-        } today, which is below your usual ${averageGiveInsText} per day from ${comparisonText}.`,
+        } today, below your usual ${averageGiveInsText} per day from ${comparisonText}.`,
       };
     }
 
@@ -424,9 +424,9 @@ export default function HomeScreen() {
     ) {
       return {
         title: "You Resisted More than Usual",
-        text: `Strong effort! You built control today. You resisted ${stats.todayResists} ${
+        text: `Strong effort! You resisted ${stats.todayResists} ${
           stats.todayResists === 1 ? "urge" : "urges"
-        }, which is above your usual ${averageResistsText} per day from ${comparisonText}.`,
+        } today, above your usual ${averageResistsText} per day from ${comparisonText}.`,
       };
     }
 
@@ -438,27 +438,27 @@ export default function HomeScreen() {
         title: "You Were More Aware than Usual",
         text: `Good awareness! You logged ${stats.todayLogs} ${
           stats.todayLogs === 1 ? "time" : "times"
-        } today, which is above your usual ${averageLogsText} per day from ${comparisonText}.`,
+        } today, above your usual ${averageLogsText} per day from ${comparisonText}.`,
       };
     }
 
     if (stats.todayResists > 1) {
       return {
         title: "You Resisted",
-        text: `Solid progress! You resisted ${stats.todayResists} urges today. Every resist is a real interruption of the pattern.`,
+        text: `Solid progress! You resisted ${stats.todayResists} urges today. Every resist interrupts the pattern.`,
       };
     }
 
     if (stats.todayLogs > 1) {
       return {
         title: "You Were Aware",
-        text: `Nice follow-through! You checked in ${stats.todayLogs} times today. That matters because repeated logging keeps the habit visible instead of automatic.`,
+        text: `Nice follow-through! You checked in ${stats.todayLogs} times today and kept the habit visible.`,
       };
     }
 
     return {
       title: "You Stayed Engaged",
-      text: "You stayed engaged! That means you noticed the moment instead of ignoring it, which is the first step toward changing the pattern.",
+      text: "You stayed engaged! You noticed the moment instead of ignoring it.",
     };
   }, [
     stats.averageGiveIns,
