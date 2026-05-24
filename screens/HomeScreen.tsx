@@ -417,28 +417,21 @@ export default function HomeScreen() {
             } before today`
           : "your previous days";
 
-    if (stats.todayGiveIns === 0) {
-      if (stats.todayLogs > 0) {
-        return {
-          title: "You Didn’t Give In",
-          text: `Strong work. You logged ${stats.todayLogs} ${
-            stats.todayLogs === 1 ? "urge" : "urges"
-          } today and did not give in once. That means today’s give-in count is 0, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
-        };
-      }
-
+    if (stats.todayLogs > 0 && stats.todayGiveIns === 0) {
       return {
         title: "You Didn’t Give In",
-        text: `Strong work. You have not given in today. Today’s give-in count is 0, compared with your usual ${averageGiveInsText} per day from ${comparisonText}. If an urge comes up, logging it can help you keep the day intentional.`,
+        text: `Excellent work! You logged ${stats.todayLogs} ${
+          stats.todayLogs === 1 ? "urge" : "urges"
+        } today and did not give in once. That means today’s give-in count is 0, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
       };
     }
 
     if (stats.todayGiveIns > 0 && stats.todayGiveIns < stats.averageGiveIns) {
       return {
         title: "You Gave In Less than Usual",
-        text: `Good progress. You gave in ${stats.todayGiveIns} ${
+        text: `Great job! You gave in ${stats.todayGiveIns} ${
           stats.todayGiveIns === 1 ? "time" : "times"
-        } today, which is below your usual ${averageGiveInsText} per day from ${comparisonText}. Even if today was not perfect, the direction is better than your baseline.`,
+        } today, which is below your usual ${averageGiveInsText} per day from ${comparisonText}.`,
       };
     }
 
@@ -448,9 +441,9 @@ export default function HomeScreen() {
     ) {
       return {
         title: "You Resisted More than Usual",
-        text: `You still built control today. You resisted ${stats.todayResists} ${
+        text: `Strong effort! You built control today. You resisted ${stats.todayResists} ${
           stats.todayResists === 1 ? "urge" : "urges"
-        }, which is above your usual ${averageResistsText} per day from ${comparisonText}. More give-ins happened, but you also fought back more than normal.`,
+        }, which is above your usual ${averageResistsText} per day from ${comparisonText}.`,
       };
     }
 
@@ -460,36 +453,36 @@ export default function HomeScreen() {
     ) {
       return {
         title: "You Were More Aware than Usual",
-        text: `Nice awareness. You logged ${stats.todayLogs} ${
+        text: `Good awareness! You logged ${stats.todayLogs} ${
           stats.todayLogs === 1 ? "time" : "times"
-        } today, which is above your usual ${averageLogsText} per day from ${comparisonText}. Even with fewer resists than usual, catching more moments gives you better data to improve.`,
+        } today, which is above your usual ${averageLogsText} per day from ${comparisonText}.`,
       };
     }
 
     if (stats.todayResists > 1) {
       return {
         title: "You Resisted",
-        text: `Good work. You resisted ${stats.todayResists} urges today. Every resist is a real interruption of the pattern, even on a day where the other stats do not beat your usual averages.`,
+        text: `Solid progress! You resisted ${stats.todayResists} urges today. Every resist is a real interruption of the pattern.`,
       };
     }
 
     if (stats.todayLogs > 1) {
       return {
-        title: "You Showed Up",
-        text: `You checked in ${stats.todayLogs} times today. That matters because repeated logging keeps the habit visible instead of automatic, and it gives you more chances to notice what triggers the urge.`,
+        title: "You Were Aware",
+        text: `Nice follow-through! You checked in ${stats.todayLogs} times today. That matters because repeated logging keeps the habit visible instead of automatic.`,
       };
     }
 
-    if (stats.todayLogs === 0) {
+    if (stats.todayLogs > 0) {
       return {
-        title: "No Logs Today",
-        text: `Nothing has been logged yet today. Your usual baseline is ${averageLogsText} logs per day from ${comparisonText}, so one quick check-in would help keep your awareness streak alive.`,
+        title: "You Stayed Engaged",
+        text: "You showed up! That means you noticed the moment instead of ignoring it, which is the first step toward changing the pattern.",
       };
     }
 
     return {
-      title: "You Showed Up",
-      text: "You logged today. That means you noticed the moment instead of ignoring it, which is the first step toward changing the pattern.",
+      title: "No Logs Today",
+      text: `Nothing has been logged yet today. Your usual baseline is ${averageLogsText} logs per day from ${comparisonText}.`,
     };
   }, [
     stats.averageGiveIns,
