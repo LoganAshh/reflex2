@@ -497,7 +497,7 @@ export default function HomeScreen() {
 
     return {
       title: "You Stayed Engaged",
-      text: "You stayed engaged! You noticed the moment instead of ignoring it.",
+      text: "You showed up! You noticed the moment instead of ignoring it.",
     };
   }, [
     stats.averageGiveIns,
