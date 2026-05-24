@@ -35,6 +35,11 @@ function getFirstName(name: string) {
   return trimmed.split(/\s+/)[0];
 }
 
+function formatAverage(value: number) {
+  if (Number.isInteger(value)) return `${value}`;
+  return value.toFixed(1);
+}
+
 function applyFrequencyOrdering<T extends { id: number }>(
   items: T[],
   frequencyCounts: Map<number, number>,
@@ -291,11 +296,62 @@ export default function HomeScreen() {
       previousDaysSinceGiveIn,
     );
 
+    const todayGiveIns = todayLogs - todayResists;
+    const twoWeeksAgoStart = todayStart - 14 * 24 * 60 * 60 * 1000;
+
+    const firstLogBeforeToday = logsBeforeToday.reduce<number | null>(
+      (earliest, log) => {
+        const logDay = startOfDayMs(new Date(log.createdAt));
+        if (earliest == null) return logDay;
+        return Math.min(earliest, logDay);
+      },
+      null,
+    );
+
+    const hasTwoWeeksOfData =
+      firstLogBeforeToday != null && firstLogBeforeToday <= twoWeeksAgoStart;
+
+    const comparisonStart = hasTwoWeeksOfData
+      ? twoWeeksAgoStart
+      : firstLogBeforeToday;
+
+    const comparisonDays = comparisonStart
+      ? Math.max(
+          1,
+          Math.round((todayStart - comparisonStart) / (24 * 60 * 60 * 1000)),
+        )
+      : 0;
+
+    const comparisonLogs = comparisonStart
+      ? logsForStats.filter(
+          (l) => l.createdAt >= comparisonStart && l.createdAt < todayStart,
+        )
+      : [];
+
+    const comparisonTotalLogs = comparisonLogs.length;
+    const comparisonTotalResists = comparisonLogs.reduce(
+      (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
+      0,
+    );
+    const comparisonTotalGiveIns = comparisonTotalLogs - comparisonTotalResists;
+
+    const averageLogs =
+      comparisonDays > 0 ? comparisonTotalLogs / comparisonDays : 0;
+    const averageResists =
+      comparisonDays > 0 ? comparisonTotalResists / comparisonDays : 0;
+    const averageGiveIns =
+      comparisonDays > 0 ? comparisonTotalGiveIns / comparisonDays : 0;
+
     return {
       todayLogs,
       weekLogs,
       todayResists,
       weekResists,
+      todayGiveIns,
+      averageLogs,
+      averageResists,
+      averageGiveIns,
+      comparisonDays,
       previousTodayLogs,
       previousWeekLogs,
       previousTodayResists,
@@ -313,36 +369,95 @@ export default function HomeScreen() {
     };
   }, [logs, selectedHabitId]);
 
-  const positiveFeedbackTitle = useMemo(() => {
-    if (stats.todayLogs === 0) return "What you’re doing well";
-    if (stats.todayResists > 0) return "You’re building control";
-    if (stats.weekResists > 0) return "You’re staying aware";
-    return "You’re showing up";
-  }, [stats.todayLogs, stats.todayResists, stats.weekResists]);
+  const positiveFeedback = useMemo(() => {
+    const averageGiveInsText = formatAverage(stats.averageGiveIns);
+    const averageResistsText = formatAverage(stats.averageResists);
+    const averageLogsText = formatAverage(stats.averageLogs);
+    const comparisonText =
+      stats.comparisonDays >= 14
+        ? "the past 2 weeks"
+        : stats.comparisonDays > 0
+          ? `${stats.comparisonDays} ${
+              stats.comparisonDays === 1 ? "day" : "days"
+            } before today`
+          : "your previous days";
 
-  const positiveFeedbackText = useMemo(() => {
-    if (stats.todayLogs === 0 && stats.weekLogs === 0) {
-      return "Nice work! You’re here and checking your progress. That already means you’re paying attention instead of ignoring the habit.";
+    if (stats.todayGiveIns === 0) {
+      if (stats.todayLogs > 0) {
+        return {
+          title: "You Didn’t Give In",
+          text: `Strong work. You logged ${stats.todayLogs} ${
+            stats.todayLogs === 1 ? "urge" : "urges"
+          } today and did not give in once. That means today’s give-in count is 0, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
+        };
+      }
+
+      return {
+        title: "You Didn’t Give In",
+        text: `Strong work. You have not given in today. Today’s give-in count is 0, compared with your usual ${averageGiveInsText} per day from ${comparisonText}. If an urge comes up, logging it can help you keep the day intentional.`,
+      };
+    }
+
+    if (stats.todayGiveIns > 0 && stats.todayGiveIns < stats.averageGiveIns) {
+      return {
+        title: "You Gave In Less than Usual",
+        text: `Good progress. You gave in ${stats.todayGiveIns} ${
+          stats.todayGiveIns === 1 ? "time" : "times"
+        } today, which is below your usual ${averageGiveInsText} per day from ${comparisonText}. Even if today was not perfect, the direction is better than your baseline.`,
+      };
+    }
+
+    if (
+      stats.todayGiveIns > stats.averageGiveIns &&
+      stats.todayResists > stats.averageResists
+    ) {
+      return {
+        title: "You Resisted More than Usual",
+        text: `You still built control today. You resisted ${stats.todayResists} ${
+          stats.todayResists === 1 ? "urge" : "urges"
+        }, which is above your usual ${averageResistsText} per day from ${comparisonText}. More give-ins happened, but you also fought back more than normal.`,
+      };
+    }
+
+    if (
+      stats.todayResists < stats.averageResists &&
+      stats.todayLogs > stats.averageLogs
+    ) {
+      return {
+        title: "You Were More Aware than Usual",
+        text: `Nice awareness. You logged ${stats.todayLogs} ${
+          stats.todayLogs === 1 ? "time" : "times"
+        } today, which is above your usual ${averageLogsText} per day from ${comparisonText}. Even with fewer resists than usual, catching more moments gives you better data to improve.`,
+      };
+    }
+
+    if (stats.todayLogs > 1) {
+      return {
+        title: "You Showed Up",
+        text: `You checked in ${stats.todayLogs} times today. That matters because repeated logging keeps the habit visible instead of automatic, and it gives you more chances to notice what triggers the urge.`,
+      };
     }
 
     if (stats.todayLogs === 0) {
-      return "Good job! You’ve logged this week, which means you’re building awareness. One quick check-in today keeps that pattern going.";
+      return {
+        title: "No Logs Today",
+        text: `Nothing has been logged yet today. Your usual baseline is ${averageLogsText} logs per day from ${comparisonText}, so one quick check-in would help keep your awareness streak alive.`,
+      };
     }
 
-    if (stats.todayResists > 0) {
-      return `Great job! You resisted ${stats.todayResists} ${
-        stats.todayResists === 1 ? "urge" : "urges"
-      } today. That means you paused, noticed the urge, and chose not to automatically give in.`;
-    }
-
-    if (stats.weekResists > 0) {
-      return `Keep going! You’ve resisted ${stats.weekResists} ${
-        stats.weekResists === 1 ? "urge" : "urges"
-      } this week. Even when today is hard, you’ve already proven you can interrupt the pattern.`;
-    }
-
-    return "Nice work! You checked in today. That means you caught the moment and recorded it instead of letting it pass unnoticed.";
-  }, [stats.todayLogs, stats.todayResists, stats.weekLogs, stats.weekResists]);
+    return {
+      title: "You Showed Up",
+      text: "You logged today. That means you noticed the moment instead of ignoring it, which is the first step toward changing the pattern.",
+    };
+  }, [
+    stats.averageGiveIns,
+    stats.averageLogs,
+    stats.averageResists,
+    stats.comparisonDays,
+    stats.todayGiveIns,
+    stats.todayLogs,
+    stats.todayResists,
+  ]);
 
   const StatTile = ({
     label,
@@ -610,11 +725,11 @@ export default function HomeScreen() {
 
                 <View className="ml-3 flex-1">
                   <Text className="text-sm font-black text-black">
-                    {positiveFeedbackTitle}
+                    {positiveFeedback.title}
                   </Text>
 
                   <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
-                    {positiveFeedbackText}
+                    {positiveFeedback.text}
                   </Text>
                 </View>
               </View>
