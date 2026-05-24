@@ -714,29 +714,55 @@ export default function HomeScreen() {
             </View>
 
             {selectedHabitId === null ? (
-              <View className="mt-5 flex-row gap-3">
-                <StatTile
-                  accentColor={activeHabitColor}
-                  label="Resists today"
-                  value={`${stats.todayResists}`}
-                  icon="shield-checkmark"
-                  percentIncrease={getPercentIncrease(
-                    stats.todayResists,
-                    stats.previousTodayResists,
-                  )}
-                />
+              <>
+                <View className="mt-5 flex-row gap-3">
+                  <StatTile
+                    accentColor={activeHabitColor}
+                    label="Resists today"
+                    value={`${stats.todayResists}`}
+                    icon="shield-checkmark"
+                    percentIncrease={getPercentIncrease(
+                      stats.todayResists,
+                      stats.previousTodayResists,
+                    )}
+                  />
 
-                <StatTile
-                  accentColor={activeHabitColor}
-                  label="Logs today"
-                  value={`${stats.todayLogs}`}
-                  icon="create"
-                  percentIncrease={getPercentIncrease(
-                    stats.todayLogs,
-                    stats.previousTodayLogs,
-                  )}
-                />
-              </View>
+                  <StatTile
+                    accentColor={activeHabitColor}
+                    label="Logs today"
+                    value={`${stats.todayLogs}`}
+                    icon="create"
+                    percentIncrease={getPercentIncrease(
+                      stats.todayLogs,
+                      stats.previousTodayLogs,
+                    )}
+                  />
+                </View>
+
+                <View className="mt-3 flex-row gap-3">
+                  <StatTile
+                    accentColor={activeHabitColor}
+                    label="Resists this week"
+                    value={`${stats.weekResists}`}
+                    icon="trophy"
+                    percentIncrease={getPercentIncrease(
+                      stats.weekResists,
+                      stats.previousWeekResists,
+                    )}
+                  />
+
+                  <StatTile
+                    accentColor={activeHabitColor}
+                    label="Logs this week"
+                    value={`${stats.weekLogs}`}
+                    icon="calendar"
+                    percentIncrease={getPercentIncrease(
+                      stats.weekLogs,
+                      stats.previousWeekLogs,
+                    )}
+                  />
+                </View>
+              </>
             ) : (
               <>
                 <View className="mt-5 flex-row gap-3">
