@@ -158,6 +158,31 @@ function getAverageCleanStreakDays(
   return streaks.reduce((acc, value) => acc + value, 0) / streaks.length;
 }
 
+function getCleanDaysCount(
+  logs: { createdAt: number; didResist: number }[],
+  startDayMs: number | null,
+  endDayMs: number,
+) {
+  if (startDayMs == null || startDayMs >= endDayMs) return 0;
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const giveInDaySet = new Set(
+    logs
+      .filter((l) => l.didResist !== 1)
+      .map((l) => startOfDayMs(new Date(l.createdAt))),
+  );
+
+  let cleanDays = 0;
+
+  for (let day = startDayMs; day < endDayMs; day += dayMs) {
+    if (!giveInDaySet.has(day)) {
+      cleanDays += 1;
+    }
+  }
+
+  return cleanDays;
+}
+
 type Nav = BottomTabNavigationProp<RootTabParamList, "Home">;
 type HomeRoute = RouteProp<RootTabParamList, "Home">;
 
@@ -281,23 +306,10 @@ export default function HomeScreen() {
 
     const daysSinceGiveIn = getDaysSinceGiveIn(logsForStats, todayStart);
 
-    const previousDaysSinceGiveIn = getDaysSinceGiveIn(
-      logsBeforeToday,
-      todayStart - dayMs,
-    );
-
     const historicalBestCleanStreakDays = getBestCleanStreakDays(logsForStats);
-    const previousHistoricalBestCleanStreakDays =
-      getBestCleanStreakDays(logsBeforeToday);
-
     const bestCleanStreakDays = Math.max(
       historicalBestCleanStreakDays,
       daysSinceGiveIn,
-    );
-
-    const previousBestCleanStreakDays = Math.max(
-      previousHistoricalBestCleanStreakDays,
-      previousDaysSinceGiveIn,
     );
 
     const todayGiveIns = todayLogs - todayResists;
@@ -364,14 +376,26 @@ export default function HomeScreen() {
     );
 
     let cleanDaysThisWeek = 0;
+    let daysCountedForCleanDays = 0;
 
     if (firstLogDay != null) {
       for (let day = cleanDaysStart; day <= todayStart; day += dayMs) {
+        daysCountedForCleanDays += 1;
+
         if (!cleanDaysGiveInDaySet.has(day)) {
           cleanDaysThisWeek += 1;
         }
       }
     }
+
+    const comparisonCleanDays = getCleanDaysCount(
+      comparisonLogs,
+      comparisonStart,
+      todayStart,
+    );
+    const averageCleanDays =
+      comparisonDays > 0 ? comparisonCleanDays / comparisonDays : 0;
+    const averageCleanDaysThisWeek = averageCleanDays * daysCountedForCleanDays;
 
     return {
       todayLogs,
@@ -385,12 +409,12 @@ export default function HomeScreen() {
       averageWeekToDateLogs,
       averageWeekToDateResists,
       averageCleanStreakDays,
+      averageCleanDaysThisWeek,
       comparisonDays,
       weekResistRate,
       todayResistRate,
       daysSinceGiveIn,
       bestCleanStreakDays,
-      previousBestCleanStreakDays,
       cleanDaysThisWeek,
     };
   }, [logs, selectedHabitId]);
@@ -789,6 +813,10 @@ export default function HomeScreen() {
                     value={`${stats.cleanDaysThisWeek}`}
                     sub="This Week"
                     icon="sunny"
+                    percentIncrease={getPercentIncrease(
+                      stats.cleanDaysThisWeek,
+                      stats.averageCleanDaysThisWeek,
+                    )}
                   />
 
                   <StatTile
