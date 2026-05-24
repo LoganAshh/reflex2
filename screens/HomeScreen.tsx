@@ -431,6 +431,13 @@ export default function HomeScreen() {
       };
     }
 
+    if (stats.todayResists > 1) {
+      return {
+        title: "You Resisted",
+        text: `Good work. You resisted ${stats.todayResists} urges today. Every resist is a real interruption of the pattern, even on a day where the other stats do not beat your usual averages.`,
+      };
+    }
+
     if (stats.todayLogs > 1) {
       return {
         title: "You Showed Up",
