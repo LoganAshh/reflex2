@@ -809,6 +809,30 @@ export default function HomeScreen() {
                 <View className="mt-4 flex-row gap-3">
                   <StatTile
                     accentColor={activeHabitColor}
+                    label="Resists today"
+                    value={`${stats.todayResists}`}
+                    icon="shield-checkmark"
+                    percentIncrease={getPercentIncrease(
+                      stats.todayResists,
+                      stats.averageResists,
+                    )}
+                  />
+
+                  <StatTile
+                    accentColor={activeHabitColor}
+                    label="Logs today"
+                    value={`${stats.todayLogs}`}
+                    icon="create"
+                    percentIncrease={getPercentIncrease(
+                      stats.todayLogs,
+                      stats.averageLogs,
+                    )}
+                  />
+                </View>
+
+                <View className="mt-3 flex-row gap-3">
+                  <StatTile
+                    accentColor={activeHabitColor}
                     label="Clean days"
                     value={`${stats.cleanDaysThisWeek}`}
                     sub="This Week"
@@ -830,30 +854,6 @@ export default function HomeScreen() {
                     percentIncrease={getPercentIncrease(
                       stats.daysSinceGiveIn,
                       stats.averageCleanStreakDays,
-                    )}
-                  />
-                </View>
-
-                <View className="mt-3 flex-row gap-3">
-                  <StatTile
-                    accentColor={activeHabitColor}
-                    label="Resists today"
-                    value={`${stats.todayResists}`}
-                    icon="shield-checkmark"
-                    percentIncrease={getPercentIncrease(
-                      stats.todayResists,
-                      stats.averageResists,
-                    )}
-                  />
-
-                  <StatTile
-                    accentColor={activeHabitColor}
-                    label="Logs today"
-                    value={`${stats.todayLogs}`}
-                    icon="create"
-                    percentIncrease={getPercentIncrease(
-                      stats.todayLogs,
-                      stats.averageLogs,
                     )}
                   />
                 </View>
