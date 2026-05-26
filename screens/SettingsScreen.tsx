@@ -490,7 +490,12 @@ export default function SettingsScreen() {
             Settings
           </Text>
 
-          <Text className="mt-1 text-3xl font-black text-black">
+          <Text
+            className="mt-1 text-3xl font-black leading-9 text-black"
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+          >
             Your Reflex
           </Text>
         </View>
@@ -517,7 +522,12 @@ export default function SettingsScreen() {
           )}
 
           <View className="ml-4 flex-1">
-            <Text className="text-xl font-black text-black">
+            <Text
+              className="text-xl font-black leading-6 text-black"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
+            >
               {profileName || "No username"}
             </Text>
 
