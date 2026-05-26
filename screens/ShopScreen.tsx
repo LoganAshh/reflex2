@@ -29,12 +29,6 @@ const PRESET_CATEGORIES = [
   "Other",
 ] as const;
 
-const STARTER_ACTION_TITLES = [
-  "Take 10 deep breaths",
-  "Go for a 5-min walk",
-  "Put your phone in another room for 10 minutes",
-] as const;
-
 type PresetCategory = (typeof PRESET_CATEGORIES)[number];
 type Filter = typeof SELECTED | typeof ALL | typeof CUSTOM | PresetCategory;
 type ShopRoute =
@@ -133,7 +127,6 @@ export default function ShopScreen() {
   const filterScrollRef = useRef<ScrollView | null>(null);
   const filterScrollOffsetRef = useRef(0);
   const handledResetTokenRef = useRef<number | null>(null);
-
   const didSetInitialFilter = useRef(false);
 
   useEffect(() => {
@@ -174,16 +167,6 @@ export default function ShopScreen() {
       .map((id) => map.get(id))
       .filter(Boolean) as ReplacementAction[];
   }, [actions, selectedActionIds]);
-
-  const starterActions = useMemo(() => {
-    const actionsByTitle = new Map(
-      actions.map((action) => [action.title.trim().toLowerCase(), action]),
-    );
-
-    return STARTER_ACTION_TITLES.map((title) =>
-      actionsByTitle.get(title.toLowerCase()),
-    ).filter(Boolean) as ReplacementAction[];
-  }, [actions]);
 
   const allInterleaved = useMemo(() => interleaveAll(actions), [actions]);
 
@@ -496,90 +479,10 @@ export default function ShopScreen() {
     );
   };
 
-  const StarterActionCard = ({ item }: { item: ReplacementAction }) => {
-    const isSelected = selectedActionIds.includes(item.id);
-
-    return (
-      <Pressable
-        onPress={() => onToggleSelected(item.id)}
-        className="mt-3 rounded-3xl border border-gray-200 bg-white p-4"
-      >
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 flex-row items-center pr-3">
-            <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name={getActionIcon(item)} size={22} color="#000000" />
-            </View>
-
-            <View className="ml-3 flex-1">
-              <Text className="text-sm font-black text-black">
-                {item.title}
-              </Text>
-
-              <Text className="mt-0.5 text-xs font-bold uppercase tracking-wide text-gray-500">
-                Recommended starter
-              </Text>
-            </View>
-          </View>
-
-          <View
-            className={`rounded-2xl border px-4 py-2.5 ${
-              isSelected
-                ? "border-gray-300 bg-white"
-                : "border-green-600 bg-green-600"
-            }`}
-          >
-            <Text
-              className={`font-black ${
-                isSelected ? "text-black" : "text-white"
-              }`}
-            >
-              {isSelected ? "Selected" : "Select"}
-            </Text>
-          </View>
-        </View>
-      </Pressable>
-    );
-  };
-
   const EmptyState = () => {
-    const showSelectedStarterState =
-      !searchText.trim() &&
-      filter === SELECTED &&
-      selectedActionIds.length === 0;
-
-    if (showSelectedStarterState) {
-      return (
-        <View className="mt-4 rounded-3xl border border-gray-200 bg-gray-50 p-5 shadow-sm">
-          <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
-            <Ionicons name="checkmark-circle" size={24} color="#000000" />
-          </View>
-
-          <Text className="mt-4 text-lg font-black text-black">
-            Pick your first 3
-          </Text>
-
-          <Text className="mt-2 text-sm leading-5 text-gray-500">
-            Pick 3 replacement actions you would actually do when an urge hits.
-          </Text>
-
-          {starterActions.length > 0 ? (
-            <View className="mt-1">
-              {starterActions.map((action) => (
-                <StarterActionCard key={action.id} item={action} />
-              ))}
-            </View>
-          ) : (
-            <Text className="mt-4 text-sm leading-5 text-gray-500">
-              Go to All and select a few easy actions to build your backup list.
-            </Text>
-          )}
-        </View>
-      );
-    }
-
     return (
-      <View className="mt-4 rounded-3xl border border-gray-200 bg-gray-50 p-5 shadow-sm">
-        <View className="h-12 w-12 items-center justify-center rounded-3xl border border-gray-200 bg-white">
+      <View className="mt-4 rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+        <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
           <Ionicons name="leaf" size={24} color="#000000" />
         </View>
 
@@ -591,9 +494,9 @@ export default function ShopScreen() {
           {searchText.trim()
             ? "No actions match your search."
             : filter === SELECTED
-              ? "No selected actions yet. Choose a few easy actions from All."
+              ? "Select actions from All or Custom to see them here."
               : filter === CUSTOM
-                ? "No custom actions yet. Add one above."
+                ? "Add your first custom action above."
                 : "No actions in this category yet."}
         </Text>
       </View>
