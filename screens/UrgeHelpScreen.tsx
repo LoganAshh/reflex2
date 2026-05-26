@@ -453,9 +453,12 @@ export default function UrgeHelpScreen() {
         {shouldShowQuickActionFallback ? (
           <>
             <View className="mt-3 rounded-[20px] border border-gray-200 bg-white p-3">
-              <Text className="text-xs font-semibold leading-4 text-gray-500">
-                No selected actions yet. Choose one of the 3 recommended actions
-                below, or go to Shop for more options.
+              <Text className="text-sm font-black text-black">
+                No selected actions yet.
+              </Text>
+
+              <Text className="mt-2 text-xs font-black uppercase tracking-wide text-gray-500">
+                Recommended:
               </Text>
             </View>
 
