@@ -593,6 +593,7 @@ export default function HomeScreen() {
         paddingHorizontal: 20,
         paddingTop: 42,
         paddingBottom: 28,
+        flexGrow: 1,
       }}
     >
       <View className="flex-row items-center justify-between">
@@ -624,50 +625,52 @@ export default function HomeScreen() {
       </View>
 
       {isBrandNew ? (
-        <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
-          <View className="items-center">
-            <View className="h-16 w-16 items-center justify-center rounded-full border border-gray-200 bg-white">
-              <Ionicons name="create" size={30} color="#000000" />
+        <View className="flex-1 justify-center">
+          <View className="rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+            <View className="items-center">
+              <View className="h-16 w-16 items-center justify-center rounded-full border border-gray-200 bg-white">
+                <Ionicons name="create" size={30} color="#000000" />
+              </View>
+
+              <Text className="mt-5 text-center text-2xl font-black text-black">
+                No logs yet.
+              </Text>
+
+              <Text className="mt-2 text-center text-base font-bold leading-6 text-gray-500">
+                Every time you get the urge to do the habit, log it here. Start
+                by logging one urge.
+              </Text>
+
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                  navigation.navigate("Log");
+                }}
+                className="mt-6 w-full rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+              >
+                <View className="flex-row items-center justify-center">
+                  <Ionicons name="add-circle" size={22} color="#FFFFFF" />
+                  <Text className="ml-2 text-center text-base font-black text-white">
+                    Log your first urge
+                  </Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("Shop");
+                }}
+                className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+              >
+                <View className="flex-row items-center justify-center">
+                  <Ionicons name="bag-handle" size={22} color="#000000" />
+                  <Text className="ml-2 text-center text-base font-black text-black">
+                    Pick backup actions
+                  </Text>
+                </View>
+              </Pressable>
             </View>
-
-            <Text className="mt-5 text-center text-2xl font-black text-black">
-              No logs yet.
-            </Text>
-
-            <Text className="mt-2 text-center text-base font-bold leading-6 text-gray-500">
-              Every time you get the urge to do the habit, log it here. Start by
-              logging one urge.
-            </Text>
-
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                navigation.navigate("Log");
-              }}
-              className="mt-6 w-full rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
-            >
-              <View className="flex-row items-center justify-center">
-                <Ionicons name="add-circle" size={22} color="#FFFFFF" />
-                <Text className="ml-2 text-center text-base font-black text-white">
-                  Log your first urge
-                </Text>
-              </View>
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Shop");
-              }}
-              className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
-            >
-              <View className="flex-row items-center justify-center">
-                <Ionicons name="bag-handle" size={22} color="#000000" />
-                <Text className="ml-2 text-center text-base font-black text-black">
-                  Pick backup actions
-                </Text>
-              </View>
-            </Pressable>
           </View>
         </View>
       ) : (
