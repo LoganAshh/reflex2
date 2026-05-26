@@ -227,15 +227,27 @@ export default function UrgeHelpScreen() {
     [logs, logId],
   );
 
+  const selectedActionTitle = useMemo(() => {
+    if (selectedActionId == null) return null;
+
+    return (
+      actions.find((action) => action.id === selectedActionId)?.title ??
+      currentLog?.selectedActionTitle ??
+      null
+    );
+  }, [actions, currentLog?.selectedActionTitle, selectedActionId]);
+
   const hasSelectedActionsOverflow =
     selectedActionsContentHeight > SELECTED_ACTION_BOX_MAX_HEIGHT + 4;
 
   useEffect(() => {
     const nextSelectedActionId = currentLog?.selectedActionId ?? null;
 
-    setSelectedActionId(nextSelectedActionId);
+    if (!savingAction) {
+      setSelectedActionId(nextSelectedActionId);
+    }
 
-    if (nextSelectedActionId == null) {
+    if (nextSelectedActionId == null && !savingAction) {
       setPendingQuickActionId(null);
       return;
     }
@@ -243,7 +255,8 @@ export default function UrgeHelpScreen() {
     if (
       keepQuickActionFallbackOpen &&
       pendingQuickActionId != null &&
-      nextSelectedActionId !== pendingQuickActionId
+      nextSelectedActionId !== pendingQuickActionId &&
+      !savingAction
     ) {
       setPendingQuickActionId(null);
       setKeepQuickActionFallbackOpen(false);
@@ -252,6 +265,7 @@ export default function UrgeHelpScreen() {
     currentLog?.selectedActionId,
     keepQuickActionFallbackOpen,
     pendingQuickActionId,
+    savingAction,
   ]);
 
   useLayoutEffect(() => {
@@ -324,13 +338,19 @@ export default function UrgeHelpScreen() {
   const iconSize = isReplacementActionStep ? 44 : 54;
 
   const onChooseAction = async (actionId: number | null) => {
+    const previousActionId = selectedActionId;
+
+    setSelectedActionId(actionId);
+    setPendingQuickActionId(null);
+    setKeepQuickActionFallbackOpen(false);
+    setSavingAction(true);
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+
     try {
-      setSavingAction(true);
-      setPendingQuickActionId(null);
-      setKeepQuickActionFallbackOpen(false);
       await updateLogSelectedAction(logId, actionId);
-      setSelectedActionId(actionId);
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {
+      setSelectedActionId(previousActionId);
     } finally {
       setSavingAction(false);
     }
@@ -339,21 +359,25 @@ export default function UrgeHelpScreen() {
   const onChooseQuickAction = async (actionId: number | null) => {
     if (actionId == null) return;
 
+    const previousActionId = selectedActionId;
+    const nextActionId = selectedActionId === actionId ? null : actionId;
+
+    setSelectedActionId(nextActionId);
+    setKeepQuickActionFallbackOpen(true);
+    setPendingQuickActionId(nextActionId);
+    setSavingAction(true);
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+
     try {
-      setSavingAction(true);
-      setKeepQuickActionFallbackOpen(true);
-
-      if (selectedActionId === actionId) {
-        await updateLogSelectedAction(logId, null);
-        setSelectedActionId(null);
-        setPendingQuickActionId(null);
-      } else {
-        await updateLogSelectedAction(logId, actionId);
-        setSelectedActionId(actionId);
-        setPendingQuickActionId(actionId);
-      }
-
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await updateLogSelectedAction(logId, nextActionId);
+    } catch {
+      setSelectedActionId(previousActionId);
+      setPendingQuickActionId(
+        quickActionIds.includes(previousActionId ?? -1)
+          ? previousActionId
+          : null,
+      );
     } finally {
       setSavingAction(false);
     }
@@ -444,7 +468,7 @@ export default function UrgeHelpScreen() {
                   <Pressable
                     key={quickAction.title}
                     onPress={() => onChooseQuickAction(quickAction.actionId)}
-                    disabled={savingAction || !canSelect}
+                    disabled={!canSelect}
                     className={`mb-2 rounded-3xl border p-3 ${
                       isSelected
                         ? "border-green-600 bg-green-600"
@@ -590,8 +614,7 @@ export default function UrgeHelpScreen() {
           </Text>
 
           <Text className="mt-0.5 text-sm font-black text-black">
-            {currentLog?.selectedActionTitle ??
-              "No replacement action selected"}
+            {selectedActionTitle ?? "No replacement action selected"}
           </Text>
         </View>
       </View>
