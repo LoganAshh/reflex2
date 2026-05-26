@@ -241,6 +241,12 @@ export default function UrgeHelpScreen() {
     selectedActionsContentHeight > SELECTED_ACTION_BOX_MAX_HEIGHT + 4;
 
   useEffect(() => {
+    if (selectedActions.length > 0) {
+      setKeepQuickActionFallbackOpen(false);
+    }
+  }, [selectedActions.length]);
+
+  useEffect(() => {
     const nextSelectedActionId = currentLog?.selectedActionId ?? null;
 
     if (!savingAction) {
@@ -320,8 +326,8 @@ export default function UrgeHelpScreen() {
     currentStep.title === "Do a Replacement Action";
 
   const shouldShowQuickActionFallback =
-    (!hasSelectedActions && quickActionIds.length > 0) ||
-    keepQuickActionFallbackOpen;
+    !hasSelectedActions &&
+    (quickActionIds.length > 0 || keepQuickActionFallbackOpen);
 
   const titleClassName = isReplacementActionStep
     ? "mt-5 text-center text-[25px] font-black leading-[30px] text-black"
