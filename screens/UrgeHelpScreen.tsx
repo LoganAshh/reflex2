@@ -171,6 +171,7 @@ export default function UrgeHelpScreen() {
   const [selectedActionsContentHeight, setSelectedActionsContentHeight] =
     useState(0);
   const allowExitRef = useRef(false);
+  const previousSelectedActionIdsRef = useRef<number[]>(selectedActionIds);
 
   const quickActions = useMemo(() => {
     const normalize = (value: string) =>
@@ -362,6 +363,23 @@ export default function UrgeHelpScreen() {
     }
   };
 
+  useEffect(() => {
+    const previousIds = previousSelectedActionIdsRef.current;
+    const addedIds = selectedActionIds.filter(
+      (id) => !previousIds.includes(id),
+    );
+    previousSelectedActionIdsRef.current = selectedActionIds;
+
+    if (addedIds.length === 0) return;
+    if (currentStep.kind !== "action") return;
+
+    const mostRecentAddedActionId = addedIds[addedIds.length - 1];
+
+    if (selectedActionId === mostRecentAddedActionId) return;
+
+    onChooseAction(mostRecentAddedActionId);
+  }, [selectedActionIds, currentStep.kind, selectedActionId]);
+
   const onChooseQuickAction = async (actionId: number | null) => {
     if (actionId == null) return;
 
@@ -407,6 +425,7 @@ export default function UrgeHelpScreen() {
 
   const goToShop = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    previousSelectedActionIdsRef.current = selectedActionIds;
     navigation.navigate("ShopPicker", { showDoneButton: true });
   };
 
