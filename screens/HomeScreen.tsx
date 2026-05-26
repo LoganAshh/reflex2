@@ -602,7 +602,12 @@ export default function HomeScreen() {
             Reflex
           </Text>
 
-          <Text className="mt-1 text-3xl font-black text-black">
+          <Text
+            className="mt-1 text-3xl font-black leading-9 text-black"
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+          >
             {isBrandNew
               ? `Welcome, ${displayName}`
               : `Welcome back, ${displayName}`}
