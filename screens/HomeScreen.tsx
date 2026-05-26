@@ -653,6 +653,21 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </Pressable>
+
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("Shop");
+              }}
+              className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+            >
+              <View className="flex-row items-center justify-center">
+                <Ionicons name="bag-handle" size={22} color="#000000" />
+                <Text className="ml-2 text-center text-base font-black text-black">
+                  Pick backup actions
+                </Text>
+              </View>
+            </Pressable>
           </View>
         </View>
       ) : (
