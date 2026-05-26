@@ -9,8 +9,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { RootTabParamList } from "../App";
 import { useData, type LogEntry } from "../data/DataContext";
 import {
@@ -166,6 +167,7 @@ async function successHaptic() {
 
 type TabKey = "Overall" | string;
 type AnalyticsRoute = RouteProp<RootTabParamList, "Analytics">;
+type Nav = BottomTabNavigationProp<RootTabParamList, "Analytics">;
 type BaseItem = { id: number; name: string };
 
 function StatCard({
@@ -289,6 +291,7 @@ function ListBlock({
 
 export default function AnalyticsScreen() {
   const route = useRoute<AnalyticsRoute>();
+  const navigation = useNavigation<Nav>();
   const {
     logs,
     habits,
@@ -831,6 +834,116 @@ export default function AnalyticsScreen() {
       ? BRAND_GREEN
       : (habits.find((habit) => habit.name === activeTab)?.color ??
         BRAND_GREEN);
+
+  if (!hasAnyLogs) {
+    return (
+      <ScrollView
+        ref={scrollViewRef}
+        className="flex-1 bg-white"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 30,
+          paddingBottom: 28,
+          flexGrow: 1,
+        }}
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 pr-4">
+            <Text
+              className="text-xs font-black uppercase tracking-widest"
+              style={{ color: BRAND_GREEN }}
+            >
+              Analytics
+            </Text>
+
+            <Text className="mt-0.5 text-2xl font-black text-black">
+              Pattern map
+            </Text>
+          </View>
+
+          <View
+            className="h-12 w-12 items-center justify-center rounded-full border-4 bg-white shadow-sm"
+            style={{ borderColor: BRAND_GREEN }}
+          >
+            <Ionicons name="stats-chart" size={23} color="#000000" />
+          </View>
+        </View>
+
+        <View className="mt-6 flex-1 justify-center rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+          <View className="items-center">
+            <View
+              className="h-16 w-16 items-center justify-center rounded-full border bg-white"
+              style={{ borderColor: ICON_BUBBLE_BORDER }}
+            >
+              <Ionicons name="analytics" size={31} color={BRAND_GREEN} />
+            </View>
+
+            <Text className="mt-5 text-center text-2xl font-black text-black">
+              No analytics yet
+            </Text>
+
+            <Text className="mt-2 text-center text-base font-bold leading-6 text-gray-500">
+              Once you log your first urge, this page will show your calendar,
+              patterns, triggers, and progress.
+            </Text>
+
+            <View className="mt-5 w-full rounded-3xl border border-gray-200 bg-white p-4">
+              <View className="flex-row items-center">
+                <View
+                  className="h-10 w-10 items-center justify-center rounded-2xl border bg-white"
+                  style={{ borderColor: ICON_BUBBLE_BORDER }}
+                >
+                  <Ionicons name="bulb" size={21} color={BRAND_GREEN} />
+                </View>
+
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-black text-black">
+                    Start simple
+                  </Text>
+
+                  <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
+                    Log one moment when you notice the urge. The patterns will
+                    build from there.
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                navigation.navigate("Log");
+              }}
+              className="mt-6 w-full rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+            >
+              <View className="flex-row items-center justify-center">
+                <Ionicons name="add-circle" size={22} color="#FFFFFF" />
+                <Text className="ml-2 text-center text-base font-black text-white">
+                  Log your first urge
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("Shop");
+              }}
+              className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+            >
+              <View className="flex-row items-center justify-center">
+                <Ionicons name="bag-handle" size={22} color="#000000" />
+                <Text className="ml-2 text-center text-base font-black text-black">
+                  Pick backup actions
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
     <>
