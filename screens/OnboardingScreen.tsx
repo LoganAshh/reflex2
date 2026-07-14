@@ -482,10 +482,17 @@ export default function OnboardingScreen() {
       return;
     }
 
-    await setSelectedHabits(habitIds);
-    await setSelectedCues(cueIds);
-    await setSelectedLocations(locationIds);
-    await completeOnboarding();
+    try {
+      await setSelectedHabits(habitIds);
+      await setSelectedCues(cueIds);
+      await setSelectedLocations(locationIds);
+      await completeOnboarding();
+    } catch (error) {
+      Alert.alert(
+        "Could not finish setup",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    }
   };
 
   const ProgressBar = () => {

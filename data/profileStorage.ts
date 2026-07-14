@@ -170,9 +170,7 @@ async function loadBoolean(key: string): Promise<boolean> {
 }
 
 async function saveBoolean(key: string, value: boolean): Promise<void> {
-  try {
-    await SecureStore.setItemAsync(key, value ? "true" : "false");
-  } catch {}
+  await SecureStore.setItemAsync(key, value ? "true" : "false");
 }
 
 async function loadString(key: string): Promise<string> {
@@ -184,9 +182,7 @@ async function loadString(key: string): Promise<string> {
 }
 
 async function saveString(key: string, value: string): Promise<void> {
-  try {
-    await SecureStore.setItemAsync(key, value);
-  } catch {}
+  await SecureStore.setItemAsync(key, value);
 }
 
 export async function loadOnboardedFlag(): Promise<boolean> {
