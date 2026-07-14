@@ -376,6 +376,10 @@ async function resetDbForDev() {
 
 export function DataProvider({ children }: DataProviderProps) {
   const [initializing, setInitializing] = useState(true);
+  const [initializationError, setInitializationError] = useState<string | null>(
+    null,
+  );
+  const [initializationAttempt, setInitializationAttempt] = useState(0);
 
   const [profileName, setProfileName] = useState("");
   const [profilePhotoUri, setProfilePhotoUri] = useState<string | null>(null);
@@ -431,6 +435,7 @@ export function DataProvider({ children }: DataProviderProps) {
 
     const bootstrap = async () => {
       try {
+        setInitializationError(null);
         await initDb();
         await seedDefaultHabitsIfEmpty();
         await seedDefaultCuesIfEmpty();
@@ -472,6 +477,11 @@ export function DataProvider({ children }: DataProviderProps) {
         await refresh();
       } catch (error) {
         console.error("Failed to initialize local database:", error);
+        if (mounted) {
+          setInitializationError(
+            "Reflex couldn't load your saved data. Your data has not been reset.",
+          );
+        }
       } finally {
         if (mounted) {
           setInitializing(false);
@@ -484,7 +494,13 @@ export function DataProvider({ children }: DataProviderProps) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [initializationAttempt]);
+
+  const retryInitialization = () => {
+    setInitializing(true);
+    setInitializationError(null);
+    setInitializationAttempt((attempt) => attempt + 1);
+  };
 
   const completeOnboarding = async () => {
     await saveOnboardedFlag(true);
@@ -1284,6 +1300,8 @@ export function DataProvider({ children }: DataProviderProps) {
   const value = useMemo(
     () => ({
       initializing,
+      initializationError,
+      retryInitialization,
       profileName,
       profilePhotoUri,
       hasCompletedLocalProfile,
@@ -1335,6 +1353,7 @@ export function DataProvider({ children }: DataProviderProps) {
     }),
     [
       initializing,
+      initializationError,
       profileName,
       profilePhotoUri,
       hasCompletedLocalProfile,

@@ -83,6 +83,8 @@ export type DailyReminderSettings = {
 
 export type DataContextType = {
   initializing: boolean;
+  initializationError: string | null;
+  retryInitialization: () => void;
 
   profileName: string;
   profilePhotoUri: string | null;

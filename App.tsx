@@ -79,6 +79,39 @@ function AppLoadingScreen() {
   );
 }
 
+function AppInitializationErrorScreen({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <View className="flex-1 items-center justify-center bg-white px-6">
+      <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-red-50">
+        <Ionicons name="alert-circle-outline" size={42} color="#DC2626" />
+      </View>
+
+      <Text className="text-center text-2xl font-bold text-zinc-900">
+        Couldn't load your data
+      </Text>
+
+      <Text className="mt-2 text-center text-base leading-6 text-zinc-600">
+        {message}
+      </Text>
+
+      <Pressable
+        onPress={onRetry}
+        className="mt-8 w-full rounded-2xl bg-green-600 py-4"
+      >
+        <Text className="text-center text-base font-bold text-white">
+          Try Again
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function AppLockScreen({
   authenticating,
   onUnlock,
@@ -341,10 +374,25 @@ function Tabs() {
 }
 
 function RootStack() {
-  const { hasOnboarded, hasCompletedLocalProfile, initializing } = useData();
+  const {
+    hasOnboarded,
+    hasCompletedLocalProfile,
+    initializing,
+    initializationError,
+    retryInitialization,
+  } = useData();
 
   if (initializing) {
     return <AppLoadingScreen />;
+  }
+
+  if (initializationError) {
+    return (
+      <AppInitializationErrorScreen
+        message={initializationError}
+        onRetry={retryInitialization}
+      />
+    );
   }
 
   if (!hasOnboarded) return <OnboardingScreen />;
