@@ -158,8 +158,10 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
   const [authenticating, setAuthenticating] = useState(false);
   const [shouldPrompt, setShouldPrompt] = useState(appLockEnabled);
 
-  const appStateRef = useRef(AppState.currentState);
   const authenticatingRef = useRef(false);
+  const authenticationAppStateCycleRef = useRef(false);
+  const shouldLockOnReturnRef = useRef(false);
+  const autoPromptedThisSessionRef = useRef(false);
 
   const unlock = useCallback(async () => {
     if (!appLockEnabled) {
@@ -172,6 +174,8 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
 
     try {
       authenticatingRef.current = true;
+      authenticationAppStateCycleRef.current = true;
+      shouldLockOnReturnRef.current = false;
       setAuthenticating(true);
       setShouldPrompt(false);
 
@@ -195,11 +199,18 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
     } finally {
       authenticatingRef.current = false;
       setAuthenticating(false);
+
+      if (AppState.currentState === "active") {
+        authenticationAppStateCycleRef.current = false;
+      }
     }
   }, [appLockEnabled]);
 
   useEffect(() => {
     if (!appLockEnabled) {
+      authenticationAppStateCycleRef.current = false;
+      shouldLockOnReturnRef.current = false;
+      autoPromptedThisSessionRef.current = false;
       setUnlocked(true);
       setShouldPrompt(false);
     }
@@ -210,7 +221,9 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
     if (unlocked) return;
     if (!shouldPrompt) return;
     if (authenticatingRef.current) return;
+    if (autoPromptedThisSessionRef.current) return;
 
+    autoPromptedThisSessionRef.current = true;
     unlock();
   }, [appLockEnabled, unlocked, shouldPrompt, unlock]);
 
@@ -218,17 +231,30 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
     if (!appLockEnabled) return;
 
     const subscription = AppState.addEventListener("change", (nextState) => {
-      const previousState = appStateRef.current;
-      appStateRef.current = nextState;
-
-      if (authenticatingRef.current) return;
-
-      const wasAway = previousState === "background";
-
-      if (wasAway && nextState === "active") {
-        setUnlocked(false);
-        setShouldPrompt(true);
+      if (nextState === "background") {
+        if (
+          !authenticatingRef.current &&
+          !authenticationAppStateCycleRef.current
+        ) {
+          shouldLockOnReturnRef.current = true;
+        }
+        return;
       }
+
+      if (nextState !== "active") return;
+
+      if (authenticationAppStateCycleRef.current) {
+        authenticationAppStateCycleRef.current = false;
+        shouldLockOnReturnRef.current = false;
+        return;
+      }
+
+      if (!shouldLockOnReturnRef.current) return;
+
+      shouldLockOnReturnRef.current = false;
+      autoPromptedThisSessionRef.current = false;
+      setUnlocked(false);
+      setShouldPrompt(true);
     });
 
     return () => subscription.remove();
