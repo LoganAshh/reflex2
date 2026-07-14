@@ -160,7 +160,6 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
 
   const appStateRef = useRef(AppState.currentState);
   const authenticatingRef = useRef(false);
-  const lastAuthCompletedAtRef = useRef(0);
 
   const unlock = useCallback(async () => {
     if (!appLockEnabled) {
@@ -183,8 +182,6 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
         disableDeviceFallback: false,
       });
 
-      lastAuthCompletedAtRef.current = Date.now();
-
       if (result.success) {
         await Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success,
@@ -194,7 +191,6 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     } catch {
-      lastAuthCompletedAtRef.current = Date.now();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       authenticatingRef.current = false;
@@ -227,13 +223,7 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
 
       if (authenticatingRef.current) return;
 
-      const justAuthenticated =
-        Date.now() - lastAuthCompletedAtRef.current < 2000;
-
-      if (justAuthenticated) return;
-
-      const wasAway =
-        previousState === "inactive" || previousState === "background";
+      const wasAway = previousState === "background";
 
       if (wasAway && nextState === "active") {
         setUnlocked(false);
