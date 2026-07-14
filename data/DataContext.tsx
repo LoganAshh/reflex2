@@ -184,7 +184,7 @@ function cleanIsCustom(value: unknown): 0 | 1 {
   return cleanBoolean(value) ? 1 : 0;
 }
 
-function validateBackupPayload(value: unknown) {
+export function validateBackupPayload(value: unknown) {
   if (!isRecord(value)) {
     throw new Error("That backup file is not valid JSON data.");
   }
@@ -208,7 +208,7 @@ function validateBackupPayload(value: unknown) {
   return value;
 }
 
-function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
+export function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
   const result: BackupNamedEntity[] = [];
 
   for (const item of items) {
@@ -231,7 +231,7 @@ function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
   return result;
 }
 
-function sanitizeActions(items: unknown[]): BackupActionEntity[] {
+export function sanitizeActions(items: unknown[]): BackupActionEntity[] {
   const result: BackupActionEntity[] = [];
 
   for (const item of items) {
@@ -254,7 +254,7 @@ function sanitizeActions(items: unknown[]): BackupActionEntity[] {
   return result;
 }
 
-function sanitizeSelectedIds(items: unknown[], key: string) {
+export function sanitizeSelectedIds(items: unknown[], key: string) {
   return Array.from(
     new Set(
       items
@@ -268,7 +268,7 @@ function sanitizeSelectedIds(items: unknown[], key: string) {
   );
 }
 
-function sanitizeLogs(items: unknown[]): BackupLog[] {
+export function sanitizeLogs(items: unknown[]): BackupLog[] {
   const result: BackupLog[] = [];
 
   for (const item of items) {
