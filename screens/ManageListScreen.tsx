@@ -194,7 +194,7 @@ export default function ManageListScreen() {
     const tabState = mainRoute?.state as
       | {
           key?: string;
-          routes?: Array<{ key: string; name: string }>;
+          routes?: { key: string; name: string }[];
         }
       | undefined;
 

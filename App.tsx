@@ -93,7 +93,7 @@ function AppInitializationErrorScreen({
       </View>
 
       <Text className="text-center text-2xl font-bold text-zinc-900">
-        Couldn't load your data
+        Couldn&apos;t load your data
       </Text>
 
       <Text className="mt-2 text-center text-base leading-6 text-zinc-600">
