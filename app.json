@@ -2,7 +2,7 @@
   "expo": {
     "name": "Reflex - Quit Bad Habits",
     "slug": "reflex2",
-    "version": "2.1.1",
+    "version": "2.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
