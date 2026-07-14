@@ -170,6 +170,7 @@ export async function ensureLocalSchemaColumns() {
 
 export async function initDb() {
   await db.execAsync(`PRAGMA journal_mode = WAL;`);
+  await db.execAsync(`PRAGMA foreign_keys = ON;`);
   await db.execAsync(CREATE_DATA_TABLES_SQL);
 
   await ensureLocalSchemaColumns();
