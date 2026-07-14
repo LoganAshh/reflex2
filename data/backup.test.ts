@@ -1,16 +1,11 @@
-import { describe, expect, jest, test } from "@jest/globals";
+import { describe, expect, test } from "@jest/globals";
 import {
   sanitizeActions,
   sanitizeLogs,
   sanitizeNamedEntities,
   sanitizeSelectedIds,
   validateBackupPayload,
-} from "./DataContext";
-
-jest.mock("./db", () => ({
-  db: {},
-}));
-jest.mock("expo-notifications", () => ({}));
+} from "./backup";
 
 describe("backup validation", () => {
   test("accepts a Reflex backup with valid collection fields", () => {
