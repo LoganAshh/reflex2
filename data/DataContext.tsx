@@ -457,7 +457,8 @@ export function DataProvider({ children }: DataProviderProps) {
 
         const cleanName = savedProfileName.trim();
         const cleanPhoto = savedProfilePhoto.trim();
-        const normalizedProfileDone = profileDone && cleanName.length > 0;
+        const normalizedProfileDone =
+          profileDone && cleanName.length > 0 && cleanPhoto.length > 0;
 
         if (mounted) {
           setHasOnboarded(onboarded);
@@ -1082,8 +1083,9 @@ export function DataProvider({ children }: DataProviderProps) {
     const profile = isRecord(parsed.localProfile) ? parsed.localProfile : {};
     const settings = isRecord(parsed.settings) ? parsed.settings : {};
     const restoredProfileName = cleanString(profile.name);
-    const restoredProfileDone =
-      cleanBoolean(profile.isComplete) && restoredProfileName.length > 0;
+    // Backup files contain only the old device's photo URI, not the photo itself.
+    // Keep the restored name, but require the user to choose a new local photo.
+    const restoredProfileDone = false;
     const restoredAppLockEnabled = cleanBoolean(settings.appLockEnabled);
     const restoredDailyReminder = isRecord(settings.dailyReminder)
       ? {
