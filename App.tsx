@@ -173,10 +173,7 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
     if (!appLockEnabled) {
       setUnlocked(true);
       setShouldPrompt(false);
-      return;
     }
-
-    setShouldPrompt((current) => current);
   }, [appLockEnabled]);
 
   useEffect(() => {
