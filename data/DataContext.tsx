@@ -34,6 +34,7 @@ import {
   seedDefaultLocationsIfEmpty,
   seedDefaultActionsIfEmpty,
   dropAllDataTables,
+  recreateDataTables,
   loadHabits,
   loadCues,
   loadLocations,
@@ -1102,80 +1103,75 @@ export function DataProvider({ children }: DataProviderProps) {
         }
       : DEFAULT_DAILY_REMINDER;
     const restoredHasOnboarded = cleanBoolean(parsed.hasOnboarded);
-    const previousPhoto = (profilePhotoUri ?? "").trim();
+    await db.withTransactionAsync(async () => {
+      await recreateDataTables();
 
-    if (previousPhoto) {
-      await deleteManagedProfilePhoto(previousPhoto);
-    }
+      for (const habit of importedHabits) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO habits (id, name, isCustom, hidden, color) VALUES (?, ?, ?, ?, ?);`,
+          [habit.id, habit.name, habit.isCustom, habit.hidden, habit.color],
+        );
+      }
 
-    await dropAllDataTables();
-    await initDb();
+      for (const cue of importedCues) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO cues (id, name, isCustom, hidden) VALUES (?, ?, ?, ?);`,
+          [cue.id, cue.name, cue.isCustom, cue.hidden],
+        );
+      }
 
-    for (const habit of importedHabits) {
-      await db.runAsync(
-        `INSERT OR IGNORE INTO habits (id, name, isCustom, hidden, color) VALUES (?, ?, ?, ?, ?);`,
-        [habit.id, habit.name, habit.isCustom, habit.hidden, habit.color],
-      );
-    }
+      for (const location of importedLocations) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO locations (id, name, isCustom, hidden) VALUES (?, ?, ?, ?);`,
+          [location.id, location.name, location.isCustom, location.hidden],
+        );
+      }
 
-    for (const cue of importedCues) {
-      await db.runAsync(
-        `INSERT OR IGNORE INTO cues (id, name, isCustom, hidden) VALUES (?, ?, ?, ?);`,
-        [cue.id, cue.name, cue.isCustom, cue.hidden],
-      );
-    }
+      for (const action of importedActions) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO actions (id, title, category, isCustom, hidden) VALUES (?, ?, ?, ?, ?);`,
+          [
+            action.id,
+            action.title,
+            action.category,
+            action.isCustom,
+            action.hidden,
+          ],
+        );
+      }
 
-    for (const location of importedLocations) {
-      await db.runAsync(
-        `INSERT OR IGNORE INTO locations (id, name, isCustom, hidden) VALUES (?, ?, ?, ?);`,
-        [location.id, location.name, location.isCustom, location.hidden],
-      );
-    }
+      const finalSelectedHabitIds =
+        selectedHabitIds.length > 0 ? selectedHabitIds : [importedHabits[0].id];
 
-    for (const action of importedActions) {
-      await db.runAsync(
-        `INSERT OR IGNORE INTO actions (id, title, category, isCustom, hidden) VALUES (?, ?, ?, ?, ?);`,
-        [
-          action.id,
-          action.title,
-          action.category,
-          action.isCustom,
-          action.hidden,
-        ],
-      );
-    }
+      for (const id of finalSelectedHabitIds) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO user_habits (habitId) VALUES (?);`,
+          [id],
+        );
+      }
 
-    const finalSelectedHabitIds =
-      selectedHabitIds.length > 0 ? selectedHabitIds : [importedHabits[0].id];
+      for (const id of selectedCueIds) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO user_cues (cueId) VALUES (?);`,
+          [id],
+        );
+      }
 
-    for (const id of finalSelectedHabitIds) {
-      await db.runAsync(
-        `INSERT OR IGNORE INTO user_habits (habitId) VALUES (?);`,
-        [id],
-      );
-    }
+      for (const id of selectedLocationIds) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO user_locations (locationId) VALUES (?);`,
+          [id],
+        );
+      }
 
-    for (const id of selectedCueIds) {
-      await db.runAsync(`INSERT OR IGNORE INTO user_cues (cueId) VALUES (?);`, [
-        id,
-      ]);
-    }
+      for (const log of validLogs) {
+        const selectedActionId =
+          log.selectedActionId != null && actionIds.has(log.selectedActionId)
+            ? log.selectedActionId
+            : null;
 
-    for (const id of selectedLocationIds) {
-      await db.runAsync(
-        `INSERT OR IGNORE INTO user_locations (locationId) VALUES (?);`,
-        [id],
-      );
-    }
-
-    for (const log of validLogs) {
-      const selectedActionId =
-        log.selectedActionId != null && actionIds.has(log.selectedActionId)
-          ? log.selectedActionId
-          : null;
-
-      await db.runAsync(
-        `
+        await db.runAsync(
+          `
         INSERT OR IGNORE INTO logs (
           id,
           habitId,
@@ -1194,33 +1190,34 @@ export function DataProvider({ children }: DataProviderProps) {
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         `,
-        [
-          log.id,
-          log.habitId,
-          log.cueId != null && cueIds.has(log.cueId) ? log.cueId : null,
-          log.locationId != null && locationIds.has(log.locationId)
-            ? log.locationId
-            : null,
-          log.intensity,
-          log.count,
-          log.didResist,
-          log.notes,
-          log.createdAt,
-          selectedActionId,
-          log.habitName,
-          log.cueName,
-          log.locationName,
-          log.selectedActionTitle,
-        ],
-      );
-    }
+          [
+            log.id,
+            log.habitId,
+            log.cueId != null && cueIds.has(log.cueId) ? log.cueId : null,
+            log.locationId != null && locationIds.has(log.locationId)
+              ? log.locationId
+              : null,
+            log.intensity,
+            log.count,
+            log.didResist,
+            log.notes,
+            log.createdAt,
+            selectedActionId,
+            log.habitName,
+            log.cueName,
+            log.locationName,
+            log.selectedActionTitle,
+          ],
+        );
+      }
 
-    for (const actionId of importedSelectedActionIds) {
-      await db.runAsync(
-        `INSERT OR IGNORE INTO selected_actions (actionId, createdAt) VALUES (?, ?);`,
-        [actionId, Date.now()],
-      );
-    }
+      for (const actionId of importedSelectedActionIds) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO selected_actions (actionId, createdAt) VALUES (?, ?);`,
+          [actionId, Date.now()],
+        );
+      }
+    });
 
     await Promise.all([
       saveOnboardedFlag(restoredHasOnboarded),

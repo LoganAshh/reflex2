@@ -33,6 +33,80 @@ export function normalizeName(value: string) {
   return value.trim().toLowerCase();
 }
 
+const CREATE_DATA_TABLES_SQL = `
+  CREATE TABLE IF NOT EXISTS habits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    isCustom INTEGER NOT NULL DEFAULT 0,
+    hidden INTEGER NOT NULL DEFAULT 0,
+    color TEXT NOT NULL DEFAULT '#16A34A'
+  );
+
+  CREATE TABLE IF NOT EXISTS user_habits (
+    habitId INTEGER NOT NULL UNIQUE,
+    FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS cues (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    isCustom INTEGER NOT NULL DEFAULT 0,
+    hidden INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS user_cues (
+    cueId INTEGER NOT NULL UNIQUE,
+    FOREIGN KEY (cueId) REFERENCES cues(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS locations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    isCustom INTEGER NOT NULL DEFAULT 0,
+    hidden INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS user_locations (
+    locationId INTEGER NOT NULL UNIQUE,
+    FOREIGN KEY (locationId) REFERENCES locations(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    habitId INTEGER NOT NULL,
+    cueId INTEGER,
+    locationId INTEGER,
+    intensity INTEGER,
+    count INTEGER NOT NULL DEFAULT 1,
+    didResist INTEGER NOT NULL DEFAULT 0,
+    notes TEXT,
+    createdAt INTEGER NOT NULL,
+    selectedActionId INTEGER,
+    habitName TEXT,
+    cueName TEXT,
+    locationName TEXT,
+    selectedActionTitle TEXT,
+    FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE,
+    FOREIGN KEY (cueId) REFERENCES cues(id) ON DELETE SET NULL,
+    FOREIGN KEY (locationId) REFERENCES locations(id) ON DELETE SET NULL,
+    FOREIGN KEY (selectedActionId) REFERENCES actions(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL UNIQUE,
+    category TEXT,
+    isCustom INTEGER NOT NULL DEFAULT 0,
+    hidden INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS selected_actions (
+    actionId INTEGER NOT NULL UNIQUE,
+    createdAt INTEGER NOT NULL,
+    FOREIGN KEY (actionId) REFERENCES actions(id) ON DELETE CASCADE
+  );
+`;
+
 export async function ensureLocalSchemaColumns() {
   const tableColumns = async (table: string) =>
     db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table});`);
@@ -95,81 +169,8 @@ export async function ensureLocalSchemaColumns() {
 }
 
 export async function initDb() {
-  await db.execAsync(`
-    PRAGMA journal_mode = WAL;
-
-    CREATE TABLE IF NOT EXISTS habits (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      isCustom INTEGER NOT NULL DEFAULT 0,
-      hidden INTEGER NOT NULL DEFAULT 0,
-      color TEXT NOT NULL DEFAULT '#16A34A'
-    );
-
-    CREATE TABLE IF NOT EXISTS user_habits (
-      habitId INTEGER NOT NULL UNIQUE,
-      FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS cues (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      isCustom INTEGER NOT NULL DEFAULT 0,
-      hidden INTEGER NOT NULL DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS user_cues (
-      cueId INTEGER NOT NULL UNIQUE,
-      FOREIGN KEY (cueId) REFERENCES cues(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS locations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      isCustom INTEGER NOT NULL DEFAULT 0,
-      hidden INTEGER NOT NULL DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS user_locations (
-      locationId INTEGER NOT NULL UNIQUE,
-      FOREIGN KEY (locationId) REFERENCES locations(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      habitId INTEGER NOT NULL,
-      cueId INTEGER,
-      locationId INTEGER,
-      intensity INTEGER,
-      count INTEGER NOT NULL DEFAULT 1,
-      didResist INTEGER NOT NULL DEFAULT 0,
-      notes TEXT,
-      createdAt INTEGER NOT NULL,
-      selectedActionId INTEGER,
-      habitName TEXT,
-      cueName TEXT,
-      locationName TEXT,
-      selectedActionTitle TEXT,
-      FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE,
-      FOREIGN KEY (cueId) REFERENCES cues(id) ON DELETE SET NULL,
-      FOREIGN KEY (locationId) REFERENCES locations(id) ON DELETE SET NULL,
-      FOREIGN KEY (selectedActionId) REFERENCES actions(id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS actions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL UNIQUE,
-      category TEXT,
-      isCustom INTEGER NOT NULL DEFAULT 0,
-      hidden INTEGER NOT NULL DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS selected_actions (
-      actionId INTEGER NOT NULL UNIQUE,
-      createdAt INTEGER NOT NULL,
-      FOREIGN KEY (actionId) REFERENCES actions(id) ON DELETE CASCADE
-    );
-  `);
+  await db.execAsync(`PRAGMA journal_mode = WAL;`);
+  await db.execAsync(CREATE_DATA_TABLES_SQL);
 
   await ensureLocalSchemaColumns();
 }
@@ -301,6 +302,11 @@ export async function dropAllDataTables() {
     DROP TABLE IF EXISTS habits;
     DROP TABLE IF EXISTS actions;
   `);
+}
+
+export async function recreateDataTables() {
+  await dropAllDataTables();
+  await db.execAsync(CREATE_DATA_TABLES_SQL);
 }
 
 export async function loadHabits(): Promise<Habit[]> {
