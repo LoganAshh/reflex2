@@ -21,7 +21,7 @@ Privacy-first, cross-platform mobile application for logging urges and impulses 
 - **Language:** TypeScript
 - **Styling:** NativeWind (Tailwind CSS for React Native)
 - **Navigation:** React Navigation (Bottom Tabs)
-- **Storage:** On-device persistence (encrypted/local storage)
+- **Storage:** On-device local storage
 - **Platform:** iOS & Android (single codebase)
 
 ## Architecture Highlights
@@ -34,3 +34,4 @@ Privacy-first, cross-platform mobile application for logging urges and impulses 
 ```bash
 npm install
 npx expo start
+```
