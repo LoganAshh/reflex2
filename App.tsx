@@ -158,10 +158,9 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
   const [authenticating, setAuthenticating] = useState(false);
   const [shouldPrompt, setShouldPrompt] = useState(appLockEnabled);
 
+  const appStateRef = useRef(AppState.currentState);
   const authenticatingRef = useRef(false);
-  const authenticationAppStateCycleRef = useRef(false);
-  const shouldLockOnReturnRef = useRef(false);
-  const autoPromptedThisSessionRef = useRef(false);
+  const lastAuthCompletedAtRef = useRef(0);
 
   const unlock = useCallback(async () => {
     if (!appLockEnabled) {
@@ -174,8 +173,6 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
 
     try {
       authenticatingRef.current = true;
-      authenticationAppStateCycleRef.current = true;
-      shouldLockOnReturnRef.current = false;
       setAuthenticating(true);
       setShouldPrompt(false);
 
@@ -186,6 +183,8 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
         disableDeviceFallback: false,
       });
 
+      lastAuthCompletedAtRef.current = Date.now();
+
       if (result.success) {
         await Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success,
@@ -195,25 +194,22 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     } catch {
+      lastAuthCompletedAtRef.current = Date.now();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       authenticatingRef.current = false;
       setAuthenticating(false);
-
-      if (AppState.currentState === "active") {
-        authenticationAppStateCycleRef.current = false;
-      }
     }
   }, [appLockEnabled]);
 
   useEffect(() => {
     if (!appLockEnabled) {
-      authenticationAppStateCycleRef.current = false;
-      shouldLockOnReturnRef.current = false;
-      autoPromptedThisSessionRef.current = false;
       setUnlocked(true);
       setShouldPrompt(false);
+      return;
     }
+
+    setShouldPrompt((current) => current);
   }, [appLockEnabled]);
 
   useEffect(() => {
@@ -221,9 +217,7 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
     if (unlocked) return;
     if (!shouldPrompt) return;
     if (authenticatingRef.current) return;
-    if (autoPromptedThisSessionRef.current) return;
 
-    autoPromptedThisSessionRef.current = true;
     unlock();
   }, [appLockEnabled, unlocked, shouldPrompt, unlock]);
 
@@ -231,30 +225,23 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
     if (!appLockEnabled) return;
 
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "background") {
-        if (
-          !authenticatingRef.current &&
-          !authenticationAppStateCycleRef.current
-        ) {
-          shouldLockOnReturnRef.current = true;
-        }
-        return;
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
+
+      if (authenticatingRef.current) return;
+
+      const justAuthenticated =
+        Date.now() - lastAuthCompletedAtRef.current < 2000;
+
+      if (justAuthenticated) return;
+
+      const wasAway =
+        previousState === "inactive" || previousState === "background";
+
+      if (wasAway && nextState === "active") {
+        setUnlocked(false);
+        setShouldPrompt(true);
       }
-
-      if (nextState !== "active") return;
-
-      if (authenticationAppStateCycleRef.current) {
-        authenticationAppStateCycleRef.current = false;
-        shouldLockOnReturnRef.current = false;
-        return;
-      }
-
-      if (!shouldLockOnReturnRef.current) return;
-
-      shouldLockOnReturnRef.current = false;
-      autoPromptedThisSessionRef.current = false;
-      setUnlocked(false);
-      setShouldPrompt(true);
     });
 
     return () => subscription.remove();
