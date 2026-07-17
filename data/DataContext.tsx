@@ -5,8 +5,10 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import * as Notifications from "expo-notifications";
 import type {
   Habit,
   Cue,
@@ -16,6 +18,9 @@ import type {
   SelectedPlace,
   LogEntry,
   ReplacementAction,
+  AddLogInput,
+  AddActionInput,
+  UpdateLogInput,
   DailyReminderSettings,
   DataContextType,
   DataProviderProps,
@@ -81,27 +86,11 @@ import {
   saveAppLockEnabledFlag,
   loadDailyReminderSettings,
   saveDailyReminderSettings,
+  loadDailyReminderNotificationId,
+  saveDailyReminderNotificationId,
   deleteManagedProfilePhoto,
   normalizeStoredProfilePhotoUri,
 } from "./profileStorage";
-import {
-  asArray,
-  cleanBoolean,
-  cleanColor,
-  cleanInt,
-  cleanString,
-  isRecord,
-  sanitizeActions,
-  sanitizeLogs,
-  sanitizeNamedEntities,
-  sanitizeSelectedIds,
-  validateBackupPayload,
-} from "./backup";
-import {
-  cancelDailyReminderNotification,
-  DEFAULT_DAILY_REMINDER,
-  scheduleDailyReminderNotification,
-} from "./reminders";
 
 export type {
   Habit,
@@ -119,7 +108,252 @@ export type {
   DataContextType,
 } from "./types";
 
+type BackupNamedEntity = {
+  id: number;
+  name: string;
+  isCustom: 0 | 1;
+  hidden: 0 | 1;
+  color: string;
+};
+
+type BackupActionEntity = {
+  id: number;
+  title: string;
+  category: string | null;
+  isCustom: 0 | 1;
+  hidden: 0 | 1;
+};
+
+type BackupLog = {
+  id: number;
+  habitId: number;
+  cueId: number | null;
+  locationId: number | null;
+  intensity: number | null;
+  count: number;
+  didResist: 0 | 1;
+  notes: string | null;
+  createdAt: number;
+  selectedActionId: number | null;
+  habitName: string | null;
+  cueName: string | null;
+  locationName: string | null;
+  selectedActionTitle: string | null;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
+function cleanString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function cleanNullableString(value: unknown) {
+  const clean = cleanString(value);
+  return clean.length > 0 ? clean : null;
+}
+
+function cleanColor(value: unknown) {
+  const clean = cleanString(value);
+  return /^#[0-9A-Fa-f]{6}$/.test(clean) ? clean.toUpperCase() : "#16A34A";
+}
+
+function cleanInt(value: unknown, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.round(n);
+}
+
+function cleanOptionalInt(value: unknown) {
+  if (value == null) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n);
+}
+
+function cleanBoolean(value: unknown) {
+  return value === true || value === "true" || value === 1;
+}
+
+function cleanIsCustom(value: unknown): 0 | 1 {
+  return cleanBoolean(value) ? 1 : 0;
+}
+
+function validateBackupPayload(value: unknown) {
+  if (!isRecord(value)) {
+    throw new Error("That backup file is not valid JSON data.");
+  }
+
+  if (value.app !== "Reflex") {
+    throw new Error("That file does not look like a Reflex backup.");
+  }
+
+  const habits = asArray(value.habits);
+  const cues = asArray(value.cues);
+  const locations = asArray(value.locations);
+  const actions = asArray(value.actions);
+  const logs = asArray(value.logs);
+
+  for (const list of [habits, cues, locations, actions, logs]) {
+    if (!list.every(isRecord)) {
+      throw new Error("That backup file has invalid data inside it.");
+    }
+  }
+
+  return value;
+}
+
+function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
+  const result: BackupNamedEntity[] = [];
+
+  for (const item of items) {
+    if (!isRecord(item)) continue;
+
+    const id = cleanInt(item.id);
+    const name = cleanString(item.name);
+
+    if (id <= 0 || !name) continue;
+
+    result.push({
+      id,
+      name,
+      isCustom: cleanIsCustom(item.isCustom),
+      hidden: cleanIsCustom(item.hidden),
+      color: cleanColor(item.color),
+    });
+  }
+
+  return result;
+}
+
+function sanitizeActions(items: unknown[]): BackupActionEntity[] {
+  const result: BackupActionEntity[] = [];
+
+  for (const item of items) {
+    if (!isRecord(item)) continue;
+
+    const id = cleanInt(item.id);
+    const title = cleanString(item.title);
+
+    if (id <= 0 || !title) continue;
+
+    result.push({
+      id,
+      title,
+      category: cleanNullableString(item.category),
+      isCustom: cleanIsCustom(item.isCustom),
+      hidden: cleanIsCustom(item.hidden),
+    });
+  }
+
+  return result;
+}
+
+function sanitizeSelectedIds(items: unknown[], key: string) {
+  return Array.from(
+    new Set(
+      items
+        .map((item) => {
+          if (typeof item === "number") return cleanInt(item);
+          if (!isRecord(item)) return 0;
+          return cleanInt(item[key]);
+        })
+        .filter((id) => id > 0),
+    ),
+  );
+}
+
+function sanitizeLogs(items: unknown[]): BackupLog[] {
+  const result: BackupLog[] = [];
+
+  for (const item of items) {
+    if (!isRecord(item)) continue;
+
+    const id = cleanInt(item.id);
+    const habitId = cleanInt(item.habitId);
+    const createdAt = cleanInt(item.createdAt);
+
+    if (id <= 0 || habitId <= 0 || createdAt <= 0) continue;
+
+    const intensity = cleanOptionalInt(item.intensity);
+
+    result.push({
+      id,
+      habitId,
+      cueId: cleanOptionalInt(item.cueId),
+      locationId: cleanOptionalInt(item.locationId),
+      intensity:
+        intensity == null ? null : Math.min(10, Math.max(1, intensity)),
+      count: Math.min(10, Math.max(0, cleanInt(item.count, 1))),
+      didResist: cleanBoolean(item.didResist) ? 1 : 0,
+      notes: cleanNullableString(item.notes),
+      createdAt,
+      selectedActionId: cleanOptionalInt(item.selectedActionId),
+      habitName: cleanNullableString(item.habitName),
+      cueName: cleanNullableString(item.cueName),
+      locationName: cleanNullableString(item.locationName),
+      selectedActionTitle: cleanNullableString(item.selectedActionTitle),
+    });
+  }
+
+  return result;
+}
+
 const DataContext = createContext<DataContextType | null>(null);
+
+const DEFAULT_DAILY_REMINDER: DailyReminderSettings = {
+  option: "off",
+  hour: 20,
+  minute: 0,
+};
+
+async function cancelDailyReminderNotification() {
+  const notificationId = await loadDailyReminderNotificationId();
+
+  if (notificationId) {
+    await Notifications.cancelScheduledNotificationAsync(notificationId).catch(
+      () => {},
+    );
+  }
+
+  await saveDailyReminderNotificationId("");
+}
+
+async function scheduleDailyReminderNotification(
+  settings: DailyReminderSettings,
+) {
+  await cancelDailyReminderNotification();
+
+  if (settings.option === "off") return;
+
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("daily-reflection", {
+      name: "Daily reflection",
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
+  }
+
+  const notificationId = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Check in with Reflex?",
+      body: "Take a minute to reflect on your urges and wins today.",
+      sound: false,
+    },
+    trigger: {
+      hour: settings.hour,
+      minute: settings.minute,
+      repeats: true,
+      channelId: "daily-reflection",
+    } as any,
+  });
+
+  await saveDailyReminderNotificationId(notificationId);
+}
 
 async function resetDbForDev() {
   const savedPhoto = await loadProfilePhotoUri();
@@ -142,10 +376,6 @@ async function resetDbForDev() {
 
 export function DataProvider({ children }: DataProviderProps) {
   const [initializing, setInitializing] = useState(true);
-  const [initializationError, setInitializationError] = useState<string | null>(
-    null,
-  );
-  const [initializationAttempt, setInitializationAttempt] = useState(0);
 
   const [profileName, setProfileName] = useState("");
   const [profilePhotoUri, setProfilePhotoUri] = useState<string | null>(null);
@@ -201,7 +431,6 @@ export function DataProvider({ children }: DataProviderProps) {
 
     const bootstrap = async () => {
       try {
-        setInitializationError(null);
         await initDb();
         await seedDefaultHabitsIfEmpty();
         await seedDefaultCuesIfEmpty();
@@ -243,11 +472,6 @@ export function DataProvider({ children }: DataProviderProps) {
         await refresh();
       } catch (error) {
         console.error("Failed to initialize local database:", error);
-        if (mounted) {
-          setInitializationError(
-            "Reflex couldn't load your saved data. Your data has not been reset.",
-          );
-        }
       } finally {
         if (mounted) {
           setInitializing(false);
@@ -260,13 +484,7 @@ export function DataProvider({ children }: DataProviderProps) {
     return () => {
       mounted = false;
     };
-  }, [initializationAttempt]);
-
-  const retryInitialization = () => {
-    setInitializing(true);
-    setInitializationError(null);
-    setInitializationAttempt((attempt) => attempt + 1);
-  };
+  }, []);
 
   const completeOnboarding = async () => {
     await saveOnboardedFlag(true);
@@ -1066,8 +1284,6 @@ export function DataProvider({ children }: DataProviderProps) {
   const value = useMemo(
     () => ({
       initializing,
-      initializationError,
-      retryInitialization,
       profileName,
       profilePhotoUri,
       hasCompletedLocalProfile,
@@ -1119,7 +1335,6 @@ export function DataProvider({ children }: DataProviderProps) {
     }),
     [
       initializing,
-      initializationError,
       profileName,
       profilePhotoUri,
       hasCompletedLocalProfile,
