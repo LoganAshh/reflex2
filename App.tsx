@@ -317,16 +317,16 @@ function Tabs() {
       />
 
       <Tab.Screen
-        name="Shop"
-        component={ShopScreen}
+        name="Log"
+        component={LogScreen}
         listeners={({ navigation }) => ({
           tabPress: () => onTabPress(navigation),
         })}
       />
 
       <Tab.Screen
-        name="Log"
-        component={LogScreen}
+        name="Shop"
+        component={ShopScreen}
         listeners={({ navigation }) => ({
           tabPress: () => onTabPress(navigation),
         })}
