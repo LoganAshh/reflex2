@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, Image } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
-import type { RootTabParamList } from "../App";
+import type { RootStackParamList, RootTabParamList } from "../App";
 import { useData, type Habit } from "../data/DataContext";
 import * as Haptics from "expo-haptics";
 
@@ -183,7 +184,9 @@ function getCleanDaysCount(
   return cleanDays;
 }
 
-type Nav = BottomTabNavigationProp<RootTabParamList, "Home">;
+type TabNav = BottomTabNavigationProp<RootTabParamList, "Home">;
+type StackNav = NativeStackNavigationProp<RootStackParamList>;
+type Nav = TabNav & StackNav;
 type HomeRoute = RouteProp<RootTabParamList, "Home">;
 
 export default function HomeScreen() {
@@ -203,6 +206,14 @@ export default function HomeScreen() {
     if (selectedHabitId == null) return "#16A34A";
     return (
       habits.find((habit) => habit.id === selectedHabitId)?.color ?? "#16A34A"
+    );
+  }, [habits, selectedHabitId]);
+
+  const activeHabitUnit = useMemo(() => {
+    if (selectedHabitId == null) return "habit activities";
+    return (
+      habits.find((habit) => habit.id === selectedHabitId)?.unit?.trim() ||
+      "times"
     );
   }, [habits, selectedHabitId]);
 
@@ -312,7 +323,11 @@ export default function HomeScreen() {
       daysSinceGiveIn,
     );
 
-    const todayGiveIns = todayLogs - todayResists;
+    const todayGiveIns = todaysLogs.reduce(
+      (total, log) =>
+        total + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
+      0,
+    );
     const twoWeeksAgoStart = todayStart - 14 * dayMs;
 
     const firstLogBeforeToday = logsBeforeToday.reduce<number | null>(
@@ -346,7 +361,11 @@ export default function HomeScreen() {
       (acc, l) => acc + (l.didResist === 1 ? 1 : 0),
       0,
     );
-    const comparisonTotalGiveIns = comparisonTotalLogs - comparisonTotalResists;
+    const comparisonTotalGiveIns = comparisonLogs.reduce(
+      (total, log) =>
+        total + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
+      0,
+    );
 
     const averageLogs =
       comparisonDays > 0 ? comparisonTotalLogs / comparisonDays : 0;
@@ -421,6 +440,16 @@ export default function HomeScreen() {
 
   const positiveFeedback = useMemo(() => {
     const averageGiveInsText = formatAverage(stats.averageGiveIns);
+    const todayActivityUnit =
+      stats.todayGiveIns === 1
+        ? activeHabitUnit === "times"
+          ? "time"
+          : activeHabitUnit === "minutes"
+            ? "minute"
+            : activeHabitUnit === "habit activities"
+              ? "habit activity"
+              : activeHabitUnit
+        : activeHabitUnit;
     const averageResistsText = formatAverage(stats.averageResists);
     const averageLogsText = formatAverage(stats.averageLogs);
     const comparisonText =
@@ -435,25 +464,23 @@ export default function HomeScreen() {
     if (stats.todayGiveIns === 0) {
       if (stats.todayLogs > 0) {
         return {
-          title: "You Didn’t Give In",
+          title: "You Stayed on Track",
           text: `Excellent work! You logged ${stats.todayLogs} ${
             stats.todayLogs === 1 ? "urge" : "urges"
-          } today with 0 give-ins, below your usual ${averageGiveInsText} per day from ${comparisonText}.`,
+          } today with no habit activity, below your usual ${averageGiveInsText} per day from ${comparisonText}.`,
         };
       }
 
       return {
-        title: "You Didn’t Give In",
-        text: `Excellent work! You have 0 give-ins today, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
+        title: "You Stayed on Track",
+        text: `Excellent work! You have no habit activity today, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
       };
     }
 
     if (stats.todayGiveIns > 0 && stats.todayGiveIns < stats.averageGiveIns) {
       return {
-        title: "You Gave In Less than Usual",
-        text: `Great job! You gave in ${stats.todayGiveIns} ${
-          stats.todayGiveIns === 1 ? "time" : "times"
-        } today, below your usual ${averageGiveInsText} per day from ${comparisonText}.`,
+        title: "Less Habit Activity Than Usual",
+        text: `Great job! You logged ${stats.todayGiveIns} ${todayActivityUnit} today, below your usual ${averageGiveInsText} per day from ${comparisonText}.`,
       };
     }
 
@@ -505,6 +532,7 @@ export default function HomeScreen() {
     stats.averageResists,
     stats.comparisonDays,
     stats.todayGiveIns,
+    activeHabitUnit,
     stats.todayLogs,
     stats.todayResists,
   ]);
@@ -716,15 +744,25 @@ export default function HomeScreen() {
                 </Text>
               </View>
 
-              <View
-                className="h-10 w-10 items-center justify-center rounded-3xl border bg-white"
-                style={{ borderColor: "#E5E7EB" }}
-              >
-                <Ionicons
-                  name="stats-chart"
-                  size={21}
-                  color={activeHabitColor}
-                />
+              <View className="flex-row items-center gap-2">
+                <Pressable
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    navigation.navigate("ManageList", { type: "habits" });
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Manage habits"
+                  accessibilityHint="Opens the habit editor"
+                  hitSlop={6}
+                  className="h-10 w-10 items-center justify-center rounded-3xl border border-gray-200 bg-white"
+                >
+                  <FontAwesome5
+                    name="pencil-alt"
+                    size={19}
+                    color="#111827"
+                    solid
+                  />
+                </Pressable>
               </View>
             </View>
 
