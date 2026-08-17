@@ -6,6 +6,26 @@ export type Habit = {
   isCustom: 0 | 1;
   hidden: 0 | 1;
   color: string;
+  icon: string;
+  measurementType: HabitMeasurementType;
+  unit: string;
+  estimatedBaseline: number | null;
+  calibratedBaseline: number | null;
+  baselinePeriod: HabitPeriod;
+  finalTarget: number | null;
+  goalPeriod: HabitPeriod;
+};
+
+export type HabitMeasurementType = "times" | "amount" | "minutes" | "custom";
+export type HabitPeriod = "day" | "week" | "28_days";
+
+export type HabitPlanInput = {
+  measurementType: HabitMeasurementType;
+  unit: string;
+  estimatedBaseline: number;
+  baselinePeriod: HabitPeriod;
+  finalTarget: number;
+  goalPeriod: HabitPeriod;
 };
 export type Cue = { id: number; name: string; isCustom: 0 | 1; hidden: 0 | 1 };
 export type Place = {
@@ -25,6 +45,8 @@ export type LogEntry = {
   habitName: string;
   cueId: number | null;
   cueName: string | null;
+  cueIds: number[];
+  cueNames: string[];
   locationId: number | null;
   locationName: string | null;
   intensity: number | null;
@@ -47,6 +69,7 @@ export type ReplacementAction = {
 export type AddLogInput = {
   habitId: number;
   cueId?: number | null;
+  cueIds?: number[];
   locationId?: number | null;
   intensity?: number | null;
   count?: number;
@@ -58,6 +81,7 @@ export type AddLogInput = {
 export type UpdateLogInput = {
   habitId: number;
   cueId?: number | null;
+  cueIds?: number[];
   locationId?: number | null;
   intensity?: number | null;
   count?: number;
@@ -115,12 +139,23 @@ export type DataContextType = {
   setSelectedCues: (cueIds: number[]) => Promise<void>;
   setSelectedLocations: (locationIds: number[]) => Promise<void>;
 
-  addCustomHabit: (name: string, autoSelect?: boolean) => Promise<void>;
+  addCustomHabit: (
+    name: string,
+    autoSelect?: boolean,
+    icon?: string,
+    color?: string,
+  ) => Promise<void>;
   addCustomCue: (name: string, autoSelect?: boolean) => Promise<void>;
   addCustomLocation: (name: string, autoSelect?: boolean) => Promise<void>;
 
   renameCustomHabit: (habitId: number, name: string) => Promise<void>;
-  updateHabit: (habitId: number, name: string, color: string) => Promise<void>;
+  updateHabit: (
+    habitId: number,
+    name: string,
+    color: string,
+    icon: string,
+  ) => Promise<void>;
+  updateHabitPlan: (habitId: number, input: HabitPlanInput) => Promise<void>;
   renameCustomCue: (cueId: number, name: string) => Promise<void>;
   renameCustomLocation: (locationId: number, name: string) => Promise<void>;
   deleteCustomHabit: (habitId: number) => Promise<"deleted" | "hidden">;
