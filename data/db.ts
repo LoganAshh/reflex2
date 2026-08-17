@@ -8,7 +8,13 @@ import type {
   SelectedPlace,
   LogEntry,
   ReplacementAction,
+  HabitPlanInput,
 } from "./types";
+import {
+  DEFAULT_HABIT_ICON,
+  PRESET_HABIT_ICONS,
+  cleanHabitIcon,
+} from "./habitIcons";
 
 export const db = SQLite.openDatabaseSync("reflex.db");
 
@@ -39,7 +45,15 @@ const CREATE_DATA_TABLES_SQL = `
     name TEXT NOT NULL UNIQUE,
     isCustom INTEGER NOT NULL DEFAULT 0,
     hidden INTEGER NOT NULL DEFAULT 0,
-    color TEXT NOT NULL DEFAULT '#16A34A'
+    color TEXT NOT NULL DEFAULT '#16A34A',
+    icon TEXT NOT NULL DEFAULT 'ellipse',
+    measurementType TEXT NOT NULL DEFAULT 'times',
+    unit TEXT NOT NULL DEFAULT 'times',
+    estimatedBaseline REAL,
+    calibratedBaseline REAL,
+    baselinePeriod TEXT NOT NULL DEFAULT 'day',
+    finalTarget REAL,
+    goalPeriod TEXT NOT NULL DEFAULT 'day'
   );
 
   CREATE TABLE IF NOT EXISTS user_habits (
@@ -84,6 +98,8 @@ const CREATE_DATA_TABLES_SQL = `
     selectedActionId INTEGER,
     habitName TEXT,
     cueName TEXT,
+    cueIdsJson TEXT,
+    cueNamesJson TEXT,
     locationName TEXT,
     selectedActionTitle TEXT,
     FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE,
@@ -125,6 +141,41 @@ export async function ensureLocalSchemaColumns() {
     "color",
     `color TEXT NOT NULL DEFAULT '${DEFAULT_HABIT_COLOR}'`,
   );
+  const habitColumnsBeforeIcon = await tableColumns("habits");
+  const hadHabitIcon = habitColumnsBeforeIcon.some(
+    (column) => column.name === "icon",
+  );
+  await ensureColumn(
+    "habits",
+    "icon",
+    `icon TEXT NOT NULL DEFAULT '${DEFAULT_HABIT_ICON}'`,
+  );
+  await ensureColumn(
+    "habits",
+    "measurementType",
+    "measurementType TEXT NOT NULL DEFAULT 'times'",
+  );
+  await ensureColumn("habits", "unit", "unit TEXT NOT NULL DEFAULT 'times'");
+  await ensureColumn("habits", "estimatedBaseline", "estimatedBaseline REAL");
+  await ensureColumn("habits", "calibratedBaseline", "calibratedBaseline REAL");
+  await ensureColumn(
+    "habits",
+    "baselinePeriod",
+    "baselinePeriod TEXT NOT NULL DEFAULT 'day'",
+  );
+  await ensureColumn("habits", "finalTarget", "finalTarget REAL");
+  const habitColumnsBeforeGoalPeriod = await tableColumns("habits");
+  const hadGoalPeriod = habitColumnsBeforeGoalPeriod.some(
+    (column) => column.name === "goalPeriod",
+  );
+  await ensureColumn(
+    "habits",
+    "goalPeriod",
+    "goalPeriod TEXT NOT NULL DEFAULT 'day'",
+  );
+  if (!hadGoalPeriod) {
+    await db.execAsync(`UPDATE habits SET goalPeriod = baselinePeriod;`);
+  }
   await ensureColumn("cues", "hidden", "hidden INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(
     "locations",
@@ -139,6 +190,8 @@ export async function ensureLocalSchemaColumns() {
   );
   await ensureColumn("logs", "habitName", "habitName TEXT");
   await ensureColumn("logs", "cueName", "cueName TEXT");
+  await ensureColumn("logs", "cueIdsJson", "cueIdsJson TEXT");
+  await ensureColumn("logs", "cueNamesJson", "cueNamesJson TEXT");
   await ensureColumn("logs", "locationName", "locationName TEXT");
   await ensureColumn("logs", "selectedActionTitle", "selectedActionTitle TEXT");
 
@@ -158,6 +211,19 @@ export async function ensureLocalSchemaColumns() {
     UPDATE logs
     SET selectedActionTitle = (SELECT title FROM actions WHERE actions.id = logs.selectedActionId)
     WHERE selectedActionTitle IS NULL AND selectedActionId IS NOT NULL;
+
+    UPDATE actions
+    SET title = 'List 3 reasons to stay on track'
+    WHERE title = 'List 3 reasons not to give in'
+      AND isCustom = 0
+      AND NOT EXISTS (
+        SELECT 1 FROM actions AS existing
+        WHERE existing.title = 'List 3 reasons to stay on track'
+      );
+
+    UPDATE logs
+    SET selectedActionTitle = 'List 3 reasons to stay on track'
+    WHERE selectedActionTitle = 'List 3 reasons not to give in';
   `);
 
   for (const [name, color] of Object.entries(PRESET_HABIT_COLORS)) {
@@ -165,6 +231,14 @@ export async function ensureLocalSchemaColumns() {
       `UPDATE habits SET color = ? WHERE name = ? AND isCustom = 0 AND (color IS NULL OR color = ?);`,
       [color, name, DEFAULT_HABIT_COLOR],
     );
+  }
+  if (!hadHabitIcon) {
+    for (const [name, icon] of Object.entries(PRESET_HABIT_ICONS)) {
+      await db.runAsync(
+        `UPDATE habits SET icon = ? WHERE name = ? AND isCustom = 0;`,
+        [icon, name],
+      );
+    }
   }
 }
 
@@ -178,18 +252,26 @@ export async function initDb() {
 
 export async function seedDefaultHabitsIfEmpty() {
   await db.execAsync(`
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Social Media', 0, '#2563EB');
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Junk Food', 0, '#F97316');
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Caffeine', 0, '#92400E');
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Shopping', 0, '#DB2777');
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Video Games', 0, '#7C3AED');
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Alcohol', 0, '#7F1D1D');
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Nicotine', 0, '#64748B');
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Streaming', 0, '#DC2626');
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Porn', 0, '#BE123C');
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Weed', 0, '#16A34A');
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Gambling', 0, '#EAB308');
-    INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES ('Prescriptions', 0, '#0EA5E9');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Social Media', 0, '#2563EB', 'phone-portrait');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Junk Food', 0, '#F97316', 'fast-food');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Caffeine', 0, '#92400E', 'cafe');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Shopping', 0, '#DB2777', 'cart');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Video Games', 0, '#7C3AED', 'game-controller');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Alcohol', 0, '#7F1D1D', 'wine');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Nicotine', 0, '#64748B', 'flame');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Streaming', 0, '#DC2626', 'tv');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Porn', 0, '#BE123C', 'eye-off');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Weed', 0, '#16A34A', 'leaf');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Gambling', 0, '#EAB308', 'dice');
+    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Prescriptions', 0, '#0EA5E9', 'medical');
+
+    UPDATE habits
+    SET measurementType = 'minutes', unit = 'minutes'
+    WHERE isCustom = 0
+      AND name IN ('Social Media', 'Video Games', 'Streaming')
+      AND estimatedBaseline IS NULL
+      AND measurementType = 'times'
+      AND unit = 'times';
   `);
 }
 
@@ -244,7 +326,7 @@ export async function seedDefaultActionsIfEmpty() {
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Do one tiny task', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Journal for 5 minutes', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Repeat a calming phrase', 'Mental', 0);
-    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('List 3 reasons not to give in', 'Mental', 0);
+    INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('List 3 reasons to stay on track', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Set a 10-min timer and wait', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Pray', 'Mental', 0);
     INSERT OR IGNORE INTO actions (title, category, isCustom) VALUES ('Write your future self a note', 'Mental', 0);
@@ -359,13 +441,20 @@ export async function loadSelectedLocations(): Promise<SelectedPlace[]> {
 }
 
 export async function loadLogs(): Promise<LogEntry[]> {
-  return db.getAllAsync<LogEntry>(`
+  const rows = await db.getAllAsync<
+    Omit<LogEntry, "cueIds" | "cueNames"> & {
+      cueIdsJson: string | null;
+      cueNamesJson: string | null;
+    }
+  >(`
     SELECT
       l.id,
       l.habitId,
       COALESCE(l.habitName, h.name) AS habitName,
       l.cueId,
       COALESCE(l.cueName, c.name) AS cueName,
+      l.cueIdsJson,
+      l.cueNamesJson,
       l.locationId,
       COALESCE(l.locationName, loc.name) AS locationName,
       l.intensity,
@@ -382,6 +471,35 @@ export async function loadLogs(): Promise<LogEntry[]> {
     LEFT JOIN actions a ON a.id = l.selectedActionId
     ORDER BY l.createdAt DESC;
   `);
+
+  return rows.map(({ cueIdsJson, cueNamesJson, ...row }) => {
+    let cueIds: number[] = [];
+    let cueNames: string[] = [];
+
+    try {
+      const parsed = JSON.parse(cueIdsJson ?? "[]");
+      if (Array.isArray(parsed)) {
+        cueIds = parsed.filter(
+          (value): value is number => Number.isFinite(value) && value > 0,
+        );
+      }
+    } catch {}
+
+    try {
+      const parsed = JSON.parse(cueNamesJson ?? "[]");
+      if (Array.isArray(parsed)) {
+        cueNames = parsed.filter(
+          (value): value is string =>
+            typeof value === "string" && value.trim().length > 0,
+        );
+      }
+    } catch {}
+
+    if (cueIds.length === 0 && row.cueId != null) cueIds = [row.cueId];
+    if (cueNames.length === 0 && row.cueName) cueNames = [row.cueName];
+
+    return { ...row, cueIds, cueNames };
+  });
 }
 
 export async function loadActions(): Promise<ReplacementAction[]> {
@@ -442,10 +560,14 @@ export async function replaceSelectedLocations(locationIds: number[]) {
   }
 }
 
-export async function insertCustomHabit(name: string) {
+export async function insertCustomHabit(
+  name: string,
+  icon: string = DEFAULT_HABIT_ICON,
+  color = DEFAULT_HABIT_COLOR,
+) {
   const result = await db.runAsync(
-    `INSERT OR IGNORE INTO habits (name, isCustom, color) VALUES (?, 1, ?);`,
-    [name, DEFAULT_HABIT_COLOR],
+    `INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES (?, 1, ?, ?);`,
+    [name, color, cleanHabitIcon(icon)],
   );
 
   return Number(result.lastInsertRowId ?? 0);
@@ -472,6 +594,7 @@ export async function insertCustomLocation(name: string) {
 export async function insertLog(params: {
   habitId: number;
   cueId: number | null;
+  cueIds: number[];
   locationId: number | null;
   intensity: number | null;
   count: number;
@@ -480,6 +603,7 @@ export async function insertLog(params: {
   selectedActionId: number | null;
   habitName: string;
   cueName: string | null;
+  cueNames: string[];
   locationName: string | null;
   selectedActionTitle: string | null;
 }) {
@@ -497,10 +621,12 @@ export async function insertLog(params: {
       selectedActionId,
       habitName,
       cueName,
+      cueIdsJson,
+      cueNamesJson,
       locationName,
       selectedActionTitle
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `,
     [
       params.habitId,
@@ -514,6 +640,8 @@ export async function insertLog(params: {
       params.selectedActionId,
       params.habitName,
       params.cueName,
+      JSON.stringify(params.cueIds),
+      JSON.stringify(params.cueNames),
       params.locationName,
       params.selectedActionTitle,
     ],
@@ -526,6 +654,7 @@ export async function updateLogInDb(params: {
   logId: number;
   habitId: number;
   cueId: number | null;
+  cueIds: number[];
   locationId: number | null;
   intensity: number | null;
   count: number;
@@ -535,6 +664,7 @@ export async function updateLogInDb(params: {
   selectedActionId: number | null;
   habitName: string;
   cueName: string | null;
+  cueNames: string[];
   locationName: string | null;
   selectedActionTitle: string | null;
 }) {
@@ -553,6 +683,8 @@ export async function updateLogInDb(params: {
       selectedActionId = ?,
       habitName = ?,
       cueName = ?,
+      cueIdsJson = ?,
+      cueNamesJson = ?,
       locationName = ?,
       selectedActionTitle = ?
     WHERE id = ?;
@@ -569,6 +701,8 @@ export async function updateLogInDb(params: {
       params.selectedActionId,
       params.habitName,
       params.cueName,
+      JSON.stringify(params.cueIds),
+      JSON.stringify(params.cueNames),
       params.locationName,
       params.selectedActionTitle,
       params.logId,
@@ -628,13 +762,37 @@ export async function renameCustomHabitInDb(id: number, name: string) {
   );
 }
 
-export async function updateHabitInDb(id: number, name: string, color: string) {
+export async function updateHabitInDb(
+  id: number,
+  name: string,
+  color: string,
+  icon: string,
+) {
   await db.runAsync(
     `UPDATE habits
      SET name = CASE WHEN isCustom = 1 THEN ? ELSE name END,
-         color = ?
+         color = ?,
+         icon = ?
      WHERE id = ? AND hidden = 0;`,
-    [name, color, id],
+    [name, color, cleanHabitIcon(icon), id],
+  );
+}
+
+export async function updateHabitPlanInDb(id: number, input: HabitPlanInput) {
+  await db.runAsync(
+    `UPDATE habits
+     SET measurementType = ?, unit = ?, estimatedBaseline = ?,
+         baselinePeriod = ?, finalTarget = ?, goalPeriod = ?
+     WHERE id = ? AND hidden = 0;`,
+    [
+      input.measurementType,
+      input.unit,
+      input.estimatedBaseline,
+      input.baselinePeriod,
+      input.finalTarget,
+      input.goalPeriod,
+      id,
+    ],
   );
 }
 
