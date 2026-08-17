@@ -310,7 +310,7 @@ export default function AnalyticsScreen() {
   const [editingLog, setEditingLog] = useState<LogEntry | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [habitId, setHabitId] = useState<number | null>(null);
-  const [cueId, setCueId] = useState<number | null>(null);
+  const [cueIds, setCueIds] = useState<number[]>([]);
   const [locationId, setLocationId] = useState<number | null>(null);
   const [selectedActionId, setSelectedActionId] = useState<number | null>(null);
   const [didResist, setDidResist] = useState<0 | 1>(0);
@@ -553,7 +553,7 @@ export default function AnalyticsScreen() {
     setTimeout(() => {
       setEditingLog(log);
       setHabitId(log.habitId);
-      setCueId(log.cueId ?? null);
+      setCueIds(log.cueIds);
       setLocationId(log.locationId ?? null);
       setSelectedActionId(log.selectedActionId ?? null);
       setDidResist(log.didResist);
@@ -598,7 +598,7 @@ export default function AnalyticsScreen() {
 
     await updateLog(editingLog.id, {
       habitId,
-      cueId,
+      cueIds,
       locationId,
       intensity,
       count,
@@ -664,10 +664,14 @@ export default function AnalyticsScreen() {
     };
 
     for (const l of weekLogs) {
-      const cue = (l.cueName ?? "").trim();
       const loc = (l.locationName ?? "").trim();
 
-      if (cue) cueCounts.set(cue, (cueCounts.get(cue) ?? 0) + 1);
+      for (const cue of l.cueNames) {
+        const cleanCue = cue.trim();
+        if (cleanCue) {
+          cueCounts.set(cleanCue, (cueCounts.get(cleanCue) ?? 0) + 1);
+        }
+      }
       if (loc) locCounts.set(loc, (locCounts.get(loc) ?? 0) + 1);
 
       const bucket = timeBucket(l.createdAt);
@@ -834,6 +838,11 @@ export default function AnalyticsScreen() {
       ? BRAND_GREEN
       : (habits.find((habit) => habit.name === activeTab)?.color ??
         BRAND_GREEN);
+  const activeHabitIcon: keyof typeof Ionicons.glyphMap =
+    activeTab === "Overall"
+      ? "stats-chart"
+      : ((habits.find((habit) => habit.name === activeTab)
+          ?.icon as keyof typeof Ionicons.glyphMap) ?? "ellipse");
 
   if (!hasAnyLogs) {
     return (
@@ -860,13 +869,18 @@ export default function AnalyticsScreen() {
             <Text className="mt-0.5 text-2xl font-black text-black">
               Pattern map
             </Text>
+
+            <Text className="mt-2 text-sm font-semibold leading-5 text-gray-500">
+              Tip: Start simple. Log one moment when you notice the urge. The
+              patterns will build from there.
+            </Text>
           </View>
 
           <View
             className="h-12 w-12 items-center justify-center rounded-full border-4 bg-white shadow-sm"
             style={{ borderColor: BRAND_GREEN }}
           >
-            <Ionicons name="stats-chart" size={23} color="#000000" />
+            <Ionicons name={activeHabitIcon} size={23} color="#000000" />
           </View>
         </View>
 
@@ -887,28 +901,6 @@ export default function AnalyticsScreen() {
               Once you log your first urge, this page will show your calendar,
               patterns, triggers, and progress.
             </Text>
-
-            <View className="mt-5 w-full rounded-3xl border border-gray-200 bg-white p-4">
-              <View className="flex-row items-center">
-                <View
-                  className="h-10 w-10 items-center justify-center rounded-2xl border bg-white"
-                  style={{ borderColor: ICON_BUBBLE_BORDER }}
-                >
-                  <Ionicons name="bulb" size={21} color={BRAND_GREEN} />
-                </View>
-
-                <View className="ml-3 flex-1">
-                  <Text className="text-sm font-black text-black">
-                    Start simple
-                  </Text>
-
-                  <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
-                    Log one moment when you notice the urge. The patterns will
-                    build from there.
-                  </Text>
-                </View>
-              </View>
-            </View>
 
             <Pressable
               onPress={async () => {
@@ -969,34 +961,18 @@ export default function AnalyticsScreen() {
             <Text className="mt-0.5 text-2xl font-black text-black">
               Pattern map
             </Text>
+
+            <Text className="mt-2 text-sm font-semibold leading-5 text-gray-500">
+              Tip: Look for patterns. Notice what makes urges easier or harder
+              to beat.
+            </Text>
           </View>
 
           <View
             className="h-12 w-12 items-center justify-center rounded-full border-4 bg-white shadow-sm"
             style={{ borderColor: BRAND_GREEN }}
           >
-            <Ionicons name="stats-chart" size={23} color="#000000" />
-          </View>
-        </View>
-
-        <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
-          <View className="flex-row items-center">
-            <View
-              className="h-9 w-9 items-center justify-center rounded-2xl border bg-white"
-              style={{ borderColor: ICON_BUBBLE_BORDER }}
-            >
-              <Ionicons name="bulb" size={19} color={activeHabitColor} />
-            </View>
-
-            <View className="ml-2 flex-1">
-              <Text className="text-sm font-black text-black">
-                Look for patterns
-              </Text>
-
-              <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-500">
-                Notice what makes urges easier or harder to beat.
-              </Text>
-            </View>
+            <Ionicons name={activeHabitIcon} size={23} color="#000000" />
           </View>
         </View>
 
@@ -1004,7 +980,7 @@ export default function AnalyticsScreen() {
           ref={habitTabsScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-3"
+          className="mt-4"
         >
           {habitTabs.map((t) => (
             <Pressable
@@ -1013,14 +989,14 @@ export default function AnalyticsScreen() {
                 await lightHaptic();
                 setActiveTab(t);
               }}
-              className="mr-2 rounded-full border px-3 py-1.5"
+              className="mr-2 rounded-full border px-3.5 py-2"
               style={{
                 borderColor: t === activeTab ? activeHabitColor : "#E5E7EB",
                 backgroundColor: t === activeTab ? activeHabitColor : "#FFFFFF",
               }}
             >
               <Text
-                className={`text-xs font-black ${
+                className={`text-sm font-black ${
                   t === activeTab ? "text-white" : "text-black"
                 }`}
                 numberOfLines={1}
@@ -1035,7 +1011,7 @@ export default function AnalyticsScreen() {
           <View className="mb-2 flex-row items-center justify-between">
             <View className="flex-1 pr-3">
               <Text className="text-base font-black text-black">
-                Give-in calendar
+                Habit activity calendar
               </Text>
 
               <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-500">
@@ -1152,7 +1128,7 @@ export default function AnalyticsScreen() {
           <View className="mt-3 flex-row gap-3">
             <StatCard
               accentColor={activeHabitColor}
-              label="Gave in"
+              label="Habit activity"
               value={`${extraAnalytics.weeklyGaveIn}`}
               sub="This week"
               icon="trending-down"
@@ -1191,7 +1167,7 @@ export default function AnalyticsScreen() {
 
               <MiniStat
                 accentColor={activeHabitColor}
-                label="Gave in"
+                label="Habit activity"
                 value={`${extraAnalytics.allGiveIn}`}
                 icon="close-circle"
               />
@@ -1236,7 +1212,7 @@ export default function AnalyticsScreen() {
 
               <MiniStat
                 accentColor={activeHabitColor}
-                label="Gave in"
+                label="Habit activity"
                 value={formatAvg(extraAnalytics.avgGaveInIntensity)}
                 icon="alert"
               />
@@ -1260,7 +1236,7 @@ export default function AnalyticsScreen() {
         locationOptions={locationOptions}
         selectedActions={selectedActions}
         habitId={habitId}
-        cueId={cueId}
+        cueIds={cueIds}
         locationId={locationId}
         selectedActionId={selectedActionId}
         didResist={didResist}
@@ -1277,7 +1253,7 @@ export default function AnalyticsScreen() {
         showIntensityPicker={showIntensityPicker}
         showCountPicker={showCountPicker}
         setHabitId={setHabitId}
-        setCueId={setCueId}
+        setCueIds={setCueIds}
         setLocationId={setLocationId}
         setSelectedActionId={setSelectedActionId}
         setDidResist={setDidResist}
