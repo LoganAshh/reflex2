@@ -24,6 +24,10 @@ import type { DailyReminderOption } from "../data/types";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+// Temporarily hide App Lock in Settings while Face ID issues are investigated.
+// Change this to true to show the existing section again.
+const SHOW_APP_LOCK_SETTINGS = false;
+
 type RowProps = {
   title: string;
   subtitle?: string;
@@ -538,33 +542,14 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <SectionTitle title="Profile" icon="person-circle" />
+      <SectionTitle title="Tracking" icon="list" />
 
-      <View className="gap-3">
-        <Row
-          title="Edit profile"
-          subtitle="Change your local username and profile picture."
-          onPress={busy ? undefined : () => navigation.navigate("ProfileSetup")}
-          disabled={!!busy}
-          icon="create"
-        />
-
-        <Row
-          title="Clear local profile"
-          subtitle="Remove your saved username and photo from this device."
-          tone="danger"
-          onPress={busy ? undefined : onClearProfile}
-          disabled={!!busy}
-          icon="trash"
-          right={
-            busy === "profile" ? (
-              <ActivityIndicator />
-            ) : (
-              <Text className="font-black text-red-700">Clear</Text>
-            )
-          }
-        />
-      </View>
+      <Row
+        title="Manage habits"
+        subtitle="Add habits and update their current and goal amounts."
+        onPress={() => navigation.navigate("ManageList", { type: "habits" })}
+        icon="create"
+      />
 
       <SectionTitle title="Reminders" icon="notifications" />
 
@@ -653,31 +638,63 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      <SectionTitle title="Security" icon="shield-checkmark" />
+      {SHOW_APP_LOCK_SETTINGS && (
+        <>
+          <SectionTitle title="Security" icon="shield-checkmark" />
 
-      <Row
-        title="App Lock"
-        subtitle={
-          appLockEnabled
-            ? "Require Face ID or your device passcode when opening Reflex."
-            : "Protect your local Reflex data with Face ID or your device passcode."
-        }
-        disabled={busy === "lock"}
-        icon="lock-closed"
-        right={
-          busy === "lock" ? (
-            <ActivityIndicator />
-          ) : (
-            <Switch
-              value={appLockEnabled}
-              onValueChange={onToggleAppLock}
-              disabled={!!busy}
-              trackColor={{ false: "#E5E7EB", true: "#86EFAC" }}
-              thumbColor={appLockEnabled ? "#16A34A" : "#F9FAFB"}
-            />
-          )
-        }
-      />
+          <Row
+            title="App Lock"
+            subtitle={
+              appLockEnabled
+                ? "Require Face ID or your device passcode when opening Reflex."
+                : "Protect your local Reflex data with Face ID or your device passcode."
+            }
+            disabled={busy === "lock"}
+            icon="lock-closed"
+            right={
+              busy === "lock" ? (
+                <ActivityIndicator />
+              ) : (
+                <Switch
+                  value={appLockEnabled}
+                  onValueChange={onToggleAppLock}
+                  disabled={!!busy}
+                  trackColor={{ false: "#E5E7EB", true: "#86EFAC" }}
+                  thumbColor={appLockEnabled ? "#16A34A" : "#F9FAFB"}
+                />
+              )
+            }
+          />
+        </>
+      )}
+
+      <SectionTitle title="Profile" icon="person-circle" />
+
+      <View className="gap-3">
+        <Row
+          title="Edit profile"
+          subtitle="Change your local username and profile picture."
+          onPress={busy ? undefined : () => navigation.navigate("ProfileSetup")}
+          disabled={!!busy}
+          icon="create"
+        />
+
+        <Row
+          title="Clear local profile"
+          subtitle="Remove your saved username and photo from this device."
+          tone="danger"
+          onPress={busy ? undefined : onClearProfile}
+          disabled={!!busy}
+          icon="trash"
+          right={
+            busy === "profile" ? (
+              <ActivityIndicator />
+            ) : (
+              <Text className="font-black text-red-700">Clear</Text>
+            )
+          }
+        />
+      </View>
 
       <SectionTitle title="Data" icon="folder" />
 
@@ -755,11 +772,13 @@ export default function SettingsScreen() {
             </View>
 
             <View className="ml-3 flex-1">
-              <Text className="text-base font-black text-black">Privacy</Text>
+              <Text className="text-base font-black text-black">
+                Your personal data is private
+              </Text>
 
               <Text className="mt-1 text-sm leading-5 text-gray-500">
-                Reflex is local-first. Your tracking data and profile stay on
-                this device unless you export them.
+                Your tracking data and profile stay on this device unless you
+                choose to export them.
               </Text>
             </View>
           </View>
