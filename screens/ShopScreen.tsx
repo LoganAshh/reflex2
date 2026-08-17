@@ -515,6 +515,11 @@ export default function ShopScreen() {
             <Text className="mt-1 text-3xl font-black text-black">
               Pick your backups
             </Text>
+
+            <Text className="mt-2 text-sm font-semibold leading-5 text-gray-500">
+              Tip: Make it easy. Pick something enjoyable, then choose the
+              easiest version.
+            </Text>
           </View>
 
           <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
@@ -522,29 +527,11 @@ export default function ShopScreen() {
           </View>
         </View>
 
-        <View className="mt-5 rounded-3xl border border-gray-200 bg-gray-50 p-4 shadow-sm">
-          <View className="flex-row items-center">
-            <View className="h-10 w-10 items-center justify-center rounded-3xl border border-gray-200 bg-white">
-              <Ionicons name="bulb" size={21} color="#000000" />
-            </View>
-
-            <View className="ml-3 flex-1">
-              <Text className="text-sm font-black text-black">
-                Tip: make it easy
-              </Text>
-
-              <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
-                Pick something enjoyable, then choose the easiest version.
-              </Text>
-            </View>
-          </View>
-        </View>
-
         <ScrollView
           ref={filterScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-5"
+          className="mt-4"
           scrollEventThrottle={16}
           contentOffset={{ x: filterScrollOffsetRef.current, y: 0 }}
           onScroll={(event) => {
