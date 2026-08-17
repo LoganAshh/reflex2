@@ -9,7 +9,9 @@ import {
   ScrollView,
   Text,
   TextInput,
+  UIManager,
   View,
+  findNodeHandle,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
@@ -525,6 +527,8 @@ export function EditLogModal({
   const locationListRef = useRef<FlatList<ChipItem> | null>(null);
   const actionListRef = useRef<FlatList<ChipItem> | null>(null);
   const editScrollViewRef = useRef<ScrollView | null>(null);
+  const editScrollViewportHeightRef = useRef(0);
+  const notesAnchorRef = useRef<View | null>(null);
   const notesInputRef = useRef<TextInput | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -559,11 +563,32 @@ export function EditLogModal({
 
   const scrollNotesIntoView = () => {
     setTimeout(() => {
-      editScrollViewRef.current?.scrollTo({
-        y: 820,
-        animated: true,
-      });
-    }, 250);
+      const scrollNode = findNodeHandle(editScrollViewRef.current);
+      const notesNode = findNodeHandle(notesAnchorRef.current);
+
+      if (!scrollNode || !notesNode) {
+        editScrollViewRef.current?.scrollToEnd({ animated: true });
+        return;
+      }
+
+      UIManager.measureLayout(
+        notesNode,
+        scrollNode,
+        () => editScrollViewRef.current?.scrollToEnd({ animated: true }),
+        (_x, y, _width, height) => {
+          const visibleHeight = editScrollViewportHeightRef.current;
+          const targetY =
+            visibleHeight > 0
+              ? Math.max(0, y + height - visibleHeight + 24)
+              : y;
+
+          editScrollViewRef.current?.scrollTo({
+            y: targetY,
+            animated: true,
+          });
+        },
+      );
+    }, 350);
   };
 
   const applyTimePreset = async (preset: TimePreset) => {
@@ -692,6 +717,10 @@ export function EditLogModal({
             contentContainerStyle={{ paddingBottom: 108 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            onLayout={(event) => {
+              editScrollViewportHeightRef.current =
+                event.nativeEvent.layout.height;
+            }}
           >
             <ChipRow
               title="Habit"
@@ -1095,7 +1124,10 @@ export function EditLogModal({
               ) : null}
             </View>
 
-            <View className="mt-3 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
+            <View
+              ref={notesAnchorRef}
+              className="mt-3 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm"
+            >
               <View className="flex-row items-center">
                 <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
                   <Ionicons name="document-text" size={20} color="#000000" />
