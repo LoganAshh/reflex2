@@ -235,7 +235,7 @@ export default function ProfileSetupScreen() {
 
               <View className="ml-3 flex-1">
                 <Text className="text-base font-black text-black">
-                  Local profile
+                  Your personal data is private
                 </Text>
 
                 <Text className="mt-1 text-sm leading-5 text-gray-500">
