@@ -61,12 +61,59 @@ type TimePreset = {
   minute: number;
 };
 
+type DatePreset = {
+  label: string;
+  daysAgo: number;
+};
+
+type RelativeTimePreset = {
+  label: string;
+  hoursAgo: number;
+};
+
+const DATE_PRESETS: DatePreset[] = [
+  { label: "Today", daysAgo: 0 },
+  { label: "Yesterday", daysAgo: 1 },
+  { label: "2 days ago", daysAgo: 2 },
+  { label: "Last week", daysAgo: 7 },
+  { label: "Tomorrow", daysAgo: -1 },
+  { label: "Next week", daysAgo: -7 },
+];
+
 const TIME_PRESETS: TimePreset[] = [
   { label: "Morning", hour: 8, minute: 0 },
   { label: "Afternoon", hour: 13, minute: 0 },
   { label: "Evening", hour: 18, minute: 0 },
   { label: "Night", hour: 22, minute: 0 },
 ];
+
+const RELATIVE_TIME_PRESETS: RelativeTimePreset[] = [
+  { label: "Now", hoursAgo: 0 },
+  { label: "1 hour ago", hoursAgo: 1 },
+  { label: "2 hours ago", hoursAgo: 2 },
+  { label: "3 hours ago", hoursAgo: 3 },
+];
+
+function dateForPreset(preset: DatePreset) {
+  const date = new Date();
+  date.setDate(date.getDate() - preset.daysAgo);
+  return date;
+}
+
+function dateForRelativeTimePreset(preset: RelativeTimePreset) {
+  const date = new Date();
+  date.setHours(date.getHours() - preset.hoursAgo);
+  date.setSeconds(0, 0);
+  return date;
+}
+
+function isSameCalendarDay(first: Date, second: Date) {
+  return (
+    first.getFullYear() === second.getFullYear() &&
+    first.getMonth() === second.getMonth() &&
+    first.getDate() === second.getDate()
+  );
+}
 
 async function lightHaptic() {
   await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -86,6 +133,17 @@ function formatTimeButton(date: Date) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function quantityUnit(unit: string, value: number) {
+  if (value !== 1) return unit;
+  if (unit.toLowerCase() === "times") return "time";
+  if (unit.toLowerCase() === "minutes") return "minute";
+  return unit;
+}
+
+function formatQuantity(value: number, unit: string) {
+  return `${value} ${quantityUnit(unit, value)}`;
 }
 
 function mergeDatePart(current: Date, selectedDate: Date) {
@@ -243,6 +301,92 @@ function InfoModal({
   );
 }
 
+function ExactDateTimePickerOverlay({
+  visible,
+  mode,
+  value,
+  onChange,
+  onClose,
+}: {
+  visible: boolean;
+  mode: "date" | "time";
+  value: Date;
+  onChange: (date: Date) => void;
+  onClose: () => void;
+}) {
+  const isDate = mode === "date";
+  if (!visible) return null;
+
+  return (
+    <Pressable
+      className="w-full rounded-[28px] bg-white p-5 shadow-lg"
+      onPress={() => {}}
+    >
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row flex-1 items-center pr-3">
+          <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+            <Ionicons
+              name={isDate ? "calendar-outline" : "time-outline"}
+              size={22}
+              color="#000000"
+            />
+          </View>
+          <Text className="ml-3 text-lg font-black text-black">
+            {isDate ? "Choose exact date" : "Choose exact time"}
+          </Text>
+        </View>
+
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={`Close exact ${mode} picker`}
+          className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-gray-50"
+        >
+          <Ionicons name="close" size={21} color="#000000" />
+        </Pressable>
+      </View>
+
+      <View
+        className="mt-4 items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 px-2 py-3"
+        style={Platform.OS === "ios" ? { height: 220 } : undefined}
+      >
+        <DateTimePicker
+          value={value}
+          mode={mode}
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={(_, selectedDate) => {
+            if (!selectedDate) {
+              if (Platform.OS !== "ios") onClose();
+              return;
+            }
+            onChange(selectedDate);
+            if (Platform.OS !== "ios") onClose();
+          }}
+          textColor="#000000"
+          themeVariant="light"
+          style={
+            Platform.OS === "ios" ? { width: "100%", height: 200 } : undefined
+          }
+        />
+      </View>
+
+      {Platform.OS === "ios" ? (
+        <Pressable
+          onPress={async () => {
+            await lightHaptic();
+            onClose();
+          }}
+          className="mt-4 rounded-2xl bg-green-600 px-5 py-3"
+        >
+          <Text className="text-center text-sm font-black text-white">
+            Done
+          </Text>
+        </Pressable>
+      ) : null}
+    </Pressable>
+  );
+}
+
 function LogDateTimeModal({
   visible,
   value,
@@ -262,11 +406,36 @@ function LogDateTimeModal({
       value.getHours() === preset.hour && value.getMinutes() === preset.minute,
   );
 
+  const selectedDatePreset = DATE_PRESETS.find((preset) =>
+    isSameCalendarDay(value, dateForPreset(preset)),
+  );
+
+  const selectedRelativeTimePreset = RELATIVE_TIME_PRESETS.find((preset) => {
+    const presetDate = dateForRelativeTimePreset(preset);
+    return (
+      isSameCalendarDay(value, presetDate) &&
+      value.getHours() === presetDate.getHours() &&
+      value.getMinutes() === presetDate.getMinutes()
+    );
+  });
+
+  const applyDatePreset = async (preset: DatePreset) => {
+    await lightHaptic();
+    onChange(mergeDatePart(value, dateForPreset(preset)));
+    setShowDatePicker(false);
+  };
+
   const applyTimePreset = async (preset: TimePreset) => {
     await lightHaptic();
     const next = new Date(value);
     next.setHours(preset.hour, preset.minute, 0, 0);
     onChange(next);
+    setShowTimePicker(false);
+  };
+
+  const applyRelativeTimePreset = async (preset: RelativeTimePreset) => {
+    await lightHaptic();
+    onChange(dateForRelativeTimePreset(preset));
     setShowTimePicker(false);
   };
 
@@ -283,171 +452,191 @@ function LogDateTimeModal({
       animationType="fade"
       onRequestClose={closeModal}
     >
-      <Pressable
-        className="flex-1 items-center justify-center bg-black/40 px-6"
-        onPress={closeModal}
-      >
+      <View className="flex-1">
         <Pressable
-          className="w-full rounded-[32px] bg-white p-5"
-          onPress={() => {}}
+          className="flex-1 items-center justify-center bg-black/40 px-6"
+          onPress={() => {
+            if (showDatePicker) setShowDatePicker(false);
+            else if (showTimePicker) setShowTimePicker(false);
+            else closeModal();
+          }}
         >
-          <View className="flex-row items-center">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="calendar" size={24} color="#000000" />
-            </View>
-
-            <View className="ml-3 flex-1">
-              <Text className="text-xl font-black text-black">
-                Log date & time
-              </Text>
-              <Text className="mt-1 text-sm font-semibold text-gray-500">
-                Change when this check-in happened.
-              </Text>
-            </View>
-          </View>
-
-          <Pressable
-            onPress={async () => {
-              await lightHaptic();
-              Keyboard.dismiss();
-              setShowTimePicker(false);
-              setShowDatePicker((current) => !current);
-            }}
-            className="mt-5 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3"
-          >
-            <View>
-              <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
-                Date
-              </Text>
-              <Text className="mt-1 text-sm font-black text-black">
-                {formatDateButton(value)}
-              </Text>
-            </View>
-            <Ionicons name="calendar-outline" size={18} color="#000000" />
-          </Pressable>
-
           {showDatePicker ? (
-            <View className="mt-3 items-center rounded-2xl border border-gray-200 bg-white px-2 py-3">
-              <DateTimePicker
-                value={value}
-                mode="date"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={(_, selectedDate) => {
-                  if (!selectedDate) return;
-                  onChange(mergeDatePart(value, selectedDate));
-
-                  if (Platform.OS !== "ios") {
-                    setShowDatePicker(false);
-                  }
-                }}
-                textColor="#000000"
-                themeVariant="light"
-              />
-
-              {Platform.OS === "ios" ? (
-                <Pressable
-                  onPress={async () => {
-                    await lightHaptic();
-                    setShowDatePicker(false);
-                  }}
-                  className="mt-2 rounded-2xl bg-green-600 px-5 py-3"
-                >
-                  <Text className="text-sm font-black text-white">Done</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
-
-          <View className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 p-3">
-            <View className="flex-row flex-wrap">
-              {TIME_PRESETS.map((preset) => {
-                const selected = selectedPreset?.label === preset.label;
-
-                return (
-                  <Pressable
-                    key={preset.label}
-                    onPress={() => applyTimePreset(preset)}
-                    className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
-                      selected
-                        ? "border-green-600 bg-green-600"
-                        : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <Text
-                      className={`text-sm font-black ${
-                        selected ? "text-white" : "text-black"
-                      }`}
-                    >
-                      {preset.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
+            <ExactDateTimePickerOverlay
+              visible
+              mode="date"
+              value={value}
+              onChange={(selectedDate) =>
+                onChange(mergeDatePart(value, selectedDate))
+              }
+              onClose={() => setShowDatePicker(false)}
+            />
+          ) : showTimePicker ? (
+            <ExactDateTimePickerOverlay
+              visible
+              mode="time"
+              value={value}
+              onChange={(selectedDate) =>
+                onChange(mergeTimePart(value, selectedDate))
+              }
+              onClose={() => setShowTimePicker(false)}
+            />
+          ) : (
             <Pressable
-              onPress={async () => {
-                await lightHaptic();
-                Keyboard.dismiss();
-                setShowDatePicker(false);
-                setShowTimePicker((current) => !current);
-              }}
-              className="mt-1 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
+              className="w-full rounded-[32px] bg-white p-5"
+              onPress={() => {}}
             >
-              <View>
-                <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
-                  Exact time
-                </Text>
-                <Text className="mt-1 text-sm font-black text-black">
-                  {formatTimeButton(value)}
-                </Text>
+              <View className="flex-row items-center">
+                <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                  <Ionicons name="calendar" size={24} color="#000000" />
+                </View>
+
+                <View className="ml-3 flex-1">
+                  <Text className="text-xl font-black text-black">
+                    Edit date & time
+                  </Text>
+                  <Text className="mt-1 text-sm font-semibold text-gray-500">
+                    Change when this check-in happened.
+                  </Text>
+                </View>
               </View>
-              <Ionicons name="time-outline" size={18} color="#000000" />
-            </Pressable>
-          </View>
 
-          {showTimePicker ? (
-            <View className="mt-3 items-center rounded-2xl border border-gray-200 bg-white px-2 py-3">
-              <DateTimePicker
-                value={value}
-                mode="time"
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={(_, selectedDate) => {
-                  if (!selectedDate) return;
-                  onChange(mergeTimePart(value, selectedDate));
+              <View className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                <View className="flex-row flex-wrap">
+                  {DATE_PRESETS.map((preset) => {
+                    const selected = selectedDatePreset?.label === preset.label;
 
-                  if (Platform.OS !== "ios") {
-                    setShowTimePicker(false);
-                  }
-                }}
-                textColor="#000000"
-                themeVariant="light"
-              />
+                    return (
+                      <Pressable
+                        key={preset.label}
+                        onPress={() => applyDatePreset(preset)}
+                        className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
+                          selected
+                            ? "border-green-600 bg-green-600"
+                            : "border-gray-200 bg-white"
+                        }`}
+                      >
+                        <Text
+                          className={`text-sm font-black ${
+                            selected ? "text-white" : "text-black"
+                          }`}
+                        >
+                          {preset.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
 
-              {Platform.OS === "ios" ? (
                 <Pressable
-                  onPress={async () => {
-                    await lightHaptic();
+                  onPress={() => {
+                    lightHaptic();
+                    Keyboard.dismiss();
                     setShowTimePicker(false);
+                    setShowDatePicker(true);
                   }}
-                  className="mt-2 rounded-2xl bg-green-600 px-5 py-3"
+                  className="mt-1 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
                 >
-                  <Text className="text-sm font-black text-white">Done</Text>
+                  <View>
+                    <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
+                      Exact date
+                    </Text>
+                    <Text className="mt-1 text-sm font-black text-black">
+                      {formatDateButton(value)}
+                    </Text>
+                  </View>
+                  <Ionicons name="calendar-outline" size={18} color="#000000" />
                 </Pressable>
-              ) : null}
-            </View>
-          ) : null}
+              </View>
 
-          <Pressable
-            onPress={closeModal}
-            className="mt-5 rounded-2xl bg-green-600 px-4 py-3"
-          >
-            <Text className="text-center text-sm font-black text-white">
-              Done
-            </Text>
-          </Pressable>
+              <View className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                <View className="flex-row flex-wrap">
+                  {RELATIVE_TIME_PRESETS.map((preset) => {
+                    const selected =
+                      selectedRelativeTimePreset?.label === preset.label;
+
+                    return (
+                      <Pressable
+                        key={preset.label}
+                        onPress={() => applyRelativeTimePreset(preset)}
+                        className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
+                          selected
+                            ? "border-green-600 bg-green-600"
+                            : "border-gray-200 bg-white"
+                        }`}
+                      >
+                        <Text
+                          className={`text-sm font-black ${
+                            selected ? "text-white" : "text-black"
+                          }`}
+                        >
+                          {preset.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+
+                  {TIME_PRESETS.map((preset) => {
+                    const selected = selectedPreset?.label === preset.label;
+
+                    return (
+                      <Pressable
+                        key={preset.label}
+                        onPress={() => applyTimePreset(preset)}
+                        className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
+                          selected
+                            ? "border-green-600 bg-green-600"
+                            : "border-gray-200 bg-white"
+                        }`}
+                      >
+                        <Text
+                          className={`text-sm font-black ${
+                            selected ? "text-white" : "text-black"
+                          }`}
+                        >
+                          {preset.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <Pressable
+                  onPress={() => {
+                    lightHaptic();
+                    Keyboard.dismiss();
+                    setShowDatePicker(false);
+                    setShowTimePicker(true);
+                  }}
+                  className="mt-1 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
+                >
+                  <View>
+                    <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
+                      Exact time
+                    </Text>
+                    <Text className="mt-1 text-sm font-black text-black">
+                      {formatTimeButton(value)}
+                    </Text>
+                  </View>
+                  <Ionicons name="time-outline" size={18} color="#000000" />
+                </Pressable>
+              </View>
+
+              <Pressable
+                onPress={() => {
+                  lightHaptic();
+                  closeModal();
+                }}
+                className="mt-5 rounded-2xl bg-green-600 px-4 py-3"
+              >
+                <Text className="text-center text-sm font-black text-white">
+                  Done
+                </Text>
+              </Pressable>
+            </Pressable>
+          )}
         </Pressable>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
@@ -458,7 +647,9 @@ function ChipRow<T extends BaseItem>({
   onInfo,
   items,
   selectedId,
+  selectedIds,
   onSelect,
+  onToggle,
   allowNone,
   onAdd,
   listRef,
@@ -468,7 +659,9 @@ function ChipRow<T extends BaseItem>({
   onInfo: () => void;
   items: T[];
   selectedId: number | null;
-  onSelect: (id: number | null) => void;
+  selectedIds?: number[];
+  onSelect?: (id: number | null) => void;
+  onToggle?: (id: number | null) => void;
   allowNone?: boolean;
   onAdd: () => void;
   listRef: React.RefObject<FlatList<ChipItem> | null>;
@@ -490,9 +683,13 @@ function ChipRow<T extends BaseItem>({
   const renderItem = ({ item }: { item: ChipItem }) => {
     const isSelected =
       item.kind === "none"
-        ? selectedId == null
+        ? selectedIds
+          ? selectedIds.length === 0
+          : selectedId == null
         : item.kind === "value"
-          ? item.id === selectedId
+          ? selectedIds
+            ? item.id != null && selectedIds.includes(item.id)
+            : item.id === selectedId
           : false;
 
     const selectedColor =
@@ -508,7 +705,8 @@ function ChipRow<T extends BaseItem>({
             return;
           }
 
-          onSelect(item.id);
+          if (selectedIds && onToggle) onToggle(item.id);
+          else onSelect?.(item.id);
         }}
         className={`mr-2 rounded-full border px-3 py-1.5 ${
           item.kind === "add" || !isSelected ? "border-gray-200 bg-white" : ""
@@ -553,7 +751,7 @@ function ChipRow<T extends BaseItem>({
         data={data}
         keyExtractor={(x) => x.key}
         renderItem={renderItem}
-        extraData={{ selectedId, items }}
+        extraData={{ selectedId, selectedIds, items }}
         keyboardShouldPersistTaps="handled"
         onScrollToIndexFailed={(info) => {
           setTimeout(() => {
@@ -666,20 +864,48 @@ function IntensityPickerModal({
 function CountPickerModal({
   visible,
   value,
+  unit,
   onPick,
   onClose,
 }: {
   visible: boolean;
   value: number;
+  unit: string;
   onPick: (n: number) => void;
   onClose: () => void;
 }) {
+  const [customValue, setCustomValue] = useState("");
+  const [showCustomValue, setShowCustomValue] = useState(false);
+  const customValueInputRef = useRef<TextInput | null>(null);
   const options = useMemo(
-    () => Array.from({ length: 10 }, (_, i) => i + 1),
-    [],
+    () =>
+      unit.trim().toLowerCase() === "minutes"
+        ? [1, 5, 10, 15, 20, 30, 45, 60]
+        : Array.from({ length: 10 }, (_, i) => i + 1),
+    [unit],
   );
 
-  const labelFor = (n: number) => (n === 1 ? "1 time" : `${n} times`);
+  const labelFor = (n: number) => formatQuantity(n, unit);
+
+  useEffect(() => {
+    if (!visible) {
+      setShowCustomValue(false);
+      setCustomValue("");
+      return;
+    }
+
+    if (!options.includes(value)) {
+      setShowCustomValue(true);
+      setCustomValue(String(value));
+    }
+  }, [visible, value, options]);
+
+  const submitCustomValue = () => {
+    const rawAmount = Number(customValue);
+    if (!Number.isFinite(rawAmount) || rawAmount < 1) return;
+    const amount = Math.min(999999, Math.max(1, Math.round(rawAmount)));
+    onPick(amount);
+  };
 
   return (
     <Modal
@@ -688,65 +914,127 @@ function CountPickerModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Pressable
-        className="flex-1 items-center justify-center bg-black/40 px-6"
-        onPress={onClose}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
       >
         <Pressable
-          className="w-full rounded-[32px] bg-white p-5"
-          onPress={() => {}}
+          className="flex-1 items-center justify-center bg-black/40 px-6"
+          onPress={onClose}
         >
-          <View className="flex-row items-center">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="repeat" size={24} color="#000000" />
+          <Pressable
+            className="w-full rounded-[32px] bg-white p-5"
+            onPress={() => {}}
+          >
+            <View className="flex-row items-center">
+              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                <Ionicons name="repeat" size={24} color="#000000" />
+              </View>
+
+              <View className="ml-3 flex-1">
+                <Text className="text-xl font-black text-black">
+                  Quantity logged
+                </Text>
+                <Text className="mt-1 text-sm font-semibold text-gray-500">
+                  Log the actual amount, not just one event.
+                </Text>
+              </View>
             </View>
 
-            <View className="ml-3 flex-1">
-              <Text className="text-xl font-black text-black">
-                Times given in
-              </Text>
-              <Text className="mt-1 text-sm font-semibold text-gray-500">
-                Only count times you actually gave in.
-              </Text>
-            </View>
-          </View>
+            <View className="mt-5 flex-row flex-wrap">
+              {options.map((n) => {
+                const selected = !showCustomValue && value === n;
 
-          <View className="mt-5 flex-row flex-wrap">
-            {options.map((n) => {
-              const selected = value === n;
-
-              return (
-                <Pressable
-                  key={n}
-                  onPress={() => onPick(n)}
-                  className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
-                    selected
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <Text
-                    className={`text-sm font-black ${
-                      selected ? "text-white" : "text-black"
+                return (
+                  <Pressable
+                    key={n}
+                    onPress={() => onPick(n)}
+                    className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
+                      selected
+                        ? "border-green-600 bg-green-600"
+                        : "border-gray-200 bg-white"
                     }`}
                   >
-                    {labelFor(n)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+                    <Text
+                      className={`text-sm font-black ${
+                        selected ? "text-white" : "text-black"
+                      }`}
+                    >
+                      {labelFor(n)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
 
-          <View className="mt-3 flex-row justify-end">
-            <Pressable
-              onPress={onClose}
-              className="rounded-2xl bg-green-600 px-4 py-3"
-            >
-              <Text className="text-sm font-black text-white">Done</Text>
-            </Pressable>
-          </View>
+              <Pressable
+                onPress={() => {
+                  setShowCustomValue(true);
+                  requestAnimationFrame(() =>
+                    customValueInputRef.current?.focus(),
+                  );
+                }}
+                className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
+                  showCustomValue
+                    ? "border-green-600 bg-green-600"
+                    : "border-gray-200 bg-white"
+                }`}
+              >
+                <Text
+                  className={`text-sm font-black ${
+                    showCustomValue ? "text-white" : "text-black"
+                  }`}
+                >
+                  Custom
+                </Text>
+              </Pressable>
+            </View>
+
+            {showCustomValue ? (
+              <View className="mt-3 flex-row items-center gap-2">
+                <TextInput
+                  ref={customValueInputRef}
+                  value={customValue}
+                  onChangeText={setCustomValue}
+                  placeholder={`Other ${unit}`}
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType={
+                    Platform.OS === "ios"
+                      ? "numbers-and-punctuation"
+                      : "number-pad"
+                  }
+                  returnKeyType="done"
+                  blurOnSubmit
+                  onSubmitEditing={submitCustomValue}
+                  className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
+                />
+                <Pressable
+                  onPress={submitCustomValue}
+                  disabled={
+                    !Number.isFinite(Number(customValue)) ||
+                    Number(customValue) < 1
+                  }
+                  className={`rounded-2xl px-5 py-3 ${
+                    Number(customValue) >= 1 ? "bg-green-600" : "bg-gray-300"
+                  }`}
+                >
+                  <Text className="font-black text-white">Done</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {!showCustomValue ? (
+              <View className="mt-3 flex-row justify-end">
+                <Pressable
+                  onPress={onClose}
+                  className="rounded-2xl bg-green-600 px-5 py-3"
+                >
+                  <Text className="text-sm font-black text-white">Done</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -765,7 +1053,7 @@ export default function LogScreen() {
   } = useData();
 
   const [habitId, setHabitId] = useState<number | null>(null);
-  const [cueId, setCueId] = useState<number | null>(null);
+  const [cueIds, setCueIds] = useState<number[]>([]);
   const [locationId, setLocationId] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
@@ -820,9 +1108,9 @@ export default function LogScreen() {
 
     for (const log of logs) {
       if (log.habitId !== habitId) continue;
-      if (log.cueId == null) continue;
-
-      counts.set(log.cueId, (counts.get(log.cueId) ?? 0) + 1);
+      for (const cueId of log.cueIds) {
+        counts.set(cueId, (counts.get(cueId) ?? 0) + 1);
+      }
     }
 
     return counts;
@@ -847,6 +1135,12 @@ export default function LogScreen() {
     () => applyFrequencyOrdering(selectedHabits, habitFrequencyCounts),
     [selectedHabits, habitFrequencyCounts],
   );
+
+  const activeHabit = useMemo(
+    () => selectedHabits.find((habit) => habit.id === habitId) ?? null,
+    [selectedHabits, habitId],
+  );
+  const countUnit = activeHabit?.unit?.trim() || "times";
 
   const orderedCues = useMemo(
     () => applyFrequencyOrdering(selectedCues, cueAssociationCounts),
@@ -901,7 +1195,7 @@ export default function LogScreen() {
   const resetToDefaults = (habitOverrideId?: number | null) => {
     setErrorMsg(null);
     setHabitId(habitOverrideId ?? getDefaultHabitId());
-    setCueId(null);
+    setCueIds([]);
     setLocationId(null);
     setNotes("");
     setShowNotes(false);
@@ -959,7 +1253,9 @@ export default function LogScreen() {
       const exists = selectedCues.some((cue) => cue.id === selection.id);
       if (!exists) return;
 
-      setCueId(selection.id);
+      setCueIds((current) =>
+        current.includes(selection.id) ? current : [...current, selection.id],
+      );
       handledManageListTokenRef.current = selection.token;
 
       setTimeout(() => {
@@ -1047,7 +1343,7 @@ export default function LogScreen() {
     }
 
     const submittedHabitId = habitId;
-    const submittedCueId = cueId;
+    const submittedCueIds = cueIds;
     const submittedLocationId = locationId;
     const submittedIntensity = intensity;
     const submittedDidResist = didResist;
@@ -1058,7 +1354,7 @@ export default function LogScreen() {
     try {
       const newLogId = await addLog({
         habitId: submittedHabitId,
-        cueId: submittedCueId,
+        cueIds: submittedCueIds,
         locationId: submittedLocationId,
         intensity: submittedIntensity,
         count: submittedCount,
@@ -1069,7 +1365,7 @@ export default function LogScreen() {
       if (newLogId != null) {
         await updateLog(newLogId, {
           habitId: submittedHabitId,
-          cueId: submittedCueId,
+          cueIds: submittedCueIds,
           locationId: submittedLocationId,
           intensity: submittedIntensity,
           count: submittedCount,
@@ -1091,6 +1387,7 @@ export default function LogScreen() {
       }
 
       unlockSave();
+      navigation.navigate("Home");
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
         () => {},
@@ -1126,11 +1423,7 @@ export default function LogScreen() {
   };
 
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
-  const countLabel = didResist
-    ? "0 times"
-    : count === 1
-      ? "1 time"
-      : `${count} times`;
+  const countLabel = formatQuantity(didResist ? 0 : count, countUnit);
 
   const openInfo = (
     title: string,
@@ -1200,6 +1493,7 @@ export default function LogScreen() {
       <CountPickerModal
         visible={showCountPicker}
         value={Math.max(1, count)}
+        unit={countUnit}
         onPick={(n) => {
           setCount(n);
           setDidResist(false);
@@ -1274,7 +1568,14 @@ export default function LogScreen() {
               accessibilityLabel="Change log date and time"
               className="h-12 w-12 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm"
             >
-              <Ionicons name="create" size={23} color="#000000" />
+              <Ionicons
+                name={
+                  (activeHabit?.icon as keyof typeof Ionicons.glyphMap) ??
+                  "ellipse"
+                }
+                size={23}
+                color="#000000"
+              />
             </Pressable>
           </View>
 
@@ -1299,18 +1600,29 @@ export default function LogScreen() {
           />
 
           <ChipRow<SelectedCue>
-            title="Cue"
+            title="Cues"
             icon="alert-circle"
             onInfo={() =>
               openInfo(
-                "Cue",
-                "Pick what seemed to trigger the urge. You can leave this as None if you are not sure.",
+                "Cues",
+                "Pick everything that seemed to contribute to the urge. You can select more than one, or leave this as None.",
                 "alert-circle",
               )
             }
             items={orderedCues}
-            selectedId={cueId}
-            onSelect={setCueId}
+            selectedId={null}
+            selectedIds={cueIds}
+            onToggle={(id) => {
+              if (id == null) {
+                setCueIds([]);
+                return;
+              }
+              setCueIds((current) =>
+                current.includes(id)
+                  ? current.filter((cueId) => cueId !== id)
+                  : [...current, id],
+              );
+            }}
             allowNone
             onAdd={() => navigation.navigate("ManageList", { type: "cues" })}
             listRef={cueListRef}
@@ -1345,7 +1657,7 @@ export default function LogScreen() {
                   onPress={() =>
                     openInfo(
                       "Did you resist?",
-                      "Turn this on when you felt the urge but did not give in. Times will automatically become 0.",
+                      "Turn this on when you felt the urge but chose not to act on it. Quantity will automatically become 0.",
                       didResist ? "shield-checkmark" : "shield-outline",
                     )
                   }
@@ -1369,7 +1681,7 @@ export default function LogScreen() {
 
           <View className="mt-2 flex-row gap-2">
             <ValueCard
-              label="Times"
+              label="Quantity"
               value={countLabel}
               icon="repeat"
               onPress={() => {
