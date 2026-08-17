@@ -22,6 +22,9 @@ import type {
   AddActionInput,
   UpdateLogInput,
   DailyReminderSettings,
+  HabitPlanInput,
+  HabitMeasurementType,
+  HabitPeriod,
   DataContextType,
   DataProviderProps,
 } from "./types";
@@ -61,6 +64,7 @@ import {
   getActionById,
   renameCustomHabitInDb,
   updateHabitInDb,
+  updateHabitPlanInDb,
   renameCustomCueInDb,
   renameCustomLocationInDb,
   renameCustomActionInDb,
@@ -91,6 +95,7 @@ import {
   deleteManagedProfilePhoto,
   normalizeStoredProfilePhotoUri,
 } from "./profileStorage";
+import { cleanHabitIcon } from "./habitIcons";
 
 export type {
   Habit,
@@ -105,6 +110,9 @@ export type {
   AddActionInput,
   UpdateLogInput,
   DailyReminderSettings,
+  HabitPlanInput,
+  HabitMeasurementType,
+  HabitPeriod,
   DataContextType,
 } from "./types";
 
@@ -114,6 +122,14 @@ type BackupNamedEntity = {
   isCustom: 0 | 1;
   hidden: 0 | 1;
   color: string;
+  icon: string;
+  measurementType: "times" | "amount" | "minutes" | "custom";
+  unit: string;
+  estimatedBaseline: number | null;
+  calibratedBaseline: number | null;
+  baselinePeriod: "day" | "week" | "28_days";
+  finalTarget: number | null;
+  goalPeriod: "day" | "week" | "28_days";
 };
 
 type BackupActionEntity = {
@@ -128,6 +144,7 @@ type BackupLog = {
   id: number;
   habitId: number;
   cueId: number | null;
+  cueIds: number[];
   locationId: number | null;
   intensity: number | null;
   count: number;
@@ -137,6 +154,7 @@ type BackupLog = {
   selectedActionId: number | null;
   habitName: string | null;
   cueName: string | null;
+  cueNames: string[];
   locationName: string | null;
   selectedActionTitle: string | null;
 };
@@ -174,6 +192,18 @@ function cleanOptionalInt(value: unknown) {
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.round(n);
+}
+
+function cleanOptionalNumber(value: unknown) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function daysInHabitPeriod(period: HabitPeriod) {
+  if (period === "week") return 7;
+  if (period === "28_days") return 28;
+  return 1;
 }
 
 function cleanBoolean(value: unknown) {
@@ -225,6 +255,27 @@ function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
       isCustom: cleanIsCustom(item.isCustom),
       hidden: cleanIsCustom(item.hidden),
       color: cleanColor(item.color),
+      icon: cleanHabitIcon(item.icon),
+      measurementType:
+        item.measurementType === "amount" ||
+        item.measurementType === "minutes" ||
+        item.measurementType === "custom"
+          ? item.measurementType
+          : "times",
+      unit: cleanString(item.unit) || "times",
+      estimatedBaseline: cleanOptionalNumber(item.estimatedBaseline),
+      calibratedBaseline: cleanOptionalNumber(item.calibratedBaseline),
+      baselinePeriod:
+        item.baselinePeriod === "week" || item.baselinePeriod === "28_days"
+          ? item.baselinePeriod
+          : "day",
+      finalTarget: cleanOptionalNumber(item.finalTarget),
+      goalPeriod:
+        item.goalPeriod === "week" || item.goalPeriod === "28_days"
+          ? item.goalPeriod
+          : item.baselinePeriod === "week" || item.baselinePeriod === "28_days"
+            ? item.baselinePeriod
+            : "day",
     });
   }
 
@@ -282,20 +333,41 @@ function sanitizeLogs(items: unknown[]): BackupLog[] {
 
     const intensity = cleanOptionalInt(item.intensity);
 
+    const legacyCueId = cleanOptionalInt(item.cueId);
+    const legacyCueName = cleanNullableString(item.cueName);
+    const cueIds = Array.from(
+      new Set(
+        asArray(item.cueIds)
+          .map((value) => cleanInt(value))
+          .filter((value) => value > 0),
+      ),
+    );
+    const cueNames = asArray(item.cueNames)
+      .map(cleanString)
+      .filter((value) => value.length > 0);
+
     result.push({
       id,
       habitId,
-      cueId: cleanOptionalInt(item.cueId),
+      cueId: legacyCueId,
+      cueIds:
+        cueIds.length > 0 ? cueIds : legacyCueId == null ? [] : [legacyCueId],
       locationId: cleanOptionalInt(item.locationId),
       intensity:
         intensity == null ? null : Math.min(10, Math.max(1, intensity)),
-      count: Math.min(10, Math.max(0, cleanInt(item.count, 1))),
+      count: Math.min(999999, Math.max(0, cleanInt(item.count, 1))),
       didResist: cleanBoolean(item.didResist) ? 1 : 0,
       notes: cleanNullableString(item.notes),
       createdAt,
       selectedActionId: cleanOptionalInt(item.selectedActionId),
       habitName: cleanNullableString(item.habitName),
-      cueName: cleanNullableString(item.cueName),
+      cueName: legacyCueName,
+      cueNames:
+        cueNames.length > 0
+          ? cueNames
+          : legacyCueName == null
+            ? []
+            : [legacyCueName],
       locationName: cleanNullableString(item.locationName),
       selectedActionTitle: cleanNullableString(item.selectedActionTitle),
     });
@@ -588,6 +660,8 @@ export function DataProvider({ children }: DataProviderProps) {
   const addCustomHabit: DataContextType["addCustomHabit"] = async (
     name,
     autoSelect = true,
+    icon,
+    color,
   ) => {
     const clean = name.trim();
     if (!clean) return;
@@ -600,7 +674,7 @@ export function DataProvider({ children }: DataProviderProps) {
       throw new Error(`"${clean}" already exists.`);
     }
 
-    await insertCustomHabit(clean);
+    await insertCustomHabit(clean, icon, cleanColor(color));
     const updatedHabits = await loadHabits();
     setHabits(updatedHabits);
 
@@ -721,11 +795,49 @@ export function DataProvider({ children }: DataProviderProps) {
     habitId,
     name,
     color,
+    icon,
   ) => {
     const clean = name.trim();
     if (!clean || !Number.isFinite(habitId)) return;
     assertUniqueName(await loadHabits(), habitId, clean);
-    await updateHabitInDb(habitId, clean, cleanColor(color));
+    await updateHabitInDb(
+      habitId,
+      clean,
+      cleanColor(color),
+      cleanHabitIcon(icon),
+    );
+    await refresh();
+  };
+
+  const updateHabitPlan: DataContextType["updateHabitPlan"] = async (
+    habitId,
+    input,
+  ) => {
+    if (!Number.isFinite(habitId)) return;
+    const estimatedBaseline = Number(input.estimatedBaseline);
+    const finalTarget = Number(input.finalTarget);
+    if (!Number.isFinite(estimatedBaseline) || estimatedBaseline < 0) {
+      throw new Error("Starting amount must be zero or greater.");
+    }
+    if (!Number.isFinite(finalTarget) || finalTarget < 0) {
+      throw new Error("Goal amount must be zero or greater.");
+    }
+    const currentDaily =
+      estimatedBaseline / daysInHabitPeriod(input.baselinePeriod);
+    const goalDaily = finalTarget / daysInHabitPeriod(input.goalPeriod);
+    if (goalDaily > currentDaily) {
+      throw new Error("Goal rate cannot be higher than the starting rate.");
+    }
+
+    const unit = input.unit.trim();
+    if (!unit) throw new Error("Add a unit for this habit.");
+
+    await updateHabitPlanInDb(habitId, {
+      ...input,
+      unit,
+      estimatedBaseline,
+      finalTarget,
+    });
     await refresh();
   };
 
@@ -779,12 +891,20 @@ export function DataProvider({ children }: DataProviderProps) {
   const getLogNames = async (input: {
     habitId: number;
     cueId?: number | null;
+    cueIds?: number[];
     locationId?: number | null;
     selectedActionId?: number | null;
   }) => {
-    const [habit, cue, location, action] = await Promise.all([
+    const cueIds = Array.from(
+      new Set(
+        (input.cueIds ?? (input.cueId == null ? [] : [input.cueId])).filter(
+          (id) => Number.isFinite(id),
+        ),
+      ),
+    );
+    const [habit, cues, location, action] = await Promise.all([
       getHabitById(input.habitId),
-      input.cueId == null ? Promise.resolve(null) : getCueById(input.cueId),
+      Promise.all(cueIds.map((cueId) => getCueById(cueId))),
       input.locationId == null
         ? Promise.resolve(null)
         : getLocationById(input.locationId),
@@ -799,7 +919,9 @@ export function DataProvider({ children }: DataProviderProps) {
 
     return {
       habitName: habit.name,
-      cueName: cue?.name ?? null,
+      cueIds,
+      cueNames: cues.flatMap((cue) => (cue ? [cue.name] : [])),
+      cueName: cues[0]?.name ?? null,
       locationName: location?.name ?? null,
       selectedActionTitle: action?.title ?? null,
     };
@@ -816,7 +938,7 @@ export function DataProvider({ children }: DataProviderProps) {
         : Math.min(10, Math.max(1, Math.round(intensityIn)));
 
     const countIn = input.count ?? 1;
-    const count = Math.min(10, Math.max(0, Math.round(countIn)));
+    const count = Math.min(999999, Math.max(0, Math.round(countIn)));
 
     const didResist: 0 | 1 = input.didResist ? 1 : 0;
 
@@ -828,13 +950,15 @@ export function DataProvider({ children }: DataProviderProps) {
     const names = await getLogNames({
       habitId,
       cueId: input.cueId ?? null,
+      cueIds: input.cueIds,
       locationId: input.locationId ?? null,
       selectedActionId,
     });
 
     const newLogId = await insertLog({
       habitId,
-      cueId: input.cueId ?? null,
+      cueId: names.cueIds[0] ?? null,
+      cueIds: names.cueIds,
       locationId: input.locationId ?? null,
       intensity,
       count,
@@ -843,6 +967,7 @@ export function DataProvider({ children }: DataProviderProps) {
       selectedActionId,
       habitName: names.habitName,
       cueName: names.cueName,
+      cueNames: names.cueNames,
       locationName: names.locationName,
       selectedActionTitle: names.selectedActionTitle,
     });
@@ -863,7 +988,7 @@ export function DataProvider({ children }: DataProviderProps) {
         : Math.min(10, Math.max(1, Math.round(intensityIn)));
 
     const countIn = input.count ?? 1;
-    const count = Math.min(10, Math.max(0, Math.round(countIn)));
+    const count = Math.min(999999, Math.max(0, Math.round(countIn)));
 
     const selectedActionId =
       input.selectedActionId == null || !Number.isFinite(input.selectedActionId)
@@ -873,6 +998,7 @@ export function DataProvider({ children }: DataProviderProps) {
     const names = await getLogNames({
       habitId: input.habitId,
       cueId: input.cueId ?? null,
+      cueIds: input.cueIds,
       locationId: input.locationId ?? null,
       selectedActionId,
     });
@@ -880,7 +1006,8 @@ export function DataProvider({ children }: DataProviderProps) {
     await updateLogInDb({
       logId,
       habitId: input.habitId,
-      cueId: input.cueId ?? null,
+      cueId: names.cueIds[0] ?? null,
+      cueIds: names.cueIds,
       locationId: input.locationId ?? null,
       intensity,
       count,
@@ -890,6 +1017,7 @@ export function DataProvider({ children }: DataProviderProps) {
       selectedActionId,
       habitName: names.habitName,
       cueName: names.cueName,
+      cueNames: names.cueNames,
       locationName: names.locationName,
       selectedActionTitle: names.selectedActionTitle,
     });
@@ -1110,8 +1238,26 @@ export function DataProvider({ children }: DataProviderProps) {
 
       for (const habit of importedHabits) {
         await db.runAsync(
-          `INSERT OR IGNORE INTO habits (id, name, isCustom, hidden, color) VALUES (?, ?, ?, ?, ?);`,
-          [habit.id, habit.name, habit.isCustom, habit.hidden, habit.color],
+          `INSERT OR IGNORE INTO habits (
+            id, name, isCustom, hidden, color, icon, measurementType, unit,
+            estimatedBaseline, calibratedBaseline, baselinePeriod, finalTarget,
+            goalPeriod
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          [
+            habit.id,
+            habit.name,
+            habit.isCustom,
+            habit.hidden,
+            habit.color,
+            habit.icon,
+            habit.measurementType,
+            habit.unit,
+            habit.estimatedBaseline,
+            habit.calibratedBaseline,
+            habit.baselinePeriod,
+            habit.finalTarget,
+            habit.goalPeriod,
+          ],
         );
       }
 
@@ -1187,10 +1333,12 @@ export function DataProvider({ children }: DataProviderProps) {
           selectedActionId,
           habitName,
           cueName,
+          cueIdsJson,
+          cueNamesJson,
           locationName,
           selectedActionTitle
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         `,
           [
             log.id,
@@ -1207,6 +1355,8 @@ export function DataProvider({ children }: DataProviderProps) {
             selectedActionId,
             log.habitName,
             log.cueName,
+            JSON.stringify(log.cueIds.filter((id) => cueIds.has(id))),
+            JSON.stringify(log.cueNames),
             log.locationName,
             log.selectedActionTitle,
           ],
@@ -1310,6 +1460,7 @@ export function DataProvider({ children }: DataProviderProps) {
       addCustomLocation,
       renameCustomHabit,
       updateHabit,
+      updateHabitPlan,
       renameCustomCue,
       renameCustomLocation,
       deleteCustomHabit,
