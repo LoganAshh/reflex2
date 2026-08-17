@@ -166,7 +166,7 @@ function countLabelFor(n: number) {
 
 function getSectionIcon(title: string): keyof typeof Ionicons.glyphMap {
   if (title === "Habit") return "radio-button-on";
-  if (title === "Cue") return "alert-circle";
+  if (title === "Cue" || title === "Cues") return "alert-circle";
   if (title === "Location") return "location";
   if (title === "Replacement Action") return "flash";
   return "ellipse";
@@ -176,14 +176,18 @@ function ChipRow<T extends BaseItem>({
   title,
   items,
   selectedId,
+  selectedIds,
   onSelect,
+  onToggle,
   allowNone = true,
   listRef,
 }: {
   title: string;
   items: T[];
   selectedId: number | null;
-  onSelect: (id: number | null) => void;
+  selectedIds?: number[];
+  onSelect?: (id: number | null) => void;
+  onToggle?: (id: number | null) => void;
   allowNone?: boolean;
   listRef: React.RefObject<FlatList<ChipItem> | null>;
 }) {
@@ -208,9 +212,11 @@ function ChipRow<T extends BaseItem>({
 
         <View className="ml-3 flex-1">
           <Text className="text-base font-black text-black">{title}</Text>
-          <Text className="mt-0.5 text-xs font-semibold text-gray-500">
-            Tap to update this field.
-          </Text>
+          {title !== "Cues" ? (
+            <Text className="mt-0.5 text-xs font-semibold text-gray-500">
+              Tap to update this field.
+            </Text>
+          ) : null}
         </View>
       </View>
 
@@ -224,13 +230,20 @@ function ChipRow<T extends BaseItem>({
         keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => {
           const isSelected =
-            item.kind === "none" ? selectedId == null : item.id === selectedId;
+            item.kind === "none"
+              ? selectedIds
+                ? selectedIds.length === 0
+                : selectedId == null
+              : selectedIds
+                ? item.id != null && selectedIds.includes(item.id)
+                : item.id === selectedId;
 
           return (
             <Pressable
               onPress={async () => {
                 await lightHaptic();
-                onSelect(item.id);
+                if (selectedIds && onToggle) onToggle(item.id);
+                else onSelect?.(item.id);
               }}
               className={`mr-2 rounded-full border px-4 py-2.5 ${
                 isSelected
@@ -249,7 +262,7 @@ function ChipRow<T extends BaseItem>({
             </Pressable>
           );
         }}
-        extraData={selectedId}
+        extraData={{ selectedId, selectedIds }}
       />
     </View>
   );
@@ -305,7 +318,7 @@ export function DayLogsModal({
                   win ? "text-white" : "text-black"
                 }`}
               >
-                {win ? "Resisted" : "Gave in"}
+                {win ? "Resisted" : "Habit logged"}
               </Text>
             </View>
 
@@ -320,9 +333,10 @@ export function DayLogsModal({
         </View>
 
         <View className="mt-3 rounded-2xl border border-gray-200 bg-white p-3">
-          {item.cueName ? (
+          {item.cueNames.length > 0 ? (
             <Text className="text-sm text-gray-500">
-              <Text className="font-black text-black">Cue:</Text> {item.cueName}
+              <Text className="font-black text-black">Cues:</Text>{" "}
+              {item.cueNames.join(", ")}
             </Text>
           ) : null}
 
@@ -428,7 +442,7 @@ export function EditLogModal({
   locationOptions,
   selectedActions,
   habitId,
-  cueId,
+  cueIds,
   locationId,
   selectedActionId,
   didResist,
@@ -445,7 +459,7 @@ export function EditLogModal({
   showIntensityPicker,
   showCountPicker,
   setHabitId,
-  setCueId,
+  setCueIds,
   setLocationId,
   setSelectedActionId,
   setDidResist,
@@ -470,7 +484,7 @@ export function EditLogModal({
   locationOptions: BaseItem[];
   selectedActions: BaseItem[];
   habitId: number | null;
-  cueId: number | null;
+  cueIds: number[];
   locationId: number | null;
   selectedActionId: number | null;
   didResist: 0 | 1;
@@ -487,7 +501,7 @@ export function EditLogModal({
   showIntensityPicker: boolean;
   showCountPicker: boolean;
   setHabitId: (id: number | null) => void;
-  setCueId: (id: number | null) => void;
+  setCueIds: (ids: number[]) => void;
   setLocationId: (id: number | null) => void;
   setSelectedActionId: (id: number | null) => void;
   setDidResist: (value: 0 | 1) => void;
@@ -689,10 +703,21 @@ export function EditLogModal({
             />
 
             <ChipRow
-              title="Cue"
+              title="Cues"
               items={cueOptions}
-              selectedId={cueId}
-              onSelect={setCueId}
+              selectedId={null}
+              selectedIds={cueIds}
+              onToggle={(id) => {
+                if (id == null) {
+                  setCueIds([]);
+                  return;
+                }
+                setCueIds(
+                  cueIds.includes(id)
+                    ? cueIds.filter((cueId) => cueId !== id)
+                    : [...cueIds, id],
+                );
+              }}
               listRef={cueListRef}
             />
 
