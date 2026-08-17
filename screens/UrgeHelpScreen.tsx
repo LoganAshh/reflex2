@@ -415,12 +415,12 @@ export default function UrgeHelpScreen() {
     }
 
     allowExitRef.current = true;
-    navigation.goBack();
+    navigation.popTo("Main", { screen: "Home" });
   };
 
-  const goBackToLog = () => {
+  const completeWithoutHelp = () => {
     allowExitRef.current = true;
-    navigation.goBack();
+    navigation.popTo("Main", { screen: "Home" });
   };
 
   const goToShop = () => {
@@ -722,7 +722,7 @@ export default function UrgeHelpScreen() {
               Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Success,
               );
-              goBackToLog();
+              completeWithoutHelp();
             }}
             className="w-full rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
             style={({ pressed }) => ({
