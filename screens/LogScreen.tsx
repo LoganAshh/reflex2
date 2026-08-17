@@ -1579,6 +1579,15 @@ export default function LogScreen() {
             </Pressable>
           </View>
 
+          {logs.length === 0 ? (
+            <View className="mt-2 flex-row items-center px-1">
+              <Ionicons name="shield-checkmark" size={15} color="#16A34A" />
+              <Text className="ml-1.5 text-xs font-semibold text-gray-500">
+                Your habit data stays on this device.
+              </Text>
+            </View>
+          ) : null}
+
           <ChipRow<SelectedHabit>
             title="Habit"
             icon="radio-button-on"

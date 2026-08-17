@@ -701,7 +701,7 @@ export default function SettingsScreen() {
       <View className="gap-3">
         <Row
           title="Export data"
-          subtitle="Share a JSON backup file of your logs and saved actions."
+          subtitle="Exporting creates a file you control and can store or share."
           onPress={busy ? undefined : onExport}
           disabled={!!busy}
           icon="share"
