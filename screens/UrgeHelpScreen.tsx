@@ -17,6 +17,7 @@ import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { useData, type ReplacementAction } from "../data/DataContext";
+import { Screen } from "../components/Screen";
 
 const QUICK_ACTION_TITLES = [
   "Go for a 5-min walk",
@@ -657,7 +658,7 @@ export default function UrgeHelpScreen() {
         : "Next";
 
   return (
-    <View className="flex-1 bg-white px-5">
+    <Screen className="px-5">
       <ProgressBar
         visible={mode === "guided"}
         progressPct={progressPct}
@@ -849,6 +850,6 @@ export default function UrgeHelpScreen() {
           )}
         </View>
       )}
-    </View>
+    </Screen>
   );
 }

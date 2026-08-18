@@ -33,6 +33,7 @@ import type { RouteProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList, RootTabParamList } from "../App";
+import { Screen } from "../components/Screen";
 import {
   useData,
   type SelectedHabit,
@@ -1471,11 +1472,7 @@ export default function LogScreen() {
   );
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-white"
-      keyboardVerticalOffset={0}
-    >
+    <Screen keyboardAvoiding keyboardVerticalOffset={0}>
       <IntensityPickerModal
         visible={showIntensityPicker}
         value={intensity}
@@ -1781,6 +1778,6 @@ export default function LogScreen() {
           </Pressable>
         </Animated.View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </Screen>
   );
 }

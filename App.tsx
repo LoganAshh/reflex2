@@ -27,6 +27,7 @@ import OnboardingScreen from "./screens/OnboardingScreen";
 import ManageListScreen from "./screens/ManageListScreen";
 import ProfileSetupScreen from "./screens/ProfileSetupScreen";
 import UrgeHelpScreen from "./screens/UrgeHelpScreen";
+import { Screen } from "./components/Screen";
 
 import { DataProvider, useData } from "./data/DataContext";
 
@@ -67,7 +68,10 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function AppLoadingScreen() {
   return (
-    <View className="flex-1 items-center justify-center bg-white px-6">
+    <Screen
+      edges={["top", "bottom", "left", "right"]}
+      className="items-center justify-center px-6"
+    >
       <ActivityIndicator size="large" color="#16A34A" />
       <Text className="mt-4 text-base font-semibold text-gray-900">
         Loading Reflex...
@@ -75,7 +79,7 @@ function AppLoadingScreen() {
       <Text className="mt-1 text-sm text-gray-500">
         Getting everything ready
       </Text>
-    </View>
+    </Screen>
   );
 }
 
@@ -87,7 +91,10 @@ function AppLockScreen({
   onUnlock: () => void;
 }) {
   return (
-    <View className="flex-1 items-center justify-center bg-white px-6">
+    <Screen
+      edges={["top", "bottom", "left", "right"]}
+      className="items-center justify-center px-6"
+    >
       <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-green-50">
         <Ionicons name="lock-closed" size={38} color="#16A34A" />
       </View>
@@ -114,7 +121,7 @@ function AppLockScreen({
           </Text>
         )}
       </Pressable>
-    </View>
+    </Screen>
   );
 }
 

@@ -5,7 +5,6 @@ import {
   Pressable,
   Alert,
   Switch,
-  ScrollView,
   ActivityIndicator,
   Image,
 } from "react-native";
@@ -21,6 +20,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { useData } from "../data/DataContext";
 import type { DailyReminderOption } from "../data/types";
+import { Screen } from "../components/Screen";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -479,13 +479,15 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScrollView
-      className="flex-1 bg-white"
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{
-        paddingHorizontal: 20,
-        paddingTop: 42,
-        paddingBottom: 32,
+    <Screen
+      scroll
+      scrollViewProps={{
+        showsVerticalScrollIndicator: false,
+        contentContainerStyle: {
+          paddingHorizontal: 20,
+          paddingTop: 42,
+          paddingBottom: 32,
+        },
       }}
     >
       <View className="flex-row items-center justify-between">
@@ -784,6 +786,6 @@ export default function SettingsScreen() {
           </View>
         </View>
       </View>
-    </ScrollView>
+    </Screen>
   );
 }

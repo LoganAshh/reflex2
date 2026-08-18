@@ -17,6 +17,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { useData } from "../data/DataContext";
 import { persistPickedProfilePhoto } from "../data/profileStorage";
+import { Screen } from "../components/Screen";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -119,161 +120,161 @@ export default function ProfileSetupScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white">
-      <ScrollView
-        ref={scrollViewRef}
-        className="flex-1 bg-white"
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        scrollEnabled={nameFocused}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
+    <Screen
+      scroll
+      scrollViewRef={scrollViewRef}
+      scrollViewProps={{
+        keyboardShouldPersistTaps: "handled",
+        keyboardDismissMode: "interactive",
+        scrollEnabled: nameFocused,
+        showsVerticalScrollIndicator: false,
+        contentContainerStyle: {
           flexGrow: 1,
           justifyContent: "center",
           paddingHorizontal: 20,
           paddingTop: 42,
           paddingBottom: nameFocused ? 110 : 32,
-        }}
-      >
-        <View>
-          <View className="flex-row items-center justify-between">
-            <View className="flex-1 pr-4">
-              <Text className="text-sm font-black uppercase tracking-widest text-green-600">
-                Profile
-              </Text>
+        },
+      }}
+    >
+      <View>
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 pr-4">
+            <Text className="text-sm font-black uppercase tracking-widest text-green-600">
+              Profile
+            </Text>
 
-              <Text className="mt-1 text-3xl font-black text-black">
-                {isEditing ? "Edit profile" : "Set up profile"}
-              </Text>
-            </View>
-
-            <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
-              <Ionicons name="person" size={29} color="#000000" />
-            </View>
+            <Text className="mt-1 text-3xl font-black text-black">
+              {isEditing ? "Edit profile" : "Set up profile"}
+            </Text>
           </View>
 
-          <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
-            <View className="items-center">
-              <View className="rounded-full border-4 border-green-600 bg-white p-1 shadow-sm">
-                {photoUri ? (
-                  <Image
-                    source={{ uri: photoUri }}
-                    className="h-32 w-32 rounded-full"
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View className="h-32 w-32 items-center justify-center rounded-full bg-white">
-                    <Ionicons name="camera" size={42} color="#000000" />
-                  </View>
-                )}
-              </View>
+          <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
+            <Ionicons name="person" size={29} color="#000000" />
+          </View>
+        </View>
 
-              <Pressable
-                onPress={pickPhoto}
-                className="mt-5 flex-row items-center rounded-3xl border border-gray-200 bg-white px-5 py-3 shadow-sm"
-                style={({ pressed }) => ({
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: pressed ? 1 : 4 },
-                  shadowOpacity: 0.12,
-                  shadowRadius: pressed ? 2 : 4,
-                  elevation: pressed ? 2 : 5,
-                  transform: [{ translateY: pressed ? 1 : 0 }],
-                })}
-              >
-                <Ionicons
-                  name={photoUri ? "camera-reverse" : "camera"}
-                  size={18}
-                  color="#000000"
+        <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+          <View className="items-center">
+            <View className="rounded-full border-4 border-green-600 bg-white p-1 shadow-sm">
+              {photoUri ? (
+                <Image
+                  source={{ uri: photoUri }}
+                  className="h-32 w-32 rounded-full"
+                  resizeMode="cover"
                 />
-
-                <Text className="ml-2 text-sm font-black text-black">
-                  {photoUri ? "Change photo" : "Choose photo"}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-
-          <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
-            <View className="flex-row items-center">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                <Ionicons name="id-card" size={24} color="#000000" />
-              </View>
-
-              <View className="ml-3 flex-1">
-                <Text className="text-base font-black text-black">
-                  Display name
-                </Text>
-
-                <Text className="mt-1 text-sm leading-5 text-gray-500">
-                  {isEditing
-                    ? "Update the name shown around the app."
-                    : "Choose the name you want Reflex to use on this device."}
-                </Text>
-              </View>
+              ) : (
+                <View className="h-32 w-32 items-center justify-center rounded-full bg-white">
+                  <Ionicons name="camera" size={42} color="#000000" />
+                </View>
+              )}
             </View>
 
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Enter your first name"
-              placeholderTextColor="#9CA3AF"
-              autoCapitalize="words"
-              returnKeyType="done"
-              submitBehavior="blurAndSubmit"
-              className="mt-5 rounded-2xl border border-gray-200 bg-white px-4 py-4 text-black"
-              onFocus={scrollNameInputIntoView}
-              onBlur={stopNameInputScroll}
-              onSubmitEditing={() => Keyboard.dismiss()}
-            />
-          </View>
-
-          <View className="mt-5 rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
-            <View className="flex-row items-center">
-              <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                <Ionicons name="lock-closed" size={22} color="#000000" />
-              </View>
-
-              <View className="ml-3 flex-1">
-                <Text className="text-base font-black text-black">
-                  Your personal data is private
-                </Text>
-
-                <Text className="mt-1 text-sm leading-5 text-gray-500">
-                  Your name and photo are saved locally on this device.
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <Pressable
-            onPress={onSave}
-            disabled={!canSave}
-            className={`mt-6 w-full rounded-3xl px-5 py-4 shadow-sm ${
-              canSave ? "bg-green-600" : "bg-gray-300"
-            }`}
-            style={({ pressed }) => ({
-              shadowColor: canSave ? "#000" : "transparent",
-              shadowOffset: { width: 0, height: pressed ? 2 : 6 },
-              shadowOpacity: canSave ? 0.25 : 0,
-              shadowRadius: pressed ? 3 : 6,
-              elevation: canSave ? (pressed ? 3 : 8) : 0,
-              transform: [{ translateY: canSave && pressed ? 2 : 0 }],
-            })}
-          >
-            <View className="flex-row items-center justify-center">
+            <Pressable
+              onPress={pickPhoto}
+              className="mt-5 flex-row items-center rounded-3xl border border-gray-200 bg-white px-5 py-3 shadow-sm"
+              style={({ pressed }) => ({
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: pressed ? 1 : 4 },
+                shadowOpacity: 0.12,
+                shadowRadius: pressed ? 2 : 4,
+                elevation: pressed ? 2 : 5,
+                transform: [{ translateY: pressed ? 1 : 0 }],
+              })}
+            >
               <Ionicons
-                name={isEditing ? "checkmark-circle" : "arrow-forward-circle"}
-                size={22}
-                color="#FFFFFF"
+                name={photoUri ? "camera-reverse" : "camera"}
+                size={18}
+                color="#000000"
               />
 
-              <Text className="ml-2 text-center text-lg font-black text-white">
-                {saving ? "Saving..." : isEditing ? "Save Changes" : "Continue"}
+              <Text className="ml-2 text-sm font-black text-black">
+                {photoUri ? "Change photo" : "Choose photo"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+          <View className="flex-row items-center">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="id-card" size={24} color="#000000" />
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-black">
+                Display name
+              </Text>
+
+              <Text className="mt-1 text-sm leading-5 text-gray-500">
+                {isEditing
+                  ? "Update the name shown around the app."
+                  : "Choose the name you want Reflex to use on this device."}
               </Text>
             </View>
-          </Pressable>
+          </View>
+
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="Enter your first name"
+            placeholderTextColor="#9CA3AF"
+            autoCapitalize="words"
+            returnKeyType="done"
+            submitBehavior="blurAndSubmit"
+            className="mt-5 rounded-2xl border border-gray-200 bg-white px-4 py-4 text-black"
+            onFocus={scrollNameInputIntoView}
+            onBlur={stopNameInputScroll}
+            onSubmitEditing={() => Keyboard.dismiss()}
+          />
         </View>
-      </ScrollView>
-    </View>
+
+        <View className="mt-5 rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
+          <View className="flex-row items-center">
+            <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="lock-closed" size={22} color="#000000" />
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-black">
+                Your personal data is private
+              </Text>
+
+              <Text className="mt-1 text-sm leading-5 text-gray-500">
+                Your name and photo are saved locally on this device.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <Pressable
+          onPress={onSave}
+          disabled={!canSave}
+          className={`mt-6 w-full rounded-3xl px-5 py-4 shadow-sm ${
+            canSave ? "bg-green-600" : "bg-gray-300"
+          }`}
+          style={({ pressed }) => ({
+            shadowColor: canSave ? "#000" : "transparent",
+            shadowOffset: { width: 0, height: pressed ? 2 : 6 },
+            shadowOpacity: canSave ? 0.25 : 0,
+            shadowRadius: pressed ? 3 : 6,
+            elevation: canSave ? (pressed ? 3 : 8) : 0,
+            transform: [{ translateY: canSave && pressed ? 2 : 0 }],
+          })}
+        >
+          <View className="flex-row items-center justify-center">
+            <Ionicons
+              name={isEditing ? "checkmark-circle" : "arrow-forward-circle"}
+              size={22}
+              color="#FFFFFF"
+            />
+
+            <Text className="ml-2 text-center text-lg font-black text-white">
+              {saving ? "Saving..." : isEditing ? "Save Changes" : "Continue"}
+            </Text>
+          </View>
+        </Pressable>
+      </View>
+    </Screen>
   );
 }

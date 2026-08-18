@@ -22,6 +22,7 @@ import {
   DayLogsModal,
   EditLogModal,
 } from "../components/analytics/AnalyticsModals";
+import { Screen } from "../components/Screen";
 
 const ICON_BUBBLE_BORDER = "#E5E7EB";
 const BRAND_GREEN = "#16A34A";
@@ -846,15 +847,17 @@ export default function AnalyticsScreen() {
 
   if (!hasAnyLogs) {
     return (
-      <ScrollView
-        ref={scrollViewRef}
-        className="flex-1 bg-white"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 30,
-          paddingBottom: 28,
-          flexGrow: 1,
+      <Screen
+        scroll
+        scrollViewRef={scrollViewRef}
+        scrollViewProps={{
+          showsVerticalScrollIndicator: false,
+          contentContainerStyle: {
+            paddingHorizontal: 20,
+            paddingTop: 30,
+            paddingBottom: 28,
+            flexGrow: 1,
+          },
         }}
       >
         <View className="flex-row items-center justify-between">
@@ -933,20 +936,22 @@ export default function AnalyticsScreen() {
             </Pressable>
           </View>
         </View>
-      </ScrollView>
+      </Screen>
     );
   }
 
   return (
     <>
-      <ScrollView
-        ref={scrollViewRef}
-        className="flex-1 bg-white"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 30,
-          paddingBottom: 28,
+      <Screen
+        scroll
+        scrollViewRef={scrollViewRef}
+        scrollViewProps={{
+          showsVerticalScrollIndicator: false,
+          contentContainerStyle: {
+            paddingHorizontal: 20,
+            paddingTop: 30,
+            paddingBottom: 28,
+          },
         }}
       >
         <View className="flex-row items-center justify-between">
@@ -1219,7 +1224,7 @@ export default function AnalyticsScreen() {
             </View>
           </View>
         </View>
-      </ScrollView>
+      </Screen>
 
       <DayLogsModal
         visible={dayModalOpen}

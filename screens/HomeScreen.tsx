@@ -8,6 +8,7 @@ import type { RouteProp } from "@react-navigation/native";
 import type { RootStackParamList, RootTabParamList } from "../App";
 import { useData, type Habit } from "../data/DataContext";
 import * as Haptics from "expo-haptics";
+import { Screen } from "../components/Screen";
 
 function startOfDayMs(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -613,15 +614,17 @@ export default function HomeScreen() {
   );
 
   return (
-    <ScrollView
-      ref={scrollViewRef}
-      className="flex-1 bg-white"
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{
-        paddingHorizontal: 20,
-        paddingTop: 42,
-        paddingBottom: 28,
-        flexGrow: 1,
+    <Screen
+      scroll
+      scrollViewRef={scrollViewRef}
+      scrollViewProps={{
+        showsVerticalScrollIndicator: false,
+        contentContainerStyle: {
+          paddingHorizontal: 20,
+          paddingTop: 42,
+          paddingBottom: 28,
+          flexGrow: 1,
+        },
       }}
     >
       <View className="flex-row items-center justify-between">
@@ -923,6 +926,6 @@ export default function HomeScreen() {
           </View>
         </>
       )}
-    </ScrollView>
+    </Screen>
   );
 }

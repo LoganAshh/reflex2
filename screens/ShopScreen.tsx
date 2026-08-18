@@ -16,6 +16,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { RootStackParamList, RootTabParamList } from "../App";
 import { useData, type ReplacementAction } from "../data/DataContext";
+import { Screen } from "../components/Screen";
 
 const SELECTED = "selected" as const;
 const ALL = "all" as const;
@@ -663,7 +664,7 @@ export default function ShopScreen() {
   );
 
   return (
-    <View className="flex-1 bg-white">
+    <Screen>
       <Modal visible={!!editingAction} transparent animationType="fade">
         <View className="flex-1 justify-center bg-black/40 px-6">
           <View className="rounded-[32px] bg-white p-5">
@@ -777,6 +778,6 @@ export default function ShopScreen() {
           </Pressable>
         </View>
       ) : null}
-    </View>
+    </Screen>
   );
 }

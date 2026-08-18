@@ -35,6 +35,7 @@ import {
 } from "../data/DataContext";
 import { DEFAULT_HABIT_ICON, type HabitIconName } from "../data/habitIcons";
 import { HabitIconPicker } from "../components/HabitIconPicker";
+import { Screen } from "../components/Screen";
 
 type ManageRoute = RouteProp<RootStackParamList, "ManageList">;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -666,7 +667,7 @@ export default function ManageListScreen() {
 
   return (
     <>
-      <View className="flex-1 bg-white">
+      <Screen>
         <Modal visible={!!editingItem} transparent animationType="fade">
           <View className="flex-1 justify-center bg-black/40 px-6">
             <View className="max-h-[90%] rounded-[32px] bg-white p-5">
@@ -1159,7 +1160,7 @@ export default function ManageListScreen() {
             </View>
           </Pressable>
         </View>
-      </View>
+      </Screen>
     </>
   );
 }

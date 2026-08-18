@@ -7,7 +7,6 @@ import {
   Alert,
   ScrollView,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   ActionSheetIOS,
   Modal,
@@ -16,6 +15,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { DEFAULT_HABIT_ICON, type HabitIconName } from "../data/habitIcons";
 import { HabitIconPicker } from "../components/HabitIconPicker";
+import { Screen } from "../components/Screen";
 import {
   useData,
   type Habit,
@@ -1389,53 +1389,49 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <>
-      <KeyboardAvoidingView
-        className="flex-1 bg-white"
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+    <Screen
+      keyboardAvoiding
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      className="px-5"
+    >
+      <ProgressBar />
+
+      <ScrollView
+        ref={scrollViewRef}
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
+        scrollEnabled={step >= setupStartIndex}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: 8,
+          paddingBottom: customInputFocused ? 110 : 8,
+        }}
       >
-        <View className="flex-1 bg-white px-5">
-          <ProgressBar />
+        {renderContent()}
+      </ScrollView>
 
-          <ScrollView
-            ref={scrollViewRef}
-            className="flex-1"
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="none"
-            scrollEnabled={step >= setupStartIndex}
-            contentContainerStyle={{
-              flexGrow: 1,
-              paddingTop: 8,
-              paddingBottom: customInputFocused ? 110 : 8,
-            }}
+      {!keyboardVisible ? (
+        <BottomNav />
+      ) : Platform.OS === "ios" && step === setupStartIndex + 1 ? (
+        <View className="flex-row justify-end border-t border-gray-200 bg-gray-50 px-4 py-2">
+          <Pressable
+            onPress={() => Keyboard.dismiss()}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss keyboard"
+            className="flex-row items-center rounded-xl px-3 py-1.5"
           >
-            {renderContent()}
-          </ScrollView>
-
-          {!keyboardVisible ? (
-            <BottomNav />
-          ) : Platform.OS === "ios" && step === setupStartIndex + 1 ? (
-            <View className="flex-row justify-end border-t border-gray-200 bg-gray-50 px-4 py-2">
-              <Pressable
-                onPress={() => Keyboard.dismiss()}
-                accessibilityRole="button"
-                accessibilityLabel="Dismiss keyboard"
-                className="flex-row items-center rounded-xl px-3 py-1.5"
-              >
-                <Ionicons name="chevron-down" size={18} color="#007AFF" />
-                <Text
-                  className="ml-1 text-base font-bold"
-                  style={{ color: "#007AFF" }}
-                >
-                  Hide Keyboard
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
+            <Ionicons name="chevron-down" size={18} color="#007AFF" />
+            <Text
+              className="ml-1 text-base font-bold"
+              style={{ color: "#007AFF" }}
+            >
+              Hide Keyboard
+            </Text>
+          </Pressable>
         </View>
-      </KeyboardAvoidingView>
-    </>
+      ) : null}
+    </Screen>
   );
 }
