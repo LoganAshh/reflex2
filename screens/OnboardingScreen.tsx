@@ -284,6 +284,13 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
           <View className="flex-row flex-wrap gap-2 pb-1">
             {visibleData.map((item) => {
               const isSelected = selected.has(item.id);
+              const selectedHabitColor =
+                isSelected &&
+                type === "habits" &&
+                "color" in item &&
+                typeof item.color === "string"
+                  ? item.color
+                  : null;
 
               return (
                 <Pressable
@@ -291,9 +298,19 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
                   onPress={() => toggle(item.id, type)}
                   className={`flex-row items-center rounded-full border px-3 py-2 ${
                     isSelected
-                      ? "border-green-600 bg-green-600"
+                      ? selectedHabitColor
+                        ? ""
+                        : "border-green-600 bg-green-600"
                       : "border-gray-200 bg-white"
                   }`}
+                  style={
+                    selectedHabitColor
+                      ? {
+                          backgroundColor: selectedHabitColor,
+                          borderColor: selectedHabitColor,
+                        }
+                      : undefined
+                  }
                 >
                   {type === "habits" && "icon" in item ? (
                     <Ionicons
