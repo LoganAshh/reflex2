@@ -174,8 +174,8 @@ type ChipListProps<T extends { id: number; name: string; isCustom: 0 | 1 }> = {
   setCustomLocation: (v: string) => void;
 
   onAddCustom: (type: "habits" | "cues" | "locations") => void;
-  onInputFocus: () => void;
-  onInputBlur: () => void;
+  onInputFocus: (input: TextInput | null) => void;
+  onInputBlur: (input: TextInput | null) => void;
 };
 
 function getTypeIcon(
@@ -213,6 +213,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
 }: ChipListProps<T>) {
   const [chipContentHeight, setChipContentHeight] = useState(0);
   const [habitPicker, setHabitPicker] = useState<"icon" | "color" | null>(null);
+  const customInputRef = useRef<TextInput | null>(null);
 
   const value =
     type === "habits"
@@ -431,14 +432,15 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
 
         <View className="mt-3 flex-row items-center gap-2">
           <TextInput
+            ref={customInputRef}
             value={value}
             onChangeText={onChangeText}
             placeholder={placeholder}
             placeholderTextColor="#9CA3AF"
             className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-black"
             returnKeyType="done"
-            onFocus={onInputFocus}
-            onBlur={onInputBlur}
+            onFocus={() => onInputFocus(customInputRef.current)}
+            onBlur={() => onInputBlur(customInputRef.current)}
             onSubmitEditing={() => {
               Keyboard.dismiss();
               if (type !== "habits" && canAdd) onAddCustom(type);
@@ -537,6 +539,8 @@ export default function OnboardingScreen() {
   } = useData();
 
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const focusedCustomInputRef = useRef<TextInput | null>(null);
+  const scrollOffsetRef = useRef(0);
   const amountInputRefs = useRef<Record<string, TextInput | null>>({});
   const didLoadInitialSelectionsRef = useRef(false);
 
@@ -567,15 +571,36 @@ export default function OnboardingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const scrollCustomInputIntoView = () => {
-    setCustomInputFocused(true);
+  const revealFocusedCustomInput = (keyboardTop: number) => {
+    requestAnimationFrame(() => {
+      focusedCustomInputRef.current?.measureInWindow(
+        (_x, inputTop, _width, inputHeight) => {
+          const clearance = 20;
+          const overlap = inputTop + inputHeight + clearance - keyboardTop;
 
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 300);
+          if (overlap <= 0) return;
+
+          scrollViewRef.current?.scrollTo({
+            y: Math.max(0, scrollOffsetRef.current + overlap),
+            animated: true,
+          });
+        },
+      );
+    });
   };
 
-  const stopCustomInputScroll = () => {
+  const scrollCustomInputIntoView = (input: TextInput | null) => {
+    focusedCustomInputRef.current = input;
+    setCustomInputFocused(true);
+
+    const keyboard = Keyboard.metrics();
+    if (keyboard) revealFocusedCustomInput(keyboard.screenY);
+  };
+
+  const stopCustomInputScroll = (input: TextInput | null) => {
+    if (focusedCustomInputRef.current === input) {
+      focusedCustomInputRef.current = null;
+    }
     setCustomInputFocused(false);
   };
 
@@ -622,10 +647,13 @@ export default function OnboardingScreen() {
   useEffect(() => {
     const showEvent =
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const showSub = Keyboard.addListener(showEvent, () => {
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      Keyboard.scheduleLayoutAnimation(event);
       setKeyboardVisible(true);
+      revealFocusedCustomInput(event.endCoordinates.screenY);
     });
     const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      focusedCustomInputRef.current = null;
       setCustomInputFocused(false);
       setKeyboardVisible(false);
     });
@@ -1420,10 +1448,14 @@ export default function OnboardingScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="none"
         scrollEnabled={step >= setupStartIndex}
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+        }}
         contentContainerStyle={{
           flexGrow: 1,
           paddingTop: 8,
-          paddingBottom: customInputFocused ? 110 : 8,
+          paddingBottom: customInputFocused ? 30 : 8,
         }}
       >
         {renderContent()}
