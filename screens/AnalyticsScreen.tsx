@@ -23,6 +23,7 @@ import {
   EditLogModal,
 } from "../components/analytics/AnalyticsModals";
 import { Screen } from "../components/Screen";
+import { TrackingReviewLauncher } from "../components/TrackingReviewCard";
 
 const ICON_BUBBLE_BORDER = "#E5E7EB";
 const BRAND_GREEN = "#16A34A";
@@ -872,11 +873,6 @@ export default function AnalyticsScreen() {
             <Text className="mt-0.5 text-2xl font-black text-black">
               Pattern map
             </Text>
-
-            <Text className="mt-2 text-sm font-semibold leading-5 text-gray-500">
-              Tip: Start simple. Log one moment when you notice the urge. The
-              patterns will build from there.
-            </Text>
           </View>
 
           <View
@@ -887,7 +883,9 @@ export default function AnalyticsScreen() {
           </View>
         </View>
 
-        <View className="mt-6 flex-1 justify-center rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+        <TrackingReviewLauncher placement="analytics" />
+
+        <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="items-center">
             <View
               className="h-16 w-16 items-center justify-center rounded-full border bg-white"
@@ -1047,6 +1045,8 @@ export default function AnalyticsScreen() {
             accentColor={activeHabitColor}
           />
         </View>
+
+        <TrackingReviewLauncher placement="analytics" />
 
         <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="flex-row items-center justify-between">

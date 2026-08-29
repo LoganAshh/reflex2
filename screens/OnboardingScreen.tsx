@@ -258,6 +258,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
 
   const canAdd = value.trim().length > 0;
   const hasHiddenOptions = chipContentHeight > CHIP_BOX_MAX_HEIGHT + 4;
+  const showScrollHint = type === "habits" || hasHiddenOptions;
 
   return (
     <View className="mt-3 w-full rounded-[26px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
@@ -273,10 +274,10 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
         </View>
       </View>
 
-      <View className="mt-3 max-h-[136px] rounded-[20px] border border-gray-200 bg-white p-2">
+      <View className="mt-3 h-[136px] rounded-[20px] border border-gray-200 bg-white p-2">
         <ScrollView
           nestedScrollEnabled
-          showsVerticalScrollIndicator={hasHiddenOptions}
+          showsVerticalScrollIndicator={showScrollHint}
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={(_, height) => {
             setChipContentHeight(height);
@@ -334,14 +335,16 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
         </ScrollView>
       </View>
 
-      {hasHiddenOptions ? (
-        <View className="mt-2 flex-row items-center justify-center">
-          <Ionicons name="chevron-down" size={14} color="#6B7280" />
-          <Text className="ml-1 text-xs font-bold text-gray-500">
-            Scroll inside the box to see more options
-          </Text>
-        </View>
-      ) : null}
+      <View className="mt-2 h-4 flex-row items-center justify-center">
+        {showScrollHint ? (
+          <>
+            <Ionicons name="chevron-down" size={14} color="#6B7280" />
+            <Text className="ml-1 text-xs font-bold text-gray-500">
+              Scroll inside the box to see more options
+            </Text>
+          </>
+        ) : null}
+      </View>
 
       <View className="mt-3 rounded-[22px] border border-gray-200 bg-white p-3">
         <View className="flex-row items-center">
@@ -647,12 +650,14 @@ export default function OnboardingScreen() {
   useEffect(() => {
     const showEvent =
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const showSub = Keyboard.addListener(showEvent, (event) => {
       Keyboard.scheduleLayoutAnimation(event);
       setKeyboardVisible(true);
       revealFocusedCustomInput(event.endCoordinates.screenY);
     });
-    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+    const hideSub = Keyboard.addListener(hideEvent, () => {
       focusedCustomInputRef.current = null;
       setCustomInputFocused(false);
       setKeyboardVisible(false);
@@ -862,8 +867,8 @@ export default function OnboardingScreen() {
           currentAmount < 0
         ) {
           Alert.alert(
-            "Add a current amount",
-            `Enter a valid current amount for ${habit.name}.`,
+            "Add an estimated current amount",
+            `Enter a valid estimated current amount for ${habit.name}.`,
           );
           return false;
         }
@@ -874,8 +879,8 @@ export default function OnboardingScreen() {
           goalAmount < 0
         ) {
           Alert.alert(
-            "Add a goal amount",
-            `Enter a valid goal amount for ${habit.name}.`,
+            "Add a long-term goal amount",
+            `Enter a valid long-term goal amount for ${habit.name}.`,
           );
           return false;
         }
@@ -885,7 +890,7 @@ export default function OnboardingScreen() {
         if (goalDaily > currentDaily) {
           Alert.alert(
             "Check the goal rate",
-            `${habit.name}'s goal cannot represent a higher rate than its current amount.`,
+            `${habit.name}'s goal cannot represent a higher rate than its estimated current amount.`,
           );
           return false;
         }
@@ -1119,7 +1124,7 @@ export default function OnboardingScreen() {
         {title}
       </Text>
 
-      <Text className="mt-2 text-center text-base font-semibold leading-6 text-gray-500">
+      <Text className="mt-2 max-w-[320px] px-2 text-center text-base font-semibold leading-6 text-gray-500">
         {body}
       </Text>
     </View>
@@ -1179,7 +1184,7 @@ export default function OnboardingScreen() {
         <View className="flex-1 pt-4">
           <SetupTitle
             title="Set your starting point"
-            body="Add a current and goal amount for each habit. You can change these later."
+            body="Add an estimated current amount and a long-term goal amount for each habit. You can change these later."
             icon="flag"
           />
 
@@ -1213,7 +1218,7 @@ export default function OnboardingScreen() {
                   <View className="mt-4 gap-3">
                     <View>
                       <Text className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">
-                        Current amount
+                        Estimated current amount
                       </Text>
                       <View className="flex-row items-center rounded-2xl border border-gray-200 bg-white p-2">
                         <TextInput
@@ -1225,7 +1230,7 @@ export default function OnboardingScreen() {
                           onChangeText={(currentAmount) =>
                             updateHabitPlanDraft(habit, { currentAmount })
                           }
-                          placeholder="0"
+                          placeholder="5"
                           placeholderTextColor="#9CA3AF"
                           keyboardType={
                             Platform.OS === "ios"
@@ -1290,7 +1295,7 @@ export default function OnboardingScreen() {
 
                     <View>
                       <Text className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">
-                        Goal amount
+                        Long-term goal amount
                       </Text>
                       <View className="flex-row items-center rounded-2xl border border-gray-200 bg-white p-2">
                         <TextInput
@@ -1375,7 +1380,7 @@ export default function OnboardingScreen() {
         <View className="flex-1 justify-center">
           <SetupTitle
             title="Pick cues"
-            body="Cues are the triggers that usually show up before the urge."
+            body="Cues are triggers that often appear before an urge."
             icon="alert-circle"
           />
 
@@ -1446,7 +1451,7 @@ export default function OnboardingScreen() {
         className="flex-1"
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="none"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         scrollEnabled={step >= setupStartIndex}
         scrollEventThrottle={16}
         onScroll={(event) => {
@@ -1461,26 +1466,7 @@ export default function OnboardingScreen() {
         {renderContent()}
       </ScrollView>
 
-      {!keyboardVisible ? (
-        <BottomNav />
-      ) : Platform.OS === "ios" && step === setupStartIndex + 1 ? (
-        <View className="flex-row justify-end border-t border-gray-200 bg-gray-50 px-4 py-2">
-          <Pressable
-            onPress={() => Keyboard.dismiss()}
-            accessibilityRole="button"
-            accessibilityLabel="Dismiss keyboard"
-            className="flex-row items-center rounded-xl px-3 py-1.5"
-          >
-            <Ionicons name="chevron-down" size={18} color="#007AFF" />
-            <Text
-              className="ml-1 text-base font-bold"
-              style={{ color: "#007AFF" }}
-            >
-              Hide Keyboard
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
+      {!keyboardVisible ? <BottomNav /> : null}
     </Screen>
   );
 }

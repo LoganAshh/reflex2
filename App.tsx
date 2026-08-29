@@ -55,8 +55,14 @@ export type RootTabParamList = {
 };
 
 export type RootStackParamList = {
+  Onboarding: undefined;
+  InitialProfileSetup: undefined;
   Main: NavigatorScreenParams<RootTabParamList> | undefined;
-  ManageList: { type: ManageListType };
+  ManageList: {
+    type: ManageListType;
+    habitId?: number;
+    openGoal?: boolean;
+  };
   ProfileSetup: undefined;
   Settings: undefined;
   UrgeHelp: { logId: number };
@@ -357,55 +363,68 @@ function RootStack() {
     return <AppLoadingScreen />;
   }
 
-  if (!hasOnboarded) return <OnboardingScreen />;
-  if (!hasCompletedLocalProfile) return <ProfileSetupScreen />;
-
   return (
     <AppLockGate>
       <Stack.Navigator>
-        <Stack.Screen
-          name="Main"
-          component={Tabs}
-          options={{ headerShown: false }}
-        />
+        {!hasOnboarded ? (
+          <Stack.Screen
+            name="Onboarding"
+            component={OnboardingScreen}
+            options={{ headerShown: false }}
+          />
+        ) : !hasCompletedLocalProfile ? (
+          <Stack.Screen
+            name="InitialProfileSetup"
+            component={ProfileSetupScreen}
+            options={{ headerShown: false }}
+          />
+        ) : (
+          <>
+            <Stack.Screen
+              name="Main"
+              component={Tabs}
+              options={{ headerShown: false }}
+            />
 
-        <Stack.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{ title: "Settings", headerBackTitle: "Back" }}
-        />
+            <Stack.Screen
+              name="Settings"
+              component={SettingsScreen}
+              options={{ title: "Settings", headerBackTitle: "Back" }}
+            />
 
-        <Stack.Screen
-          name="ManageList"
-          component={ManageListScreen}
-          options={{ title: "Manage", headerBackTitle: "Back" }}
-        />
+            <Stack.Screen
+              name="ManageList"
+              component={ManageListScreen}
+              options={{ title: "Manage", headerBackTitle: "Back" }}
+            />
 
-        <Stack.Screen
-          name="ProfileSetup"
-          component={ProfileSetupScreen}
-          options={{ title: "Edit Profile", headerBackTitle: "Back" }}
-        />
+            <Stack.Screen
+              name="ProfileSetup"
+              component={ProfileSetupScreen}
+              options={{ title: "Edit Profile", headerBackTitle: "Back" }}
+            />
 
-        <Stack.Screen
-          name="UrgeHelp"
-          component={UrgeHelpScreen}
-          options={{
-            title: "Resist the urge",
-            headerBackTitle: "Back",
-            headerBackButtonMenuEnabled: false,
-          }}
-        />
+            <Stack.Screen
+              name="UrgeHelp"
+              component={UrgeHelpScreen}
+              options={{
+                title: "Resist the urge",
+                headerBackTitle: "Back",
+                headerBackButtonMenuEnabled: false,
+              }}
+            />
 
-        <Stack.Screen
-          name="ShopPicker"
-          component={ShopScreen}
-          options={{
-            title: "Shop",
-            headerBackTitle: "Back",
-            headerBackVisible: false,
-          }}
-        />
+            <Stack.Screen
+              name="ShopPicker"
+              component={ShopScreen}
+              options={{
+                title: "Shop",
+                headerBackTitle: "Back",
+                headerBackVisible: false,
+              }}
+            />
+          </>
+        )}
       </Stack.Navigator>
     </AppLockGate>
   );

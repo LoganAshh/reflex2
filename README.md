@@ -6,8 +6,8 @@ This project demonstrates end-to-end mobile product development, from onboarding
 
 ## What Reflex Does
 
-- Guides new users through choosing habits and setting a current amount and goal amount for each habit
-- Supports habits measured in times or minutes, with separate Day, Week, or Month (28-day) frequencies for current and goal amounts
+- Guides new users through choosing habits and setting an estimated current amount and long-term goal amount for each habit
+- Supports habits measured in times or minutes, with separate Day, Week, or Month (28-day) frequencies for estimated current and long-term goal amounts
 - Logs habit activity or successful resistance with multiple cues, a location, intensity, notes, quantity, date, and time
 - Provides a guided resistance flow with practical steps and replacement actions
 - Shows encouraging dashboard summaries and progress for each tracked habit

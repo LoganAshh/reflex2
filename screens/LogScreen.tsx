@@ -1355,6 +1355,7 @@ export default function LogScreen() {
     try {
       const newLogId = await addLog({
         habitId: submittedHabitId,
+        createdAt: submittedCreatedAt,
         cueIds: submittedCueIds,
         locationId: submittedLocationId,
         intensity: submittedIntensity,

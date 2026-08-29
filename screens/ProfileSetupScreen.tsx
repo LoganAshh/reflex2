@@ -12,7 +12,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { useData } from "../data/DataContext";
@@ -20,9 +19,9 @@ import { persistPickedProfilePhoto } from "../data/profileStorage";
 import { Screen } from "../components/Screen";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type ProfileSetupProps = { navigation?: Nav };
 
-export default function ProfileSetupScreen() {
-  const navigation = useNavigation<Nav>();
+export default function ProfileSetupScreen({ navigation }: ProfileSetupProps) {
   const {
     profileName,
     profilePhotoUri,
@@ -109,7 +108,7 @@ export default function ProfileSetupScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await completeLocalProfile(name.trim(), photoUri);
 
-      if (isEditing && navigation.canGoBack()) {
+      if (isEditing && navigation?.canGoBack()) {
         navigation.goBack();
       }
     } catch (e: any) {

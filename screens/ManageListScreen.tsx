@@ -36,6 +36,7 @@ import {
 import { DEFAULT_HABIT_ICON, type HabitIconName } from "../data/habitIcons";
 import { HabitIconPicker } from "../components/HabitIconPicker";
 import { Screen } from "../components/Screen";
+import { normalizeGoalAmount } from "../data/goals";
 
 type ManageRoute = RouteProp<RootStackParamList, "ManageList">;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -82,11 +83,33 @@ function periodLabel(period: HabitPeriod) {
   return period === "week" ? "Week" : "Day";
 }
 
+function daysInPeriod(period: HabitPeriod) {
+  if (period === "week") return 7;
+  if (period === "28_days") return 28;
+  return 1;
+}
+
 function measurementUnitForAmount(unit: string, amount: string) {
   if (Number(amount) !== 1) return unit;
   if (unit === "times") return "time";
   if (unit === "minutes") return "minute";
   return unit;
+}
+
+function formatLevel(value: number | null | undefined) {
+  if (value == null) return "Not available yet";
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
+function formatLevelWithPeriod(
+  value: number | null | undefined,
+  unit: string,
+  period: HabitPeriod,
+) {
+  if (value == null) return "Not available yet";
+  const valueText = formatLevel(value);
+  const unitText = measurementUnitForAmount(unit, `${value}`);
+  return `${valueText} ${unitText} per ${periodLabel(period).toLowerCase()}`;
 }
 
 function showMeasurementMenu(
@@ -193,6 +216,11 @@ export default function ManageListScreen() {
     addCustomHabit,
     updateHabit,
     updateHabitPlan,
+    cycleReviews,
+    proposeNextGoal,
+    approveProposedGoal,
+    dismissProposedGoal,
+    adjustCurrentGoal,
     addCustomCue,
     addCustomLocation,
     renameCustomCue,
@@ -209,6 +237,7 @@ export default function ManageListScreen() {
   const [editColor, setEditColor] = useState("#16A34A");
   const [editIcon, setEditIcon] = useState<HabitIconName>(DEFAULT_HABIT_ICON);
   const [habitPicker, setHabitPicker] = useState<"icon" | "color" | null>(null);
+  const [goalAdjustmentsOpen, setGoalAdjustmentsOpen] = useState(false);
   const [measurementType, setMeasurementType] = useState<"times" | "minutes">(
     "times",
   );
@@ -220,11 +249,15 @@ export default function ManageListScreen() {
     useState<ManageListSelection | null>(null);
   const [pendingAddedItem, setPendingAddedItem] =
     useState<PendingAddedItem | null>(null);
+  const [selectAfterSaveId, setSelectAfterSaveId] = useState<number | null>(
+    null,
+  );
   const [deferredDeselectedIds, setDeferredDeselectedIds] = useState<
     Set<number>
   >(new Set());
 
   const didSetInitialFilter = useRef(false);
+  const openedGoalHabitIdRef = useRef<number | null>(null);
 
   const { items, selectedIds, title, singularTitle } = useMemo(() => {
     if (type === "habits") {
@@ -266,6 +299,27 @@ export default function ManageListScreen() {
     type === "habits" && !!editingItem && !editingIsCustom;
   const measurementUnitLabel =
     measurementType === "minutes" ? "minutes" : "times";
+  const editingHabit =
+    type === "habits" && editingItem
+      ? (habits.find((habit) => habit.id === editingItem.id) ??
+        (editingItem as Habit))
+      : null;
+  const startingAmountLocked = editingHabit?.calibratedBaseline != null;
+  const editingCycleReview = editingHabit
+    ? cycleReviews[editingHabit.id]
+    : null;
+  const canAdvanceCurrentGoal =
+    editingCycleReview?.complete === true &&
+    editingCycleReview.result === "goal_achieved" &&
+    !editingCycleReview.goalAlreadyAdvanced;
+  const finalGoalInCurrentPeriod =
+    editingHabit?.finalTarget == null || editingHabit.currentGoal == null
+      ? null
+      : normalizeGoalAmount(
+          editingHabit.finalTarget,
+          editingHabit.goalPeriod,
+          editingHabit.currentGoalPeriod,
+        );
 
   useEffect(() => {
     if (didSetInitialFilter.current) return;
@@ -281,6 +335,23 @@ export default function ManageListScreen() {
   }, [type, selectedIds.size]);
 
   useEffect(() => {
+    const habitId = route.params.habitId;
+    if (
+      type !== "habits" ||
+      !route.params.openGoal ||
+      habitId == null ||
+      openedGoalHabitIdRef.current === habitId
+    ) {
+      return;
+    }
+    const habit = habits.find((item) => item.id === habitId);
+    if (!habit) return;
+    openedGoalHabitIdRef.current = habitId;
+    openEdit(habit);
+    setGoalAdjustmentsOpen(true);
+  }, [habits, route.params.habitId, route.params.openGoal, type]);
+
+  useEffect(() => {
     if (!pendingAddedItem) return;
     if (pendingAddedItem.type !== type) return;
 
@@ -292,12 +363,14 @@ export default function ManageListScreen() {
 
     if (!match) return;
 
-    setReturnSelection({
-      type,
-      id: match.id,
-      token: Date.now(),
-    });
     setPendingAddedItem(null);
+
+    if (type === "habits") {
+      openEdit(match, true);
+      return;
+    }
+
+    setReturnSelection({ type, id: match.id, token: Date.now() });
   }, [items, pendingAddedItem, type]);
 
   const filteredItems = useMemo(() => {
@@ -349,6 +422,19 @@ export default function ManageListScreen() {
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+    if (type === "habits" && !wasSelected) {
+      const habit = habits.find((item) => item.id === id);
+      const hasPlan =
+        habit?.estimatedBaseline != null &&
+        habit.finalTarget != null &&
+        habit.currentGoal != null;
+
+      if (habit && !hasPlan) {
+        openEdit(habit, true);
+        return;
+      }
+    }
+
     const ids = Array.from(selectedIds);
     const next = wasSelected ? ids.filter((x) => x !== id) : [...ids, id];
 
@@ -382,7 +468,7 @@ export default function ManageListScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      if (type === "habits") await addCustomHabit(name, true);
+      if (type === "habits") await addCustomHabit(name, false);
       else if (type === "cues") await addCustomCue(name, true);
       else await addCustomLocation(name, true);
 
@@ -394,9 +480,10 @@ export default function ManageListScreen() {
     }
   };
 
-  const openEdit = (item: ManageItem) => {
+  function openEdit(item: ManageItem, selectAfterSave = false) {
     if (type !== "habits" && !item.isCustom) return;
 
+    setSelectAfterSaveId(selectAfterSave ? item.id : null);
     setEditingItem(item);
     setEditText(item.name);
     setEditColor(getHabitColor(item));
@@ -406,12 +493,14 @@ export default function ManageListScreen() {
       setMeasurementType(
         habit.measurementType === "minutes" ? "minutes" : "times",
       );
-      setEstimatedBaseline(habit.estimatedBaseline?.toString() ?? "");
+      setEstimatedBaseline(
+        (habit.calibratedBaseline ?? habit.estimatedBaseline)?.toString() ?? "",
+      );
       setBaselinePeriod(habit.baselinePeriod ?? "day");
       setFinalTarget(habit.finalTarget?.toString() ?? "");
       setGoalPeriod(habit.goalPeriod ?? habit.baselinePeriod ?? "day");
     }
-  };
+  }
 
   const closeEdit = () => {
     Keyboard.dismiss();
@@ -420,11 +509,13 @@ export default function ManageListScreen() {
     setEditColor("#16A34A");
     setEditIcon(DEFAULT_HABIT_ICON);
     setHabitPicker(null);
+    setGoalAdjustmentsOpen(false);
     setMeasurementType("times");
     setEstimatedBaseline("");
     setBaselinePeriod("day");
     setFinalTarget("");
     setGoalPeriod("day");
+    setSelectAfterSaveId(null);
   };
 
   const onSaveEdit = async () => {
@@ -437,15 +528,73 @@ export default function ManageListScreen() {
       Keyboard.dismiss();
 
       if (type === "habits") {
+        const currentAmount = Number(estimatedBaseline);
+        const goalAmount = Number(finalTarget);
+
+        if (
+          !estimatedBaseline.trim() ||
+          !Number.isFinite(currentAmount) ||
+          currentAmount < 0
+        ) {
+          Alert.alert(
+            "Add an estimated current amount",
+            `Enter a valid estimated current amount for ${name}.`,
+          );
+          return;
+        }
+
+        if (
+          !finalTarget.trim() ||
+          !Number.isFinite(goalAmount) ||
+          goalAmount < 0
+        ) {
+          Alert.alert(
+            "Add a long-term goal amount",
+            `Enter a valid long-term goal amount for ${name}.`,
+          );
+          return;
+        }
+
+        if (
+          goalAmount / daysInPeriod(goalPeriod) >
+          currentAmount / daysInPeriod(baselinePeriod)
+        ) {
+          Alert.alert(
+            "Check the goal rate",
+            `${name}'s goal cannot represent a higher rate than its ${
+              startingAmountLocked ? "calculated" : "estimated"
+            } current amount.`,
+          );
+          return;
+        }
+
         await updateHabit(editingItem.id, name, editColor, editIcon);
-        if (estimatedBaseline.trim() || finalTarget.trim()) {
-          await updateHabitPlan(editingItem.id, {
-            measurementType,
-            unit: measurementType,
-            estimatedBaseline: Number(estimatedBaseline),
-            baselinePeriod,
-            finalTarget: Number(finalTarget),
-            goalPeriod,
+        await updateHabitPlan(editingItem.id, {
+          measurementType: startingAmountLocked
+            ? editingHabit?.measurementType === "minutes"
+              ? "minutes"
+              : "times"
+            : measurementType,
+          unit: startingAmountLocked
+            ? (editingHabit?.unit ?? measurementType)
+            : measurementType,
+          estimatedBaseline: startingAmountLocked
+            ? (editingHabit?.estimatedBaseline ?? currentAmount)
+            : currentAmount,
+          baselinePeriod: startingAmountLocked
+            ? (editingHabit?.baselinePeriod ?? baselinePeriod)
+            : baselinePeriod,
+          finalTarget: goalAmount,
+          goalPeriod,
+        });
+
+        if (selectAfterSaveId === editingItem.id) {
+          const nextIds = Array.from(new Set([...selectedIds, editingItem.id]));
+          await setSelectedHabits(nextIds);
+          setReturnSelection({
+            type: "habits",
+            id: editingItem.id,
+            token: Date.now(),
           });
         }
       } else if (type === "cues") await renameCustomCue(editingItem.id, name);
@@ -511,8 +660,49 @@ export default function ManageListScreen() {
     );
   };
 
+  const onAdjustCurrentGoal = (direction: "easier" | "harder") => {
+    if (!editingHabit) return;
+    const easier = direction === "easier";
+    Alert.alert(
+      easier ? "Make this step easier?" : "Make this step harder?",
+      easier
+        ? "This raises the current-step goal slightly toward your starting level. Your long-term goal will not change."
+        : "This lowers the current-step goal by one normal reduction step. Your long-term goal will not change.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: easier ? "Make Easier" : "Make Harder",
+          onPress: async () => {
+            await adjustCurrentGoal(editingHabit.id, direction);
+            await Haptics.notificationAsync(
+              Haptics.NotificationFeedbackType.Success,
+            );
+          },
+        },
+      ],
+    );
+  };
+
   const onDone = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (type === "habits") {
+      const incompleteHabit = selectedHabits.find(
+        (habit) =>
+          habit.estimatedBaseline == null ||
+          habit.finalTarget == null ||
+          habit.currentGoal == null,
+      );
+
+      if (incompleteHabit) {
+        Alert.alert(
+          "Finish habit setup",
+          `Add an estimated current amount and a long-term goal amount for ${incompleteHabit.name} before leaving.`,
+        );
+        openEdit(incompleteHabit);
+        return;
+      }
+    }
 
     if (returnSelection) {
       setLogReturnSelectionParam(returnSelection);
@@ -675,36 +865,26 @@ export default function ManageListScreen() {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               >
-                <View className="flex-row items-center">
-                  <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                    <Ionicons
-                      name={
-                        type === "habits"
-                          ? editIcon
-                          : ("create" as keyof typeof Ionicons.glyphMap)
-                      }
-                      size={24}
-                      color={type === "habits" ? editColor : "#000000"}
-                    />
-                  </View>
-
-                  <View className="ml-3 flex-1">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1 pr-4">
                     <Text className="text-xl font-black text-black">
-                      Edit {singularTitle}
-                    </Text>
-
-                    <Text className="mt-1 text-sm leading-5 text-gray-500">
-                      {editingPresetHabit
-                        ? "Change the icon, color, and reduction plan."
-                        : type === "habits"
-                          ? "Change the name, icon, and color shown around the app."
-                          : "Rename it, or delete it from future logging."}
+                      {selectAfterSaveId === editingItem?.id
+                        ? `Set up ${singularTitle}`
+                        : `Edit ${singularTitle}`}
                     </Text>
                   </View>
+                  <Pressable
+                    onPress={closeEdit}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close edit habit"
+                    className="h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-gray-50"
+                  >
+                    <Ionicons name="close" size={20} color="#000000" />
+                  </Pressable>
                 </View>
 
                 {editingPresetHabit ? (
-                  <View className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                  <View className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2.5">
                     <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
                       Preset habit
                     </Text>
@@ -719,7 +899,7 @@ export default function ManageListScreen() {
                     onChangeText={setEditText}
                     placeholder={singularTitle}
                     placeholderTextColor="#9CA3AF"
-                    className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
+                    className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
                     multiline={false}
                     returnKeyType="done"
                     blurOnSubmit
@@ -728,7 +908,7 @@ export default function ManageListScreen() {
                 )}
 
                 {type === "habits" ? (
-                  <View className="mt-5">
+                  <View className="mt-4">
                     <View className="flex-row gap-3">
                       <View className="flex-1">
                         <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
@@ -743,10 +923,10 @@ export default function ManageListScreen() {
                           }}
                           accessibilityRole="button"
                           accessibilityLabel="Change habit icon"
-                          className="mt-2 flex-row items-center rounded-2xl border border-gray-200 bg-gray-50 p-3"
+                          className="mt-2 flex-row items-center rounded-2xl border border-gray-200 bg-gray-50 p-2"
                         >
                           <View
-                            className="h-10 w-10 items-center justify-center rounded-xl border bg-white"
+                            className="h-9 w-9 items-center justify-center rounded-xl border bg-white"
                             style={{ borderColor: editColor }}
                           >
                             <Ionicons
@@ -777,10 +957,10 @@ export default function ManageListScreen() {
                           }}
                           accessibilityRole="button"
                           accessibilityLabel="Change habit color"
-                          className="mt-2 flex-row items-center rounded-2xl border border-gray-200 bg-gray-50 p-3"
+                          className="mt-2 flex-row items-center rounded-2xl border border-gray-200 bg-gray-50 p-2"
                         >
                           <View
-                            className="h-10 w-10 rounded-full border-4 border-white"
+                            className="h-9 w-9 rounded-full border-4 border-white"
                             style={{ backgroundColor: editColor }}
                           />
                           <Text
@@ -795,24 +975,23 @@ export default function ManageListScreen() {
                       </View>
                     </View>
 
-                    <View className="mt-6 border-t border-gray-200 pt-5">
+                    <View className="mt-4 border-t border-gray-200 pt-4">
                       <Text className="text-lg font-black text-black">
                         Reduction setup
-                      </Text>
-                      <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
-                        Tell Reflex where you are starting and where you want to
-                        end.
                       </Text>
 
                       <View className="mt-4 gap-3">
                         <View>
                           <Text className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">
-                            Current amount
+                            {startingAmountLocked
+                              ? "Calculated current amount"
+                              : "Estimated current amount"}
                           </Text>
                           <View className="flex-row items-center rounded-2xl border border-gray-200 bg-gray-50 p-2">
                             <TextInput
                               value={estimatedBaseline}
                               onChangeText={setEstimatedBaseline}
+                              editable={!startingAmountLocked}
                               placeholder="5"
                               placeholderTextColor="#9CA3AF"
                               keyboardType={
@@ -823,9 +1002,14 @@ export default function ManageListScreen() {
                               returnKeyType="done"
                               blurOnSubmit
                               onSubmitEditing={() => Keyboard.dismiss()}
-                              className="w-16 rounded-xl border border-gray-200 bg-white px-3 py-2 text-center text-black"
+                              className={`w-16 rounded-xl border border-gray-200 px-3 py-2 text-center text-black ${
+                                startingAmountLocked
+                                  ? "bg-gray-100"
+                                  : "bg-white"
+                              }`}
                             />
                             <Pressable
+                              disabled={startingAmountLocked}
                               onPress={() =>
                                 showMeasurementMenu(
                                   measurementType === "minutes"
@@ -834,7 +1018,9 @@ export default function ManageListScreen() {
                                   setMeasurementType,
                                 )
                               }
-                              className="ml-2 flex-row items-center rounded-xl border border-gray-200 bg-white px-2 py-2"
+                              className={`ml-2 flex-row items-center rounded-xl border border-gray-200 bg-white px-2 py-2 ${
+                                startingAmountLocked ? "opacity-60" : ""
+                              }`}
                             >
                               <Text className="text-xs font-black text-black">
                                 {measurementUnitForAmount(
@@ -852,13 +1038,16 @@ export default function ManageListScreen() {
                               per
                             </Text>
                             <Pressable
+                              disabled={startingAmountLocked}
                               onPress={() =>
                                 showPeriodMenu(
                                   baselinePeriod,
                                   setBaselinePeriod,
                                 )
                               }
-                              className="w-20 flex-row items-center justify-between rounded-xl border border-gray-200 bg-white px-2 py-2"
+                              className={`w-20 flex-row items-center justify-between rounded-xl border border-gray-200 bg-white px-2 py-2 ${
+                                startingAmountLocked ? "opacity-60" : ""
+                              }`}
                             >
                               <Text className="text-xs font-black text-black">
                                 {periodLabel(baselinePeriod)}
@@ -870,11 +1059,16 @@ export default function ManageListScreen() {
                               />
                             </Pressable>
                           </View>
+                          <Text className="mt-2 text-xs font-semibold leading-4 text-gray-500">
+                            {startingAmountLocked
+                              ? "Calculated from early tracking."
+                              : "Used until enough data is collected."}
+                          </Text>
                         </View>
 
                         <View>
                           <Text className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">
-                            Goal amount
+                            Long-term goal amount
                           </Text>
                           <View className="flex-row items-center rounded-2xl border border-gray-200 bg-gray-50 p-2">
                             <TextInput
@@ -893,6 +1087,7 @@ export default function ManageListScreen() {
                               className="w-16 rounded-xl border border-gray-200 bg-white px-3 py-2 text-center text-black"
                             />
                             <Pressable
+                              disabled={startingAmountLocked}
                               onPress={() =>
                                 showMeasurementMenu(
                                   measurementType === "minutes"
@@ -901,7 +1096,9 @@ export default function ManageListScreen() {
                                   setMeasurementType,
                                 )
                               }
-                              className="ml-2 flex-row items-center rounded-xl border border-gray-200 bg-white px-2 py-2"
+                              className={`ml-2 flex-row items-center rounded-xl border border-gray-200 bg-white px-2 py-2 ${
+                                startingAmountLocked ? "opacity-60" : ""
+                              }`}
                             >
                               <Text className="text-xs font-black text-black">
                                 {measurementUnitForAmount(
@@ -936,6 +1133,31 @@ export default function ManageListScreen() {
                           </View>
                         </View>
                       </View>
+
+                      {editingHabit?.currentGoal != null ? (
+                        <Pressable
+                          onPress={() => setGoalAdjustmentsOpen(true)}
+                          className="mt-4 flex-row items-center rounded-2xl border border-green-200 bg-green-50 px-4 py-3"
+                        >
+                          <View className="flex-1">
+                            <Text className="text-xs font-black uppercase tracking-wide text-green-700">
+                              Current step goal
+                            </Text>
+                            <Text className="mt-1 text-base font-black text-black">
+                              {formatLevelWithPeriod(
+                                editingHabit.currentGoal,
+                                measurementUnitLabel,
+                                editingHabit.currentGoalPeriod,
+                              )}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={19}
+                            color="#15803D"
+                          />
+                        </Pressable>
+                      ) : null}
                     </View>
                   </View>
                 ) : null}
@@ -945,29 +1167,19 @@ export default function ManageListScreen() {
                   className="mt-4 rounded-3xl bg-green-600 py-4 active:bg-green-700"
                 >
                   <Text className="text-center text-base font-black text-white">
-                    Save Changes
+                    {selectAfterSaveId === editingItem?.id
+                      ? "Add Habit"
+                      : "Save Changes"}
                   </Text>
                 </Pressable>
 
                 {editingItem?.isCustom ? (
-                  <Pressable
-                    onPress={onDelete}
-                    className="mt-3 rounded-3xl border border-red-200 bg-red-50 py-4 active:bg-red-100"
-                  >
-                    <Text className="text-center text-base font-black text-red-600">
+                  <Pressable onPress={onDelete} className="mt-3 py-2">
+                    <Text className="text-center text-sm font-black text-red-600">
                       Delete Custom Item
                     </Text>
                   </Pressable>
                 ) : null}
-
-                <Pressable
-                  onPress={closeEdit}
-                  className="mt-3 rounded-3xl border border-gray-200 bg-white py-4 active:bg-gray-50"
-                >
-                  <Text className="text-center text-base font-black text-black">
-                    Cancel
-                  </Text>
-                </Pressable>
               </ScrollView>
             </View>
 
@@ -1036,6 +1248,127 @@ export default function ManageListScreen() {
                       })}
                     </View>
                   )}
+                </View>
+              </View>
+            ) : null}
+
+            {goalAdjustmentsOpen && editingHabit?.currentGoal != null ? (
+              <View className="absolute inset-0 justify-center bg-black/50 px-6">
+                <View className="max-h-[85%] rounded-[30px] bg-white p-5 shadow-lg">
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-xl font-black text-black">
+                      Current step goal
+                    </Text>
+                    <Pressable
+                      onPress={() => setGoalAdjustmentsOpen(false)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Close current goal adjustments"
+                      className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-gray-50"
+                    >
+                      <Ionicons name="close" size={22} color="#000000" />
+                    </Pressable>
+                  </View>
+
+                  <ScrollView
+                    className="mt-4"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <View className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
+                      <Text className="text-lg font-black text-black">
+                        {formatLevelWithPeriod(
+                          editingHabit.currentGoal,
+                          measurementUnitLabel,
+                          editingHabit.currentGoalPeriod,
+                        )}
+                      </Text>
+                    </View>
+
+                    {editingHabit.pendingGoal != null ? (
+                      <View className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                        <Text className="text-sm font-black text-black">
+                          Suggested next step
+                        </Text>
+                        <Text className="mt-1 text-base font-black text-black">
+                          {formatLevelWithPeriod(
+                            editingHabit.pendingGoal,
+                            measurementUnitLabel,
+                            editingHabit.pendingGoalPeriod,
+                          )}
+                        </Text>
+                        <Text className="mt-2 text-xs font-semibold leading-4 text-gray-600">
+                          {editingHabit.pendingGoalReason}
+                        </Text>
+                        {!canAdvanceCurrentGoal ? (
+                          <Text className="mt-2 text-xs font-bold leading-4 text-gray-600">
+                            Complete the tracking review on Home before
+                            approving this change.
+                          </Text>
+                        ) : null}
+                        <View className="mt-3 flex-row gap-2">
+                          <Pressable
+                            onPress={() => dismissProposedGoal(editingHabit.id)}
+                            className="flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2.5"
+                          >
+                            <Text className="text-center text-xs font-black text-black">
+                              Not Now
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            disabled={!canAdvanceCurrentGoal}
+                            onPress={async () => {
+                              await approveProposedGoal(editingHabit.id);
+                              await Haptics.notificationAsync(
+                                Haptics.NotificationFeedbackType.Success,
+                              );
+                            }}
+                            className={`flex-1 rounded-xl bg-green-600 px-3 py-2.5 ${
+                              canAdvanceCurrentGoal ? "" : "opacity-40"
+                            }`}
+                          >
+                            <Text className="text-center text-xs font-black text-white">
+                              Use This Goal
+                            </Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ) : canAdvanceCurrentGoal &&
+                      finalGoalInCurrentPeriod != null &&
+                      editingHabit.currentGoal > finalGoalInCurrentPeriod ? (
+                      <Pressable
+                        onPress={() => proposeNextGoal(editingHabit.id)}
+                        className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3"
+                      >
+                        <Text className="text-center text-sm font-black text-blue-700">
+                          Preview Next Step
+                        </Text>
+                      </Pressable>
+                    ) : finalGoalInCurrentPeriod != null &&
+                      editingHabit.currentGoal > finalGoalInCurrentPeriod ? (
+                      <Text className="mt-3 text-xs font-semibold leading-4 text-gray-500">
+                        The next step becomes available after a sufficiently
+                        confirmed cycle meets this goal.
+                      </Text>
+                    ) : null}
+
+                    <View className="mt-4 flex-row gap-2">
+                      <Pressable
+                        onPress={() => onAdjustCurrentGoal("easier")}
+                        className="flex-1 rounded-2xl border border-gray-300 bg-white px-3 py-3"
+                      >
+                        <Text className="text-center text-xs font-black text-black">
+                          Make Easier
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => onAdjustCurrentGoal("harder")}
+                        className="flex-1 rounded-2xl border border-gray-300 bg-white px-3 py-3"
+                      >
+                        <Text className="text-center text-xs font-black text-black">
+                          Make Harder
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </ScrollView>
                 </View>
               </View>
             ) : null}

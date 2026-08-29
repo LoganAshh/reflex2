@@ -548,7 +548,7 @@ export default function SettingsScreen() {
 
       <Row
         title="Manage habits"
-        subtitle="Add habits and update their current and goal amounts."
+        subtitle="Add habits and update their estimated current and long-term goal amounts."
         onPress={() => navigation.navigate("ManageList", { type: "habits" })}
         icon="create"
       />

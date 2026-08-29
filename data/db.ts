@@ -9,6 +9,13 @@ import type {
   LogEntry,
   ReplacementAction,
   HabitPlanInput,
+  HabitPeriod,
+  GoalHistoryEntry,
+  GoalChangeReason,
+  TrackingConfirmation,
+  TrackingPeriod,
+  TrackingStatus,
+  CycleHistoryEntry,
 } from "./types";
 import {
   DEFAULT_HABIT_ICON,
@@ -51,13 +58,65 @@ const CREATE_DATA_TABLES_SQL = `
     unit TEXT NOT NULL DEFAULT 'times',
     estimatedBaseline REAL,
     calibratedBaseline REAL,
+    calibrationStartedAt INTEGER,
+    calibratedAt INTEGER,
+    rebaselineStartedAt INTEGER,
     baselinePeriod TEXT NOT NULL DEFAULT 'day',
     finalTarget REAL,
-    goalPeriod TEXT NOT NULL DEFAULT 'day'
+    goalPeriod TEXT NOT NULL DEFAULT 'day',
+    currentGoal REAL,
+    currentGoalPeriod TEXT NOT NULL DEFAULT 'day',
+    pendingGoal REAL,
+    pendingGoalPeriod TEXT NOT NULL DEFAULT 'day',
+    pendingGoalReason TEXT
   );
 
   CREATE TABLE IF NOT EXISTS user_habits (
     habitId INTEGER NOT NULL UNIQUE,
+    FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS goal_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    habitId INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    period TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS tracking_confirmations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    habitId INTEGER NOT NULL,
+    period TEXT NOT NULL,
+    periodStart INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    UNIQUE(habitId, period, periodStart),
+    FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS cycle_history (
+    id TEXT PRIMARY KEY,
+    habitId INTEGER NOT NULL,
+    period TEXT NOT NULL,
+    startAt INTEGER NOT NULL,
+    endAtExclusive INTEGER NOT NULL,
+    confirmedCount INTEGER NOT NULL,
+    requiredConfirmations INTEGER NOT NULL,
+    actualQuantity REAL NOT NULL,
+    baseline REAL,
+    baselineSource TEXT NOT NULL,
+    currentGoal REAL,
+    reductionFromBaseline REAL,
+    stepProgressPercent REAL,
+    resistedUrges INTEGER NOT NULL,
+    activityLogs INTEGER NOT NULL,
+    result TEXT NOT NULL,
+    recommendedGoal REAL,
+    goalAlreadyAdvanced INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(habitId, period, startAt),
     FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE
   );
 
@@ -160,6 +219,17 @@ export async function ensureLocalSchemaColumns() {
   await ensureColumn("habits", "calibratedBaseline", "calibratedBaseline REAL");
   await ensureColumn(
     "habits",
+    "calibrationStartedAt",
+    "calibrationStartedAt INTEGER",
+  );
+  await ensureColumn("habits", "calibratedAt", "calibratedAt INTEGER");
+  await ensureColumn(
+    "habits",
+    "rebaselineStartedAt",
+    "rebaselineStartedAt INTEGER",
+  );
+  await ensureColumn(
+    "habits",
     "baselinePeriod",
     "baselinePeriod TEXT NOT NULL DEFAULT 'day'",
   );
@@ -176,6 +246,26 @@ export async function ensureLocalSchemaColumns() {
   if (!hadGoalPeriod) {
     await db.execAsync(`UPDATE habits SET goalPeriod = baselinePeriod;`);
   }
+  const habitColumnsBeforeCurrentGoalPeriod = await tableColumns("habits");
+  const hadCurrentGoalPeriod = habitColumnsBeforeCurrentGoalPeriod.some(
+    (column) => column.name === "currentGoalPeriod",
+  );
+  await ensureColumn("habits", "currentGoal", "currentGoal REAL");
+  await ensureColumn(
+    "habits",
+    "currentGoalPeriod",
+    "currentGoalPeriod TEXT NOT NULL DEFAULT 'day'",
+  );
+  if (!hadCurrentGoalPeriod) {
+    await db.execAsync(`UPDATE habits SET currentGoalPeriod = goalPeriod;`);
+  }
+  await ensureColumn("habits", "pendingGoal", "pendingGoal REAL");
+  await ensureColumn(
+    "habits",
+    "pendingGoalPeriod",
+    "pendingGoalPeriod TEXT NOT NULL DEFAULT 'day'",
+  );
+  await ensureColumn("habits", "pendingGoalReason", "pendingGoalReason TEXT");
   await ensureColumn("cues", "hidden", "hidden INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(
     "locations",
@@ -376,6 +466,9 @@ export async function seedDefaultActionsIfEmpty() {
 export async function dropAllDataTables() {
   await db.execAsync(`
     DROP TABLE IF EXISTS selected_actions;
+    DROP TABLE IF EXISTS cycle_history;
+    DROP TABLE IF EXISTS tracking_confirmations;
+    DROP TABLE IF EXISTS goal_history;
     DROP TABLE IF EXISTS logs;
     DROP TABLE IF EXISTS user_locations;
     DROP TABLE IF EXISTS locations;
@@ -395,6 +488,101 @@ export async function recreateDataTables() {
 export async function loadHabits(): Promise<Habit[]> {
   return db.getAllAsync<Habit>(
     "SELECT * FROM habits WHERE hidden = 0 ORDER BY isCustom ASC, id ASC;",
+  );
+}
+
+export async function loadGoalHistory(): Promise<GoalHistoryEntry[]> {
+  return db.getAllAsync<GoalHistoryEntry>(
+    "SELECT * FROM goal_history ORDER BY createdAt DESC, id DESC;",
+  );
+}
+
+export async function loadTrackingConfirmations(): Promise<
+  TrackingConfirmation[]
+> {
+  return db.getAllAsync<TrackingConfirmation>(
+    `SELECT * FROM tracking_confirmations ORDER BY periodStart DESC, id DESC;`,
+  );
+}
+
+export async function loadCycleHistory(): Promise<CycleHistoryEntry[]> {
+  const rows = await db.getAllAsync<
+    Omit<CycleHistoryEntry, "goalAlreadyAdvanced"> & {
+      goalAlreadyAdvanced: number;
+    }
+  >(`SELECT * FROM cycle_history ORDER BY startAt ASC, habitId ASC;`);
+  return rows.map((row) => ({
+    ...row,
+    eligible: true,
+    complete: true,
+    goalAlreadyAdvanced: row.goalAlreadyAdvanced === 1,
+  }));
+}
+
+export async function replaceCycleHistory(
+  entries: CycleHistoryEntry[],
+  activePeriods: Array<{ habitId: number; period: HabitPeriod }>,
+) {
+  await db.withTransactionAsync(async () => {
+    for (const scope of activePeriods) {
+      await db.runAsync(
+        "DELETE FROM cycle_history WHERE habitId = ? AND period = ?;",
+        [scope.habitId, scope.period],
+      );
+    }
+    for (const entry of entries) {
+      await db.runAsync(
+        `INSERT INTO cycle_history (
+          id, habitId, period, startAt, endAtExclusive, confirmedCount,
+          requiredConfirmations, actualQuantity, baseline, baselineSource,
+          currentGoal, reductionFromBaseline, stepProgressPercent,
+          resistedUrges, activityLogs, result, recommendedGoal,
+          goalAlreadyAdvanced
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        [
+          entry.id,
+          entry.habitId,
+          entry.period,
+          entry.startAt,
+          entry.endAtExclusive,
+          entry.confirmedCount,
+          entry.requiredConfirmations,
+          entry.actualQuantity,
+          entry.baseline,
+          entry.baselineSource,
+          entry.currentGoal,
+          entry.reductionFromBaseline,
+          entry.stepProgressPercent,
+          entry.resistedUrges,
+          entry.activityLogs,
+          entry.result,
+          entry.recommendedGoal,
+          entry.goalAlreadyAdvanced ? 1 : 0,
+        ],
+      );
+    }
+  });
+}
+
+export async function upsertTrackingConfirmation(params: {
+  habitId: number;
+  period: TrackingPeriod;
+  periodStart: number;
+  status: TrackingStatus;
+}) {
+  await db.runAsync(
+    `INSERT INTO tracking_confirmations (
+      habitId, period, periodStart, status, updatedAt
+    ) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(habitId, period, periodStart)
+    DO UPDATE SET status = excluded.status, updatedAt = excluded.updatedAt;`,
+    [
+      params.habitId,
+      params.period,
+      params.periodStart,
+      params.status,
+      Date.now(),
+    ],
   );
 }
 
@@ -593,6 +781,7 @@ export async function insertCustomLocation(name: string) {
 
 export async function insertLog(params: {
   habitId: number;
+  createdAt: number;
   cueId: number | null;
   cueIds: number[];
   locationId: number | null;
@@ -636,7 +825,7 @@ export async function insertLog(params: {
       params.count,
       params.didResist,
       params.notes,
-      Date.now(),
+      params.createdAt,
       params.selectedActionId,
       params.habitName,
       params.cueName,
@@ -779,20 +968,114 @@ export async function updateHabitInDb(
 }
 
 export async function updateHabitPlanInDb(id: number, input: HabitPlanInput) {
+  const newPeriodDays =
+    input.baselinePeriod === "week"
+      ? 7
+      : input.baselinePeriod === "28_days"
+        ? 28
+        : 1;
   await db.runAsync(
     `UPDATE habits
      SET measurementType = ?, unit = ?, estimatedBaseline = ?,
+         calibratedBaseline = CASE
+           WHEN calibratedBaseline IS NULL THEN NULL
+           ELSE calibratedBaseline /
+             CASE baselinePeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END * ?
+         END,
          baselinePeriod = ?, finalTarget = ?, goalPeriod = ?
      WHERE id = ? AND hidden = 0;`,
     [
       input.measurementType,
       input.unit,
       input.estimatedBaseline,
+      newPeriodDays,
       input.baselinePeriod,
       input.finalTarget,
       input.goalPeriod,
       id,
     ],
+  );
+}
+
+export async function setCurrentGoalInDb(
+  habitId: number,
+  amount: number,
+  period: HabitPlanInput["goalPeriod"],
+  reason: GoalChangeReason,
+) {
+  const createdAt = Date.now();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `UPDATE habits
+       SET currentGoal = ?, currentGoalPeriod = ?, pendingGoal = NULL,
+           pendingGoalReason = NULL
+       WHERE id = ? AND hidden = 0;`,
+      [amount, period, habitId],
+    );
+    await db.runAsync(
+      `INSERT INTO goal_history (habitId, amount, period, reason, createdAt)
+       VALUES (?, ?, ?, ?, ?);`,
+      [habitId, amount, period, reason, createdAt],
+    );
+  });
+}
+
+export async function setPendingGoalInDb(
+  habitId: number,
+  amount: number,
+  period: HabitPlanInput["goalPeriod"],
+  reason: string,
+) {
+  await db.runAsync(
+    `UPDATE habits
+     SET pendingGoal = ?, pendingGoalPeriod = ?, pendingGoalReason = ?
+     WHERE id = ? AND hidden = 0;`,
+    [amount, period, reason, habitId],
+  );
+}
+
+export async function clearPendingGoalInDb(habitId: number) {
+  await db.runAsync(
+    `UPDATE habits
+     SET pendingGoal = NULL, pendingGoalReason = NULL
+     WHERE id = ?;`,
+    [habitId],
+  );
+}
+
+export async function setCalibrationStartedAtInDb(
+  id: number,
+  startedAt: number,
+) {
+  await db.runAsync(
+    `UPDATE habits
+     SET calibrationStartedAt = ?
+     WHERE id = ? AND calibratedBaseline IS NULL AND calibrationStartedAt IS NULL;`,
+    [startedAt, id],
+  );
+}
+
+export async function saveCalibratedBaselineInDb(
+  id: number,
+  value: number,
+  startedAt: number,
+  calibratedAt: number,
+) {
+  await db.runAsync(
+    `UPDATE habits
+     SET calibratedBaseline = ?, calibrationStartedAt = ?, calibratedAt = ?,
+         rebaselineStartedAt = NULL
+     WHERE id = ? AND (calibratedBaseline IS NULL OR rebaselineStartedAt IS NOT NULL);`,
+    [value, startedAt, calibratedAt, id],
+  );
+}
+
+export async function resetHabitBaselineInDb(id: number, startedAt: number) {
+  await db.runAsync(
+    `UPDATE habits
+     SET rebaselineStartedAt = ?
+     WHERE id = ? AND hidden = 0;`,
+    [startedAt, id],
   );
 }
 

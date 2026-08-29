@@ -9,9 +9,16 @@ import type { RootStackParamList, RootTabParamList } from "../App";
 import { useData, type Habit } from "../data/DataContext";
 import * as Haptics from "expo-haptics";
 import { Screen } from "../components/Screen";
+import { TrackingReviewLauncher } from "../components/TrackingReviewCard";
 
 function startOfDayMs(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function addLocalDays(timestamp: number, days: number) {
+  const date = new Date(timestamp);
+  date.setDate(date.getDate() + days);
+  return date.getTime();
 }
 
 function startOfWeekMs(d: Date) {
@@ -65,124 +72,23 @@ function applyFrequencyOrdering<T extends { id: number }>(
   });
 }
 
-function getDaysSinceGiveIn(
-  logs: { createdAt: number; didResist: number }[],
-  referenceDayMs: number,
-) {
-  if (logs.length === 0) return 0;
-
-  const sortedLogs = [...logs].sort((a, b) => a.createdAt - b.createdAt);
-  const giveInLogs = sortedLogs.filter((l) => l.didResist !== 1);
-  const lastGiveIn = giveInLogs[giveInLogs.length - 1] ?? null;
-
-  if (lastGiveIn) {
-    return Math.floor(
-      (referenceDayMs - startOfDayMs(new Date(lastGiveIn.createdAt))) /
-        (24 * 60 * 60 * 1000),
-    );
-  }
-
-  return (
-    Math.floor(
-      (referenceDayMs - startOfDayMs(new Date(sortedLogs[0].createdAt))) /
-        (24 * 60 * 60 * 1000),
-    ) + 1
-  );
+function periodLabel(period: Habit["baselinePeriod"]) {
+  if (period === "week") return "week";
+  if (period === "28_days") return "month";
+  return "day";
 }
 
-function getBestCleanStreakDays(
-  logs: { createdAt: number; didResist: number }[],
-) {
-  if (logs.length === 0) return 0;
-
-  const sortedLogs = [...logs].sort((a, b) => a.createdAt - b.createdAt);
-
-  const giveInDaySet = new Set(
-    sortedLogs
-      .filter((l) => l.didResist !== 1)
-      .map((l) => startOfDayMs(new Date(l.createdAt))),
-  );
-
-  const firstDay = startOfDayMs(new Date(sortedLogs[0].createdAt));
-  const lastDay = startOfDayMs(
-    new Date(sortedLogs[sortedLogs.length - 1].createdAt),
-  );
-
-  let best = 0;
-  let current = 0;
-
-  for (let day = firstDay; day <= lastDay; day += 24 * 60 * 60 * 1000) {
-    if (giveInDaySet.has(day)) {
-      current = 0;
-    } else {
-      current += 1;
-      if (current > best) best = current;
-    }
-  }
-
-  return best;
+function daysInPeriod(period: Habit["baselinePeriod"]) {
+  if (period === "week") return 7;
+  if (period === "28_days") return 28;
+  return 1;
 }
 
-function getAverageCleanStreakDays(
-  logs: { createdAt: number; didResist: number }[],
-  startDayMs: number | null,
-  endDayMs: number,
-) {
-  if (startDayMs == null || startDayMs >= endDayMs) return 0;
-
-  const dayMs = 24 * 60 * 60 * 1000;
-  const giveInDaySet = new Set(
-    logs
-      .filter((l) => l.didResist !== 1)
-      .map((l) => startOfDayMs(new Date(l.createdAt))),
-  );
-
-  const streaks: number[] = [];
-  let current = 0;
-
-  for (let day = startDayMs; day < endDayMs; day += dayMs) {
-    if (giveInDaySet.has(day)) {
-      if (current > 0) {
-        streaks.push(current);
-      }
-      current = 0;
-    } else {
-      current += 1;
-    }
-  }
-
-  if (current > 0) {
-    streaks.push(current);
-  }
-
-  if (streaks.length === 0) return 0;
-
-  return streaks.reduce((acc, value) => acc + value, 0) / streaks.length;
-}
-
-function getCleanDaysCount(
-  logs: { createdAt: number; didResist: number }[],
-  startDayMs: number | null,
-  endDayMs: number,
-) {
-  if (startDayMs == null || startDayMs >= endDayMs) return 0;
-
-  const dayMs = 24 * 60 * 60 * 1000;
-  const giveInDaySet = new Set(
-    logs
-      .filter((l) => l.didResist !== 1)
-      .map((l) => startOfDayMs(new Date(l.createdAt))),
-  );
-
-  let cleanDays = 0;
-
-  for (let day = startDayMs; day < endDayMs; day += dayMs) {
-    if (!giveInDaySet.has(day)) {
-      cleanDays += 1;
-    }
-  }
-
-  return cleanDays;
+function unitForValue(unit: string, value: number) {
+  if (value !== 1) return unit;
+  if (unit === "times") return "time";
+  if (unit === "minutes") return "minute";
+  return unit;
 }
 
 type TabNav = BottomTabNavigationProp<RootTabParamList, "Home">;
@@ -193,7 +99,17 @@ type HomeRoute = RouteProp<RootTabParamList, "Home">;
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<HomeRoute>();
-  const { logs, habits, profileName, profilePhotoUri } = useData();
+  const {
+    logs,
+    habits,
+    selectedHabits,
+    profileName,
+    profilePhotoUri,
+    baselineSummaries,
+    trackingConfirmations,
+    cycleReviews,
+    proposeNextGoal,
+  } = useData();
 
   const [selectedHabitId, setSelectedHabitId] = useState<number | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
@@ -201,7 +117,12 @@ export default function HomeScreen() {
   const handledResetTokenRef = useRef<number | null>(null);
 
   const displayName = useMemo(() => getFirstName(profileName), [profileName]);
-  const isBrandNew = logs.length === 0;
+  const hasCompletedTrackingDay = selectedHabits.some(
+    (habit) =>
+      habit.calibrationStartedAt != null &&
+      habit.calibrationStartedAt < startOfDayMs(new Date()),
+  );
+  const isBrandNew = logs.length === 0 && !hasCompletedTrackingDay;
 
   const activeHabitColor = useMemo(() => {
     if (selectedHabitId == null) return "#16A34A";
@@ -217,6 +138,158 @@ export default function HomeScreen() {
       "times"
     );
   }, [habits, selectedHabitId]);
+
+  const activeHabit = useMemo(
+    () => habits.find((habit) => habit.id === selectedHabitId) ?? null,
+    [habits, selectedHabitId],
+  );
+  const activeBaseline =
+    selectedHabitId == null
+      ? null
+      : (baselineSummaries[selectedHabitId] ?? null);
+  const activeCurrentGoal = activeHabit
+    ? (activeHabit.currentGoal ?? activeHabit.finalTarget)
+    : null;
+  const activeCurrentGoalPeriod = activeHabit
+    ? activeHabit.currentGoal != null
+      ? activeHabit.currentGoalPeriod
+      : activeHabit.goalPeriod
+    : "day";
+  const activePlanReady =
+    activeHabit?.estimatedBaseline != null &&
+    activeHabit.finalTarget != null &&
+    activeCurrentGoal != null;
+  const nextGoalHabit = useMemo(
+    () =>
+      selectedHabits.find((habit) => {
+        const review = cycleReviews[habit.id];
+        if (
+          !review?.complete ||
+          review.result !== "goal_achieved" ||
+          review.goalAlreadyAdvanced ||
+          habit.currentGoal == null ||
+          habit.finalTarget == null
+        ) {
+          return false;
+        }
+        const finalInCurrentPeriod =
+          (habit.finalTarget / daysInPeriod(habit.goalPeriod)) *
+          daysInPeriod(habit.currentGoalPeriod);
+        return habit.currentGoal > finalInCurrentPeriod;
+      }) ?? null,
+    [cycleReviews, selectedHabits],
+  );
+  const provisionalRecent = useMemo(() => {
+    if (!activeHabit || !activeBaseline) return null;
+    const habitLogs = logs.filter((log) => log.habitId === activeHabit.id);
+    const habitConfirmations = trackingConfirmations.filter(
+      (confirmation) => confirmation.habitId === activeHabit.id,
+    );
+    const trackingStarts = [
+      activeHabit.rebaselineStartedAt,
+      activeHabit.calibrationStartedAt,
+      ...habitLogs.map((log) => log.createdAt),
+      ...habitConfirmations
+        .filter((confirmation) => confirmation.status !== "not_yet")
+        .map((confirmation) => confirmation.periodStart),
+    ].filter((value): value is number => value != null);
+    if (trackingStarts.length === 0) return null;
+
+    const todayStart = startOfDayMs(new Date());
+    const recentDays =
+      activeBaseline.period === "day"
+        ? 7
+        : activeBaseline.period === "week"
+          ? 28
+          : 56;
+    const startAt = Math.max(
+      startOfDayMs(new Date(Math.min(...trackingStarts))),
+      addLocalDays(todayStart, -recentDays),
+    );
+    if (startAt >= todayStart) return null;
+
+    let validDays = 0;
+    let provisionalEmptyDays = 0;
+    let quantity = 0;
+    for (let dayStart = startAt; dayStart < todayStart; ) {
+      const dayEnd = addLocalDays(dayStart, 1);
+      const dayConfirmation = habitConfirmations.find(
+        (confirmation) =>
+          confirmation.period === "day" &&
+          confirmation.periodStart === dayStart,
+      );
+      const markedUnknown = dayConfirmation?.status === "not_yet";
+      if (!markedUnknown) {
+        const dayLogs = habitLogs.filter(
+          (log) => log.createdAt >= dayStart && log.createdAt < dayEnd,
+        );
+        validDays += 1;
+        if (dayLogs.length === 0 && !dayConfirmation) {
+          provisionalEmptyDays += 1;
+        }
+        quantity += dayLogs.reduce(
+          (sum, log) =>
+            sum + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
+          0,
+        );
+      }
+      dayStart = dayEnd;
+    }
+    if (validDays === 0) return null;
+    return {
+      value: (quantity / validDays) * daysInPeriod(activeBaseline.period),
+      validDays,
+      provisionalEmptyDays,
+    };
+  }, [activeHabit, activeBaseline, logs, trackingConfirmations]);
+
+  const currentDirection = useMemo(() => {
+    const recent = activeBaseline?.recent;
+    const priorRecent = activeBaseline?.priorRecent;
+    const estimate = activeBaseline?.estimated;
+    const goal = activeHabit?.currentGoal ?? activeHabit?.finalTarget;
+    const goalPeriod =
+      activeHabit?.currentGoalPeriod ?? activeHabit?.goalPeriod;
+
+    if (!activeBaseline || !activeHabit || goal == null || !goalPeriod) {
+      return {
+        value: "Needs setup",
+        sub: "Add an estimated current amount and long-term goal in Manage Habits",
+      };
+    }
+
+    const comparisonLevel = activeBaseline.returningFromGap
+      ? (priorRecent ?? estimate)
+      : (provisionalRecent?.value ?? recent ?? estimate);
+    if (comparisonLevel == null) {
+      return {
+        value: "Needs setup",
+        sub: "Add an estimated current amount and long-term goal in Manage Habits",
+      };
+    }
+
+    const recentDaily = comparisonLevel / daysInPeriod(activeBaseline.period);
+    const goalDaily = goal / daysInPeriod(goalPeriod);
+    const status =
+      recentDaily <= goalDaily
+        ? "On track"
+        : goalDaily > 0 && recentDaily <= goalDaily * 1.1
+          ? "Close"
+          : "Above pace";
+    const comparisonUnit = unitForValue(activeHabitUnit, comparisonLevel);
+    const sourceLabel = activeBaseline.returningFromGap
+      ? priorRecent == null
+        ? "Estimate"
+        : "Previous recent"
+      : provisionalRecent || recent != null
+        ? "Recent"
+        : "Estimate";
+
+    return {
+      value: status,
+      sub: `${sourceLabel}: about ${formatAverage(comparisonLevel)} ${comparisonUnit} per ${periodLabel(activeBaseline.period)}`,
+    };
+  }, [activeBaseline, activeHabit, activeHabitUnit, provisionalRecent]);
 
   useEffect(() => {
     const resetToken = route.params?.resetToken;
@@ -245,12 +318,15 @@ export default function HomeScreen() {
   }, [logs, habits]);
 
   const habitOptions = useMemo(() => {
+    const selectedIds = new Set(selectedHabits.map((habit) => habit.id));
     const loggedHabits = habits.filter(
-      (habit) => (habitFrequencyCounts.get(habit.id) ?? 0) > 0,
+      (habit) =>
+        selectedIds.has(habit.id) ||
+        (habitFrequencyCounts.get(habit.id) ?? 0) > 0,
     );
 
     return applyFrequencyOrdering(loggedHabits, habitFrequencyCounts);
-  }, [habits, habitFrequencyCounts]);
+  }, [habits, selectedHabits, habitFrequencyCounts]);
 
   useEffect(() => {
     if (selectedHabitId == null) return;
@@ -276,15 +352,6 @@ export default function HomeScreen() {
 
     const weekStart = startOfWeekMs(now);
     const daysSoFarThisWeek = Math.floor((todayStart - weekStart) / dayMs) + 1;
-
-    const sortedLogsForStats = [...logsForStats].sort(
-      (a, b) => a.createdAt - b.createdAt,
-    );
-
-    const firstLogDay =
-      sortedLogsForStats.length > 0
-        ? startOfDayMs(new Date(sortedLogsForStats[0].createdAt))
-        : null;
 
     const todaysLogs = logsForStats.filter(
       (l) => l.createdAt >= todayStart && l.createdAt < tomorrowStart,
@@ -316,14 +383,6 @@ export default function HomeScreen() {
       (l) => l.createdAt < todayStart,
     );
 
-    const daysSinceGiveIn = getDaysSinceGiveIn(logsForStats, todayStart);
-
-    const historicalBestCleanStreakDays = getBestCleanStreakDays(logsForStats);
-    const bestCleanStreakDays = Math.max(
-      historicalBestCleanStreakDays,
-      daysSinceGiveIn,
-    );
-
     const todayGiveIns = todaysLogs.reduce(
       (total, log) =>
         total + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
@@ -340,22 +399,44 @@ export default function HomeScreen() {
       null,
     );
 
+    const trackingStartBeforeToday =
+      selectedHabitId != null && activeHabit?.calibrationStartedAt != null
+        ? Math.min(
+            startOfDayMs(new Date(activeHabit.calibrationStartedAt)),
+            firstLogBeforeToday ?? Number.POSITIVE_INFINITY,
+          )
+        : firstLogBeforeToday;
     const hasTwoWeeksOfData =
-      firstLogBeforeToday != null && firstLogBeforeToday <= twoWeeksAgoStart;
+      trackingStartBeforeToday != null &&
+      trackingStartBeforeToday <= twoWeeksAgoStart;
 
     const comparisonStart = hasTwoWeeksOfData
       ? twoWeeksAgoStart
-      : firstLogBeforeToday;
-
-    const comparisonDays = comparisonStart
-      ? Math.max(1, Math.round((todayStart - comparisonStart) / dayMs))
-      : 0;
+      : trackingStartBeforeToday;
 
     const comparisonLogs = comparisonStart
       ? logsForStats.filter(
           (l) => l.createdAt >= comparisonStart && l.createdAt < todayStart,
         )
       : [];
+
+    let comparisonDays = new Set(
+      comparisonLogs.map((log) => startOfDayMs(new Date(log.createdAt))),
+    ).size;
+    if (selectedHabitId != null && comparisonStart != null) {
+      comparisonDays = 0;
+      for (let dayStart = comparisonStart; dayStart < todayStart; ) {
+        const markedUnknown = trackingConfirmations.some(
+          (confirmation) =>
+            confirmation.habitId === selectedHabitId &&
+            confirmation.period === "day" &&
+            confirmation.periodStart === dayStart &&
+            confirmation.status === "not_yet",
+        );
+        if (!markedUnknown) comparisonDays += 1;
+        dayStart = addLocalDays(dayStart, 1);
+      }
+    }
 
     const comparisonTotalLogs = comparisonLogs.length;
     const comparisonTotalResists = comparisonLogs.reduce(
@@ -376,47 +457,6 @@ export default function HomeScreen() {
       comparisonDays > 0 ? comparisonTotalGiveIns / comparisonDays : 0;
     const averageWeekToDateLogs = averageLogs * daysSoFarThisWeek;
     const averageWeekToDateResists = averageResists * daysSoFarThisWeek;
-    const averageCleanStreakDays = getAverageCleanStreakDays(
-      comparisonLogs,
-      comparisonStart,
-      todayStart,
-    );
-
-    const cleanDaysStart =
-      firstLogDay == null ? weekStart : Math.max(weekStart, firstLogDay);
-
-    const cleanDaysLogs = logsForStats.filter(
-      (l) => l.createdAt >= cleanDaysStart && l.createdAt < tomorrowStart,
-    );
-
-    const cleanDaysGiveInDaySet = new Set(
-      cleanDaysLogs
-        .filter((l) => l.didResist !== 1)
-        .map((l) => startOfDayMs(new Date(l.createdAt))),
-    );
-
-    let cleanDaysThisWeek = 0;
-    let daysCountedForCleanDays = 0;
-
-    if (firstLogDay != null) {
-      for (let day = cleanDaysStart; day <= todayStart; day += dayMs) {
-        daysCountedForCleanDays += 1;
-
-        if (!cleanDaysGiveInDaySet.has(day)) {
-          cleanDaysThisWeek += 1;
-        }
-      }
-    }
-
-    const comparisonCleanDays = getCleanDaysCount(
-      comparisonLogs,
-      comparisonStart,
-      todayStart,
-    );
-    const averageCleanDays =
-      comparisonDays > 0 ? comparisonCleanDays / comparisonDays : 0;
-    const averageCleanDaysThisWeek = averageCleanDays * daysCountedForCleanDays;
-
     return {
       todayLogs,
       weekLogs,
@@ -428,16 +468,11 @@ export default function HomeScreen() {
       averageGiveIns,
       averageWeekToDateLogs,
       averageWeekToDateResists,
-      averageCleanStreakDays,
-      averageCleanDaysThisWeek,
       comparisonDays,
       weekResistRate,
       todayResistRate,
-      daysSinceGiveIn,
-      bestCleanStreakDays,
-      cleanDaysThisWeek,
     };
-  }, [logs, selectedHabitId]);
+  }, [logs, selectedHabitId, activeHabit, trackingConfirmations]);
 
   const positiveFeedback = useMemo(() => {
     const averageGiveInsText = formatAverage(stats.averageGiveIns);
@@ -474,7 +509,7 @@ export default function HomeScreen() {
 
       return {
         title: "You Stayed on Track",
-        text: `Excellent work! You have no habit activity today, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
+        text: `Excellent work! No habit activity has been logged today, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
       };
     }
 
@@ -543,6 +578,8 @@ export default function HomeScreen() {
     value,
     icon,
     sub,
+    labelAtBottom = false,
+    compactValue = false,
     percentIncrease,
     accentColor = "#16A34A",
   }: {
@@ -550,6 +587,8 @@ export default function HomeScreen() {
     value: string;
     icon: keyof typeof Ionicons.glyphMap;
     sub?: string;
+    labelAtBottom?: boolean;
+    compactValue?: boolean;
     percentIncrease?: number | null;
     accentColor?: string;
   }) => (
@@ -571,16 +610,37 @@ export default function HomeScreen() {
         ) : null}
       </View>
 
-      <Text className="mt-3 text-2xl font-black text-black">{value}</Text>
-      <Text className="mt-0.5 text-[11px] font-black uppercase tracking-wide text-gray-500">
-        {label}
+      <Text
+        className={`mt-3 font-black text-black ${compactValue ? "text-lg" : "text-2xl"}`}
+        numberOfLines={1}
+        adjustsFontSizeToFit={compactValue}
+        minimumFontScale={0.8}
+      >
+        {value}
       </Text>
-
-      {sub ? (
-        <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
-          {sub}
-        </Text>
-      ) : null}
+      {labelAtBottom ? (
+        <>
+          {sub ? (
+            <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
+              {sub}
+            </Text>
+          ) : null}
+          <Text className="mt-auto pt-2 text-[11px] font-black uppercase tracking-wide text-gray-500">
+            {label}
+          </Text>
+        </>
+      ) : (
+        <>
+          <Text className="mt-0.5 text-[11px] font-black uppercase tracking-wide text-gray-500">
+            {label}
+          </Text>
+          {sub ? (
+            <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
+              {sub}
+            </Text>
+          ) : null}
+        </>
+      )}
     </View>
   );
 
@@ -661,8 +721,8 @@ export default function HomeScreen() {
       </View>
 
       {isBrandNew ? (
-        <View className="flex-1 justify-center">
-          <View className="rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+        <>
+          <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
             <View className="items-center">
               <View className="h-16 w-16 items-center justify-center rounded-full border border-gray-200 bg-white">
                 <Ionicons name="create" size={30} color="#000000" />
@@ -708,7 +768,7 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           </View>
-        </View>
+        </>
       ) : (
         <>
           <View className="mt-5 flex-row gap-3">
@@ -742,9 +802,6 @@ export default function HomeScreen() {
             <View className="flex-row items-center justify-between">
               <View>
                 <Text className="text-lg font-black text-black">Dashboard</Text>
-                <Text className="mt-0.5 text-xs font-bold text-gray-500">
-                  Pick a habit to focus the stats.
-                </Text>
               </View>
 
               <View className="flex-row items-center gap-2">
@@ -817,6 +874,36 @@ export default function HomeScreen() {
                 </View>
               </View>
             </View>
+
+            <TrackingReviewLauncher placement="home" />
+
+            {nextGoalHabit ? (
+              <Pressable
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  await proposeNextGoal(nextGoalHabit.id);
+                  navigation.navigate("ManageList", {
+                    type: "habits",
+                    habitId: nextGoalHabit.id,
+                    openGoal: true,
+                  });
+                }}
+                className="mt-3 flex-row items-center rounded-3xl border border-green-200 bg-green-50 p-3"
+              >
+                <View className="h-9 w-9 items-center justify-center rounded-full bg-white">
+                  <Ionicons name="flag" size={19} color="#16A34A" />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-black text-gray-950">
+                    Your next goal is ready
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold text-gray-600">
+                    Review the next step for {nextGoalHabit.name}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#16A34A" />
+              </Pressable>
+            ) : null}
 
             {selectedHabitId === null ? (
               <>
@@ -894,33 +981,41 @@ export default function HomeScreen() {
                   />
                 </View>
 
-                <View className="mt-3 flex-row gap-3">
-                  <StatTile
-                    accentColor={activeHabitColor}
-                    label="Clean days"
-                    value={`${stats.cleanDaysThisWeek}`}
-                    sub="This Week"
-                    icon="sunny"
-                    percentIncrease={getPercentIncrease(
-                      stats.cleanDaysThisWeek,
-                      stats.averageCleanDaysThisWeek,
-                    )}
-                  />
+                {activePlanReady ? (
+                  <View className="mt-3 flex-row gap-3">
+                    <StatTile
+                      accentColor={activeHabitColor}
+                      label="Current direction"
+                      labelAtBottom
+                      value={currentDirection.value}
+                      sub={currentDirection.sub}
+                      icon="compass"
+                    />
 
-                  <StatTile
-                    accentColor={activeHabitColor}
-                    label="Streak"
-                    value={`${stats.daysSinceGiveIn}`}
-                    sub={`Best: ${stats.bestCleanStreakDays} ${
-                      stats.bestCleanStreakDays === 1 ? "day" : "days"
-                    }`}
-                    icon="flame"
-                    percentIncrease={getPercentIncrease(
-                      stats.daysSinceGiveIn,
-                      stats.averageCleanStreakDays,
-                    )}
-                  />
-                </View>
+                    <StatTile
+                      accentColor={activeHabitColor}
+                      label="Current goal"
+                      labelAtBottom
+                      value={formatAverage(activeCurrentGoal)}
+                      sub={`or fewer ${unitForValue(
+                        activeHabitUnit,
+                        activeCurrentGoal,
+                      )} per ${periodLabel(activeCurrentGoalPeriod)}`}
+                      icon="flag"
+                    />
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() =>
+                      navigation.navigate("ManageList", { type: "habits" })
+                    }
+                    className="mt-3 rounded-3xl border border-green-200 bg-green-50 px-4 py-4"
+                  >
+                    <Text className="text-center text-sm font-black text-green-700">
+                      Finish habit setup
+                    </Text>
+                  </Pressable>
+                )}
               </>
             )}
           </View>

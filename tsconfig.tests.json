@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": ".test-build"
+  },
+  "include": [
+    "data/baselines.ts",
+    "data/goals.ts",
+    "data/tracking.ts",
+    "data/types.ts"
+  ]
+}

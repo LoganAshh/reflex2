@@ -27,6 +27,12 @@ import type {
   HabitPeriod,
   DataContextType,
   DataProviderProps,
+  GoalHistoryEntry,
+  GoalChangeReason,
+  TrackingConfirmation,
+  TrackingPeriod,
+  TrackingStatus,
+  CycleHistoryEntry,
 } from "./types";
 import {
   db,
@@ -76,6 +82,17 @@ import {
   removeSelectedAction,
   addSelectedAction,
   clearAllSelectedActions,
+  loadGoalHistory,
+  setCurrentGoalInDb,
+  setPendingGoalInDb,
+  clearPendingGoalInDb,
+  setCalibrationStartedAtInDb,
+  saveCalibratedBaselineInDb,
+  resetHabitBaselineInDb,
+  loadTrackingConfirmations,
+  loadCycleHistory,
+  upsertTrackingConfirmation,
+  replaceCycleHistory,
 } from "./db";
 import {
   loadOnboardedFlag,
@@ -96,6 +113,20 @@ import {
   normalizeStoredProfilePhotoUri,
 } from "./profileStorage";
 import { cleanHabitIcon } from "./habitIcons";
+import {
+  getBaselineSummary,
+  getCalibrationCandidate,
+  startOfLocalDay,
+} from "./baselines";
+import {
+  calculateEasierGoal,
+  calculateInitialCurrentGoal,
+  calculateNextReductionGoal,
+  consecutiveDifficultCycles,
+  goalChangeExplanation,
+  normalizeGoalAmount,
+} from "./goals";
+import { getCompletedCycleHistory, getLatestCycleReview } from "./tracking";
 
 export type {
   Habit,
@@ -114,6 +145,11 @@ export type {
   HabitMeasurementType,
   HabitPeriod,
   DataContextType,
+  GoalHistoryEntry,
+  GoalChangeReason,
+  TrackingConfirmation,
+  TrackingPeriod,
+  TrackingStatus,
 } from "./types";
 
 type BackupNamedEntity = {
@@ -127,10 +163,21 @@ type BackupNamedEntity = {
   unit: string;
   estimatedBaseline: number | null;
   calibratedBaseline: number | null;
+  calibrationStartedAt: number | null;
+  calibratedAt: number | null;
+  rebaselineStartedAt: number | null;
   baselinePeriod: "day" | "week" | "28_days";
   finalTarget: number | null;
   goalPeriod: "day" | "week" | "28_days";
+  currentGoal: number | null;
+  currentGoalPeriod: "day" | "week" | "28_days";
+  pendingGoal: number | null;
+  pendingGoalPeriod: "day" | "week" | "28_days";
+  pendingGoalReason: string | null;
 };
+
+type BackupGoalHistory = GoalHistoryEntry;
+type BackupTrackingConfirmation = TrackingConfirmation;
 
 type BackupActionEntity = {
   id: number;
@@ -265,6 +312,9 @@ function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
       unit: cleanString(item.unit) || "times",
       estimatedBaseline: cleanOptionalNumber(item.estimatedBaseline),
       calibratedBaseline: cleanOptionalNumber(item.calibratedBaseline),
+      calibrationStartedAt: cleanOptionalInt(item.calibrationStartedAt),
+      calibratedAt: cleanOptionalInt(item.calibratedAt),
+      rebaselineStartedAt: cleanOptionalInt(item.rebaselineStartedAt),
       baselinePeriod:
         item.baselinePeriod === "week" || item.baselinePeriod === "28_days"
           ? item.baselinePeriod
@@ -276,10 +326,82 @@ function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
           : item.baselinePeriod === "week" || item.baselinePeriod === "28_days"
             ? item.baselinePeriod
             : "day",
+      currentGoal: cleanOptionalNumber(item.currentGoal),
+      currentGoalPeriod:
+        item.currentGoalPeriod === "week" ||
+        item.currentGoalPeriod === "28_days"
+          ? item.currentGoalPeriod
+          : item.goalPeriod === "week" || item.goalPeriod === "28_days"
+            ? item.goalPeriod
+            : "day",
+      pendingGoal: cleanOptionalNumber(item.pendingGoal),
+      pendingGoalPeriod:
+        item.pendingGoalPeriod === "week" ||
+        item.pendingGoalPeriod === "28_days"
+          ? item.pendingGoalPeriod
+          : item.goalPeriod === "week" || item.goalPeriod === "28_days"
+            ? item.goalPeriod
+            : "day",
+      pendingGoalReason: cleanNullableString(item.pendingGoalReason),
     });
   }
 
   return result;
+}
+
+function sanitizeGoalHistory(items: unknown[]): BackupGoalHistory[] {
+  const allowedReasons = new Set<GoalChangeReason>([
+    "initial",
+    "plan_updated",
+    "approved_step",
+    "manual_easier",
+    "manual_harder",
+    "recovery",
+  ]);
+  return items.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const id = cleanInt(item.id);
+    const habitId = cleanInt(item.habitId);
+    const amount = cleanOptionalNumber(item.amount);
+    const createdAt = cleanInt(item.createdAt);
+    const reason = cleanString(item.reason) as GoalChangeReason;
+    if (
+      id <= 0 ||
+      habitId <= 0 ||
+      amount == null ||
+      createdAt <= 0 ||
+      !allowedReasons.has(reason)
+    ) {
+      return [];
+    }
+    const period: HabitPeriod =
+      item.period === "week" || item.period === "28_days" ? item.period : "day";
+    return [{ id, habitId, amount, period, reason, createdAt }];
+  });
+}
+
+function sanitizeTrackingConfirmations(
+  items: unknown[],
+): BackupTrackingConfirmation[] {
+  return items.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const id = cleanInt(item.id);
+    const habitId = cleanInt(item.habitId);
+    const periodStart = cleanInt(item.periodStart);
+    const updatedAt = cleanInt(item.updatedAt, periodStart);
+    const period: TrackingPeriod =
+      item.period === "week" || item.period === "28_days" ? item.period : "day";
+    const status = cleanString(item.status) as TrackingStatus;
+    if (
+      id <= 0 ||
+      habitId <= 0 ||
+      periodStart <= 0 ||
+      !["everything_logged", "nothing_happened", "not_yet"].includes(status)
+    ) {
+      return [];
+    }
+    return [{ id, habitId, period, periodStart, status, updatedAt }];
+  });
 }
 
 function sanitizeActions(items: unknown[]): BackupActionEntity[] {
@@ -472,20 +594,227 @@ export function DataProvider({ children }: DataProviderProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [actions, setActions] = useState<ReplacementAction[]>([]);
   const [selectedActionIds, setSelectedActionIds] = useState<number[]>([]);
+  const [goalHistory, setGoalHistory] = useState<GoalHistoryEntry[]>([]);
+  const [trackingConfirmations, setTrackingConfirmations] = useState<
+    TrackingConfirmation[]
+  >([]);
+  const [cycleHistory, setCycleHistory] = useState<CycleHistoryEntry[]>([]);
   const [hasOnboarded, setHasOnboarded] = useState(false);
 
+  const baselineSummaries = useMemo(
+    () =>
+      Object.fromEntries(
+        habits.map((habit) => [
+          habit.id,
+          getBaselineSummary(habit, logs, Date.now(), trackingConfirmations),
+        ]),
+      ),
+    [habits, logs, trackingConfirmations],
+  );
+
+  const cycleReviews = useMemo(
+    () =>
+      Object.fromEntries(
+        habits.map((habit) => [
+          habit.id,
+          getLatestCycleReview(habit, logs, trackingConfirmations, goalHistory),
+        ]),
+      ),
+    [habits, logs, trackingConfirmations, goalHistory],
+  );
+
+  const reconcileBaselines = async (
+    currentHabits: Habit[],
+    currentLogs: LogEntry[],
+    currentConfirmations: TrackingConfirmation[],
+    currentSelectedHabits: SelectedHabit[],
+  ) => {
+    let changed = false;
+    const now = Date.now();
+    const selectedIds = new Set(currentSelectedHabits.map((habit) => habit.id));
+
+    for (const habit of currentHabits) {
+      if (
+        selectedIds.has(habit.id) &&
+        habit.calibrationStartedAt == null &&
+        habit.rebaselineStartedAt == null
+      ) {
+        const startedAt = startOfLocalDay(now);
+        await setCalibrationStartedAtInDb(habit.id, startedAt);
+        habit.calibrationStartedAt = startedAt;
+        changed = true;
+      }
+      if (
+        habit.calibratedBaseline != null &&
+        habit.rebaselineStartedAt == null
+      ) {
+        continue;
+      }
+      const habitLogs = currentLogs.filter((log) => log.habitId === habit.id);
+      const habitConfirmations = currentConfirmations.filter(
+        (confirmation) =>
+          confirmation.habitId === habit.id &&
+          confirmation.status !== "not_yet",
+      );
+      if (habitLogs.length === 0 && habitConfirmations.length === 0) continue;
+      const firstObservedAt = Math.min(
+        ...habitLogs.map((log) => log.createdAt),
+        ...habitConfirmations.map((confirmation) => confirmation.periodStart),
+      );
+      const startedAt =
+        habit.rebaselineStartedAt ??
+        habit.calibrationStartedAt ??
+        startOfLocalDay(firstObservedAt);
+
+      if (
+        habit.calibrationStartedAt == null &&
+        habit.rebaselineStartedAt == null
+      ) {
+        await setCalibrationStartedAtInDb(habit.id, startedAt);
+        habit.calibrationStartedAt = startedAt;
+        changed = true;
+      }
+
+      const candidate = getCalibrationCandidate(
+        habit,
+        currentLogs,
+        now,
+        currentConfirmations,
+      );
+      if (candidate != null) {
+        await saveCalibratedBaselineInDb(habit.id, candidate, startedAt, now);
+        changed = true;
+      }
+    }
+
+    return changed;
+  };
+
+  const reconcileGoals = async (currentHabits: Habit[]) => {
+    let changed = false;
+    for (const habit of currentHabits) {
+      if (
+        habit.currentGoal != null ||
+        habit.finalTarget == null ||
+        habit.estimatedBaseline == null
+      ) {
+        continue;
+      }
+      const baseline = habit.calibratedBaseline ?? habit.estimatedBaseline;
+      const amount = calculateInitialCurrentGoal(
+        baseline,
+        habit.baselinePeriod,
+        habit.finalTarget,
+        habit.goalPeriod,
+        habit.measurementType,
+      );
+      await setCurrentGoalInDb(habit.id, amount, habit.goalPeriod, "initial");
+      changed = true;
+    }
+    return changed;
+  };
+
+  const reconcileRecoveryGoals = async (
+    currentHabits: Habit[],
+    currentHistory: GoalHistoryEntry[],
+    completedCycles: CycleHistoryEntry[],
+  ) => {
+    let changed = false;
+    for (const habit of currentHabits) {
+      const cycles = completedCycles.filter(
+        (cycle) => cycle.habitId === habit.id,
+      );
+      if (consecutiveDifficultCycles(cycles) < 2) continue;
+      const latest = cycles.at(-1);
+      if (!latest) continue;
+
+      // A goal change after this result means the difficult pair has already
+      // been handled (automatically or by the user).
+      const goalChangedAfterCycle = currentHistory.some(
+        (entry) =>
+          entry.habitId === habit.id &&
+          entry.createdAt >= latest.endAtExclusive,
+      );
+      if (
+        goalChangedAfterCycle ||
+        habit.currentGoal == null ||
+        habit.finalTarget == null ||
+        latest.baseline == null
+      ) {
+        continue;
+      }
+
+      const finalTarget = normalizeGoalAmount(
+        habit.finalTarget,
+        habit.goalPeriod,
+        habit.currentGoalPeriod,
+      );
+      const easierGoal = calculateEasierGoal(
+        habit.currentGoal,
+        latest.baseline,
+        finalTarget,
+        habit.measurementType,
+      );
+      if (easierGoal <= habit.currentGoal) continue;
+      await setCurrentGoalInDb(
+        habit.id,
+        easierGoal,
+        habit.currentGoalPeriod,
+        "recovery",
+      );
+      changed = true;
+    }
+    return changed;
+  };
+
   const refresh = async () => {
-    const [h, c, loc, sh, sc, sl, l, a, selIds] = await Promise.all([
-      loadHabits(),
-      loadCues(),
-      loadLocations(),
-      loadSelectedHabits(),
-      loadSelectedCues(),
-      loadSelectedLocations(),
-      loadLogs(),
-      loadActions(),
-      loadSelectedActionIds(),
-    ]);
+    let [h, c, loc, sh, sc, sl, l, a, selIds, history, confirmations] =
+      await Promise.all([
+        loadHabits(),
+        loadCues(),
+        loadLocations(),
+        loadSelectedHabits(),
+        loadSelectedCues(),
+        loadSelectedLocations(),
+        loadLogs(),
+        loadActions(),
+        loadSelectedActionIds(),
+        loadGoalHistory(),
+        loadTrackingConfirmations(),
+      ]);
+
+    if (await reconcileBaselines(h, l, confirmations, sh)) {
+      [h, sh] = await Promise.all([loadHabits(), loadSelectedHabits()]);
+    }
+    if (await reconcileGoals(h)) {
+      [h, sh, history] = await Promise.all([
+        loadHabits(),
+        loadSelectedHabits(),
+        loadGoalHistory(),
+      ]);
+    }
+
+    let completedCycles = h.flatMap((habit) =>
+      getCompletedCycleHistory(habit, l, confirmations, history),
+    );
+    if (await reconcileRecoveryGoals(h, history, completedCycles)) {
+      [h, sh, history] = await Promise.all([
+        loadHabits(),
+        loadSelectedHabits(),
+        loadGoalHistory(),
+      ]);
+      completedCycles = h.flatMap((habit) =>
+        getCompletedCycleHistory(habit, l, confirmations, history),
+      );
+    }
+    await replaceCycleHistory(
+      completedCycles,
+      h.map((habit) => ({
+        habitId: habit.id,
+        period: habit.currentGoalPeriod,
+      })),
+    );
+    const storedCycles = await loadCycleHistory();
 
     setHabits(h);
     setCues(c);
@@ -496,6 +825,9 @@ export function DataProvider({ children }: DataProviderProps) {
     setLogs(l);
     setActions(a);
     setSelectedActionIds(selIds);
+    setGoalHistory(history);
+    setTrackingConfirmations(confirmations);
+    setCycleHistory(storedCycles);
   };
 
   useEffect(() => {
@@ -817,10 +1149,10 @@ export function DataProvider({ children }: DataProviderProps) {
     const estimatedBaseline = Number(input.estimatedBaseline);
     const finalTarget = Number(input.finalTarget);
     if (!Number.isFinite(estimatedBaseline) || estimatedBaseline < 0) {
-      throw new Error("Starting amount must be zero or greater.");
+      throw new Error("Estimated current amount must be zero or greater.");
     }
     if (!Number.isFinite(finalTarget) || finalTarget < 0) {
-      throw new Error("Goal amount must be zero or greater.");
+      throw new Error("Long-term goal amount must be zero or greater.");
     }
     const currentDaily =
       estimatedBaseline / daysInHabitPeriod(input.baselinePeriod);
@@ -832,12 +1164,207 @@ export function DataProvider({ children }: DataProviderProps) {
     const unit = input.unit.trim();
     if (!unit) throw new Error("Add a unit for this habit.");
 
+    const existingHabit = await getHabitById(habitId);
+
     await updateHabitPlanInDb(habitId, {
       ...input,
       unit,
       estimatedBaseline,
       finalTarget,
     });
+
+    if (existingHabit) {
+      const baselineChangedWithoutCalibration =
+        existingHabit.calibratedBaseline == null &&
+        (existingHabit.estimatedBaseline !== estimatedBaseline ||
+          existingHabit.baselinePeriod !== input.baselinePeriod);
+      const goalPlanChanged =
+        existingHabit.currentGoal == null ||
+        existingHabit.finalTarget !== finalTarget ||
+        existingHabit.goalPeriod !== input.goalPeriod ||
+        existingHabit.measurementType !== input.measurementType ||
+        baselineChangedWithoutCalibration;
+
+      if (goalPlanChanged) {
+        const baseline = existingHabit.calibratedBaseline ?? estimatedBaseline;
+        const baselinePeriod =
+          existingHabit.calibratedBaseline == null
+            ? input.baselinePeriod
+            : existingHabit.baselinePeriod;
+        const currentGoal = calculateInitialCurrentGoal(
+          baseline,
+          baselinePeriod,
+          finalTarget,
+          input.goalPeriod,
+          input.measurementType,
+        );
+        await setCurrentGoalInDb(
+          habitId,
+          currentGoal,
+          input.goalPeriod,
+          existingHabit.currentGoal == null ? "initial" : "plan_updated",
+        );
+      }
+    }
+    await refresh();
+  };
+
+  const proposeNextGoal: DataContextType["proposeNextGoal"] = async (
+    habitId,
+  ) => {
+    const habit = await getHabitById(habitId);
+    if (!habit || habit.currentGoal == null || habit.finalTarget == null)
+      return;
+    const review = getLatestCycleReview(
+      habit,
+      logs,
+      trackingConfirmations,
+      goalHistory,
+    );
+    if (
+      !review.complete ||
+      review.result !== "goal_achieved" ||
+      review.goalAlreadyAdvanced
+    ) {
+      return;
+    }
+    const finalTarget = normalizeGoalAmount(
+      habit.finalTarget,
+      habit.goalPeriod,
+      habit.currentGoalPeriod,
+    );
+    const next = calculateNextReductionGoal(
+      habit.currentGoal,
+      finalTarget,
+      habit.measurementType,
+    );
+    if (next >= habit.currentGoal) return;
+    await setPendingGoalInDb(
+      habitId,
+      next,
+      habit.currentGoalPeriod,
+      goalChangeExplanation(habit.currentGoal, next, finalTarget),
+    );
+    await refresh();
+  };
+
+  const setTrackingConfirmation: DataContextType["setTrackingConfirmation"] =
+    async (habitId, period, periodStart, status) => {
+      if (!Number.isFinite(habitId) || !Number.isFinite(periodStart)) return;
+      await upsertTrackingConfirmation({
+        habitId,
+        period,
+        periodStart: startOfLocalDay(periodStart),
+        status,
+      });
+      await refresh();
+    };
+
+  const setTrackingConfirmationsBatch: DataContextType["setTrackingConfirmationsBatch"] =
+    async (confirmations) => {
+      if (confirmations.length === 0) return;
+      await db.withTransactionAsync(async () => {
+        for (const confirmation of confirmations) {
+          if (
+            !Number.isFinite(confirmation.habitId) ||
+            !Number.isFinite(confirmation.periodStart)
+          ) {
+            continue;
+          }
+          await upsertTrackingConfirmation({
+            ...confirmation,
+            periodStart: startOfLocalDay(confirmation.periodStart),
+          });
+        }
+      });
+      await refresh();
+    };
+
+  const approveProposedGoal: DataContextType["approveProposedGoal"] = async (
+    habitId,
+  ) => {
+    const habit = await getHabitById(habitId);
+    if (!habit || habit.pendingGoal == null) return;
+    const review = getLatestCycleReview(
+      habit,
+      logs,
+      trackingConfirmations,
+      goalHistory,
+    );
+    if (
+      !review.complete ||
+      review.result !== "goal_achieved" ||
+      review.goalAlreadyAdvanced
+    ) {
+      return;
+    }
+    await setCurrentGoalInDb(
+      habitId,
+      habit.pendingGoal,
+      habit.pendingGoalPeriod,
+      "approved_step",
+    );
+    await refresh();
+  };
+
+  const dismissProposedGoal: DataContextType["dismissProposedGoal"] = async (
+    habitId,
+  ) => {
+    await clearPendingGoalInDb(habitId);
+    await refresh();
+  };
+
+  const adjustCurrentGoal: DataContextType["adjustCurrentGoal"] = async (
+    habitId,
+    direction,
+  ) => {
+    const habit = await getHabitById(habitId);
+    if (
+      !habit ||
+      habit.currentGoal == null ||
+      habit.finalTarget == null ||
+      habit.estimatedBaseline == null
+    ) {
+      return;
+    }
+    const finalTarget = normalizeGoalAmount(
+      habit.finalTarget,
+      habit.goalPeriod,
+      habit.currentGoalPeriod,
+    );
+    const baseline = normalizeGoalAmount(
+      habit.calibratedBaseline ?? habit.estimatedBaseline,
+      habit.baselinePeriod,
+      habit.currentGoalPeriod,
+    );
+    const next =
+      direction === "harder"
+        ? calculateNextReductionGoal(
+            habit.currentGoal,
+            finalTarget,
+            habit.measurementType,
+          )
+        : calculateEasierGoal(
+            habit.currentGoal,
+            baseline,
+            finalTarget,
+            habit.measurementType,
+          );
+    if (next === habit.currentGoal) return;
+    await setCurrentGoalInDb(
+      habitId,
+      next,
+      habit.currentGoalPeriod,
+      direction === "harder" ? "manual_harder" : "manual_easier",
+    );
+    await refresh();
+  };
+
+  const rebaselineHabit: DataContextType["rebaselineHabit"] = async (
+    habitId,
+  ) => {
+    if (!Number.isFinite(habitId)) return;
+    await resetHabitBaselineInDb(habitId, startOfLocalDay(Date.now()));
     await refresh();
   };
 
@@ -927,6 +1454,37 @@ export function DataProvider({ children }: DataProviderProps) {
     };
   };
 
+  const invalidateConfirmationsForMoment = async (
+    habitId: number,
+    timestamp: number,
+  ) => {
+    const confirmations = await loadTrackingConfirmations();
+    for (const confirmation of confirmations) {
+      if (
+        confirmation.habitId !== habitId ||
+        confirmation.status === "not_yet"
+      ) {
+        continue;
+      }
+      const days =
+        confirmation.period === "week"
+          ? 7
+          : confirmation.period === "28_days"
+            ? 28
+            : 1;
+      const end = new Date(confirmation.periodStart);
+      end.setDate(end.getDate() + days);
+      if (timestamp >= confirmation.periodStart && timestamp < end.getTime()) {
+        await upsertTrackingConfirmation({
+          habitId,
+          period: confirmation.period,
+          periodStart: confirmation.periodStart,
+          status: "not_yet",
+        });
+      }
+    }
+  };
+
   const addLog: DataContextType["addLog"] = async (input) => {
     const habitId = input.habitId;
     if (!Number.isFinite(habitId)) return null;
@@ -939,8 +1497,10 @@ export function DataProvider({ children }: DataProviderProps) {
 
     const countIn = input.count ?? 1;
     const count = Math.min(999999, Math.max(0, Math.round(countIn)));
-
     const didResist: 0 | 1 = input.didResist ? 1 : 0;
+    const createdAt = Number.isFinite(input.createdAt)
+      ? Math.round(input.createdAt as number)
+      : Date.now();
 
     const selectedActionId =
       input.selectedActionId == null || !Number.isFinite(input.selectedActionId)
@@ -957,6 +1517,7 @@ export function DataProvider({ children }: DataProviderProps) {
 
     const newLogId = await insertLog({
       habitId,
+      createdAt,
       cueId: names.cueIds[0] ?? null,
       cueIds: names.cueIds,
       locationId: input.locationId ?? null,
@@ -972,7 +1533,9 @@ export function DataProvider({ children }: DataProviderProps) {
       selectedActionTitle: names.selectedActionTitle,
     });
 
-    setLogs(await loadLogs());
+    await invalidateConfirmationsForMoment(habitId, createdAt);
+
+    await refresh();
     return newLogId > 0 ? newLogId : null;
   };
 
@@ -988,8 +1551,6 @@ export function DataProvider({ children }: DataProviderProps) {
         : Math.min(10, Math.max(1, Math.round(intensityIn)));
 
     const countIn = input.count ?? 1;
-    const count = Math.min(999999, Math.max(0, Math.round(countIn)));
-
     const selectedActionId =
       input.selectedActionId == null || !Number.isFinite(input.selectedActionId)
         ? null
@@ -1002,6 +1563,10 @@ export function DataProvider({ children }: DataProviderProps) {
       locationId: input.locationId ?? null,
       selectedActionId,
     });
+
+    const count = Math.min(999999, Math.max(0, Math.round(countIn)));
+
+    const previousLog = logs.find((log) => log.id === logId);
 
     await updateLogInDb({
       logId,
@@ -1022,13 +1587,31 @@ export function DataProvider({ children }: DataProviderProps) {
       selectedActionTitle: names.selectedActionTitle,
     });
 
-    setLogs(await loadLogs());
+    if (previousLog) {
+      await invalidateConfirmationsForMoment(
+        previousLog.habitId,
+        previousLog.createdAt,
+      );
+    }
+    await invalidateConfirmationsForMoment(
+      input.habitId,
+      Math.round(input.createdAt),
+    );
+
+    await refresh();
   };
 
   const deleteLog: DataContextType["deleteLog"] = async (logId) => {
     if (!Number.isFinite(logId)) return;
+    const previousLog = logs.find((log) => log.id === logId);
     await deleteLogInDb(logId);
-    setLogs(await loadLogs());
+    if (previousLog) {
+      await invalidateConfirmationsForMoment(
+        previousLog.habitId,
+        previousLog.createdAt,
+      );
+    }
+    await refresh();
   };
 
   const updateLogSelectedAction: DataContextType["updateLogSelectedAction"] =
@@ -1151,6 +1734,8 @@ export function DataProvider({ children }: DataProviderProps) {
       selectedCues,
       selectedLocations,
       logs,
+      goalHistory,
+      trackingConfirmations,
       actions,
       selectedActionIds,
     };
@@ -1175,11 +1760,44 @@ export function DataProvider({ children }: DataProviderProps) {
     const text = await file.text();
     const parsed = validateBackupPayload(JSON.parse(text));
 
-    const importedHabits = sanitizeNamedEntities(asArray(parsed.habits));
+    const importedHabits = sanitizeNamedEntities(asArray(parsed.habits)).map(
+      (habit) => {
+        if (habit.finalTarget == null) return habit;
+        const finalForCurrent = normalizeGoalAmount(
+          habit.finalTarget,
+          habit.goalPeriod,
+          habit.currentGoalPeriod,
+        );
+        return {
+          ...habit,
+          currentGoal:
+            habit.currentGoal == null
+              ? null
+              : Math.max(finalForCurrent, habit.currentGoal),
+          pendingGoal:
+            habit.pendingGoal == null
+              ? null
+              : Math.max(
+                  normalizeGoalAmount(
+                    habit.finalTarget,
+                    habit.goalPeriod,
+                    habit.pendingGoalPeriod,
+                  ),
+                  habit.pendingGoal,
+                ),
+        };
+      },
+    );
     const importedCues = sanitizeNamedEntities(asArray(parsed.cues));
     const importedLocations = sanitizeNamedEntities(asArray(parsed.locations));
     const importedActions = sanitizeActions(asArray(parsed.actions));
     const importedLogs = sanitizeLogs(asArray(parsed.logs));
+    const importedGoalHistory = sanitizeGoalHistory(
+      asArray(parsed.goalHistory),
+    );
+    const importedTrackingConfirmations = sanitizeTrackingConfirmations(
+      asArray(parsed.trackingConfirmations),
+    );
 
     if (importedHabits.length === 0) {
       throw new Error("That backup does not contain any valid habits.");
@@ -1240,9 +1858,11 @@ export function DataProvider({ children }: DataProviderProps) {
         await db.runAsync(
           `INSERT OR IGNORE INTO habits (
             id, name, isCustom, hidden, color, icon, measurementType, unit,
-            estimatedBaseline, calibratedBaseline, baselinePeriod, finalTarget,
-            goalPeriod
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            estimatedBaseline, calibratedBaseline, calibrationStartedAt,
+            calibratedAt, rebaselineStartedAt, baselinePeriod, finalTarget,
+            goalPeriod, currentGoal, currentGoalPeriod, pendingGoal,
+            pendingGoalPeriod, pendingGoalReason
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
           [
             habit.id,
             habit.name,
@@ -1254,9 +1874,51 @@ export function DataProvider({ children }: DataProviderProps) {
             habit.unit,
             habit.estimatedBaseline,
             habit.calibratedBaseline,
+            habit.calibrationStartedAt,
+            habit.calibratedAt,
+            habit.rebaselineStartedAt,
             habit.baselinePeriod,
             habit.finalTarget,
             habit.goalPeriod,
+            habit.currentGoal,
+            habit.currentGoalPeriod,
+            habit.pendingGoal,
+            habit.pendingGoalPeriod,
+            habit.pendingGoalReason,
+          ],
+        );
+      }
+
+      for (const entry of importedGoalHistory) {
+        if (!habitIds.has(entry.habitId)) continue;
+        await db.runAsync(
+          `INSERT OR IGNORE INTO goal_history
+           (id, habitId, amount, period, reason, createdAt)
+           VALUES (?, ?, ?, ?, ?, ?);`,
+          [
+            entry.id,
+            entry.habitId,
+            entry.amount,
+            entry.period,
+            entry.reason,
+            entry.createdAt,
+          ],
+        );
+      }
+
+      for (const confirmation of importedTrackingConfirmations) {
+        if (!habitIds.has(confirmation.habitId)) continue;
+        await db.runAsync(
+          `INSERT OR IGNORE INTO tracking_confirmations
+           (id, habitId, period, periodStart, status, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?);`,
+          [
+            confirmation.id,
+            confirmation.habitId,
+            confirmation.period,
+            confirmation.periodStart,
+            confirmation.status,
+            confirmation.updatedAt,
           ],
         );
       }
@@ -1409,6 +2071,9 @@ export function DataProvider({ children }: DataProviderProps) {
     setSelectedLocationsState([]);
     setLogs([]);
     setSelectedActionIds([]);
+    setGoalHistory([]);
+    setTrackingConfirmations([]);
+    setCycleHistory([]);
 
     await Promise.all([
       saveOnboardedFlag(false),
@@ -1461,6 +2126,18 @@ export function DataProvider({ children }: DataProviderProps) {
       renameCustomHabit,
       updateHabit,
       updateHabitPlan,
+      baselineSummaries,
+      rebaselineHabit,
+      goalHistory,
+      trackingConfirmations,
+      cycleReviews,
+      cycleHistory,
+      setTrackingConfirmation,
+      setTrackingConfirmationsBatch,
+      proposeNextGoal,
+      approveProposedGoal,
+      dismissProposedGoal,
+      adjustCurrentGoal,
       renameCustomCue,
       renameCustomLocation,
       deleteCustomHabit,
@@ -1501,6 +2178,11 @@ export function DataProvider({ children }: DataProviderProps) {
       actions,
       selectedActionIds,
       hasOnboarded,
+      baselineSummaries,
+      goalHistory,
+      trackingConfirmations,
+      cycleReviews,
+      cycleHistory,
     ],
   );
 

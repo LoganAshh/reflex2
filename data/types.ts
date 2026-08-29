@@ -11,13 +11,35 @@ export type Habit = {
   unit: string;
   estimatedBaseline: number | null;
   calibratedBaseline: number | null;
+  calibrationStartedAt: number | null;
+  calibratedAt: number | null;
+  rebaselineStartedAt: number | null;
   baselinePeriod: HabitPeriod;
   finalTarget: number | null;
   goalPeriod: HabitPeriod;
+  currentGoal: number | null;
+  currentGoalPeriod: HabitPeriod;
+  pendingGoal: number | null;
+  pendingGoalPeriod: HabitPeriod;
+  pendingGoalReason: string | null;
 };
 
 export type HabitMeasurementType = "times" | "amount" | "minutes" | "custom";
 export type HabitPeriod = "day" | "week" | "28_days";
+
+export type BaselineSummary = {
+  status: "not_started" | "collecting" | "calibrated";
+  estimated: number | null;
+  calibrated: number | null;
+  recent: number | null;
+  priorRecent: number | null;
+  returningFromGap: boolean;
+  period: HabitPeriod;
+  observedDays: number;
+  requiredObservedDays: number;
+  elapsedDays: number;
+  requiredElapsedDays: number;
+};
 
 export type HabitPlanInput = {
   measurementType: HabitMeasurementType;
@@ -26,6 +48,73 @@ export type HabitPlanInput = {
   baselinePeriod: HabitPeriod;
   finalTarget: number;
   goalPeriod: HabitPeriod;
+};
+
+export type GoalChangeReason =
+  | "initial"
+  | "plan_updated"
+  | "approved_step"
+  | "manual_easier"
+  | "manual_harder"
+  | "recovery";
+
+export type GoalHistoryEntry = {
+  id: number;
+  habitId: number;
+  amount: number;
+  period: HabitPeriod;
+  reason: GoalChangeReason;
+  createdAt: number;
+};
+
+export type GoalCycleResult =
+  | "goal_achieved"
+  | "improved_but_missed"
+  | "held_below_baseline"
+  | "returned_to_previous_level"
+  | "incomplete_data"
+  | "dramatically_exceeded";
+
+export type TrackingPeriod = "day" | "week" | "28_days";
+export type TrackingStatus =
+  | "everything_logged"
+  | "nothing_happened"
+  | "not_yet";
+
+export type TrackingConfirmation = {
+  id: number;
+  habitId: number;
+  period: TrackingPeriod;
+  periodStart: number;
+  status: TrackingStatus;
+  updatedAt: number;
+};
+
+export type CycleReview = {
+  habitId: number;
+  startAt: number;
+  endAtExclusive: number;
+  period: HabitPeriod;
+  eligible: boolean;
+  complete: boolean;
+  confirmedCount: number;
+  requiredConfirmations: number;
+  actualQuantity: number | null;
+  baseline: number | null;
+  baselineSource: "calibrated" | "estimated" | "unavailable";
+  currentGoal: number | null;
+  reductionFromBaseline: number | null;
+  stepProgressPercent: number | null;
+  resistedUrges: number;
+  activityLogs: number;
+  result: GoalCycleResult;
+  recommendedGoal: number | null;
+  goalAlreadyAdvanced: boolean;
+};
+
+export type CycleHistoryEntry = CycleReview & {
+  /** Stable across recalculation, export, and future reward processing. */
+  id: string;
 };
 export type Cue = { id: number; name: string; isCustom: 0 | 1; hidden: 0 | 1 };
 export type Place = {
@@ -68,6 +157,7 @@ export type ReplacementAction = {
 
 export type AddLogInput = {
   habitId: number;
+  createdAt?: number;
   cueId?: number | null;
   cueIds?: number[];
   locationId?: number | null;
@@ -156,6 +246,33 @@ export type DataContextType = {
     icon: string,
   ) => Promise<void>;
   updateHabitPlan: (habitId: number, input: HabitPlanInput) => Promise<void>;
+  baselineSummaries: Record<number, BaselineSummary>;
+  rebaselineHabit: (habitId: number) => Promise<void>;
+  goalHistory: GoalHistoryEntry[];
+  trackingConfirmations: TrackingConfirmation[];
+  cycleReviews: Record<number, CycleReview>;
+  cycleHistory: CycleHistoryEntry[];
+  setTrackingConfirmation: (
+    habitId: number,
+    period: TrackingPeriod,
+    periodStart: number,
+    status: TrackingStatus,
+  ) => Promise<void>;
+  setTrackingConfirmationsBatch: (
+    confirmations: Array<{
+      habitId: number;
+      period: TrackingPeriod;
+      periodStart: number;
+      status: TrackingStatus;
+    }>,
+  ) => Promise<void>;
+  proposeNextGoal: (habitId: number) => Promise<void>;
+  approveProposedGoal: (habitId: number) => Promise<void>;
+  dismissProposedGoal: (habitId: number) => Promise<void>;
+  adjustCurrentGoal: (
+    habitId: number,
+    direction: "easier" | "harder",
+  ) => Promise<void>;
   renameCustomCue: (cueId: number, name: string) => Promise<void>;
   renameCustomLocation: (locationId: number, name: string) => Promise<void>;
   deleteCustomHabit: (habitId: number) => Promise<"deleted" | "hidden">;
