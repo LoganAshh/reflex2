@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   UIManager,
@@ -23,9 +24,15 @@ type ChipItem = {
   label: string;
   id: number | null;
   kind: "value" | "none";
+  color?: string | null;
 };
 
-type BaseItem = { id: number; name: string };
+type BaseItem = {
+  id: number;
+  name: string;
+  color?: string | null;
+  unit?: string | null;
+};
 
 type TimePreset = {
   label: string;
@@ -166,11 +173,22 @@ function countLabelFor(n: number) {
   return `${n}x`;
 }
 
+function quantityUnit(unit: string, value: number) {
+  if (value !== 1) return unit;
+  if (unit.toLowerCase() === "times") return "time";
+  if (unit.toLowerCase() === "minutes") return "minute";
+  return unit;
+}
+
+function formatQuantity(value: number, unit: string) {
+  return `${value} ${quantityUnit(unit, value)}`;
+}
+
 function getSectionIcon(title: string): keyof typeof Ionicons.glyphMap {
   if (title === "Habit") return "radio-button-on";
   if (title === "Cue" || title === "Cues") return "alert-circle";
   if (title === "Location") return "location";
-  if (title === "Replacement Action") return "flash";
+  if (title === "Replacement action") return "flash";
   return "ellipse";
 }
 
@@ -202,29 +220,25 @@ function ChipRow<T extends BaseItem>({
       label: x.name,
       id: x.id,
       kind: "value" as const,
+      color: x.color ?? null,
     })),
   ];
 
   return (
-    <View className="mt-3 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
+    <View className="mt-2 w-full rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
       <View className="flex-row items-center">
-        <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-          <Ionicons name={getSectionIcon(title)} size={20} color="#000000" />
+        <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+          <Ionicons name={getSectionIcon(title)} size={19} color="#000000" />
         </View>
 
-        <View className="ml-3 flex-1">
-          <Text className="text-base font-black text-black">{title}</Text>
-          {title !== "Cues" ? (
-            <Text className="mt-0.5 text-xs font-semibold text-gray-500">
-              Tap to update this field.
-            </Text>
-          ) : null}
+        <View className="ml-2 flex-1">
+          <Text className="text-sm font-black text-black">{title}</Text>
         </View>
       </View>
 
       <FlatList
         ref={listRef}
-        className="mt-3"
+        className="mt-2"
         horizontal
         showsHorizontalScrollIndicator={false}
         data={data}
@@ -247,11 +261,17 @@ function ChipRow<T extends BaseItem>({
                 if (selectedIds && onToggle) onToggle(item.id);
                 else onSelect?.(item.id);
               }}
-              className={`mr-2 rounded-full border px-4 py-2.5 ${
-                isSelected
-                  ? "border-green-600 bg-green-600"
-                  : "border-gray-200 bg-white"
+              className={`mr-2 rounded-full border px-3 py-1.5 ${
+                isSelected ? "" : "border-gray-200 bg-white"
               }`}
+              style={
+                isSelected
+                  ? {
+                      borderColor: item.color || "#16A34A",
+                      backgroundColor: item.color || "#16A34A",
+                    }
+                  : undefined
+              }
             >
               <Text
                 className={`text-sm font-black ${
@@ -442,7 +462,7 @@ export function EditLogModal({
   habitOptions,
   cueOptions,
   locationOptions,
-  selectedActions,
+  replacementActionOptions,
   habitId,
   cueIds,
   locationId,
@@ -484,7 +504,7 @@ export function EditLogModal({
   habitOptions: BaseItem[];
   cueOptions: BaseItem[];
   locationOptions: BaseItem[];
-  selectedActions: BaseItem[];
+  replacementActionOptions: BaseItem[];
   habitId: number | null;
   cueIds: number[];
   locationId: number | null;
@@ -525,13 +545,19 @@ export function EditLogModal({
   const habitListRef = useRef<FlatList<ChipItem> | null>(null);
   const cueListRef = useRef<FlatList<ChipItem> | null>(null);
   const locationListRef = useRef<FlatList<ChipItem> | null>(null);
-  const actionListRef = useRef<FlatList<ChipItem> | null>(null);
+  const replacementActionListRef = useRef<FlatList<ChipItem> | null>(null);
   const editScrollViewRef = useRef<ScrollView | null>(null);
   const editScrollViewportHeightRef = useRef(0);
   const notesAnchorRef = useRef<View | null>(null);
   const notesInputRef = useRef<TextInput | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [customCountText, setCustomCountText] = useState("");
+  const [showNotes, setShowNotes] = useState(notesText.trim().length > 0);
+
+  React.useEffect(() => {
+    if (visible) setShowNotes(notesText.trim().length > 0);
+  }, [visible]);
 
   const datePickerValue = useMemo(
     () => inputDateValue(monthText, dayText, yearText),
@@ -543,12 +569,14 @@ export function EditLogModal({
     [hourText, minuteText, ampm],
   );
 
+  const activeHabit = habitOptions.find((habit) => habit.id === habitId);
+  const countUnit = activeHabit?.unit?.trim() || "times";
   const countOptions = useMemo(
     () =>
-      didResist === 1
-        ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      countUnit.toLowerCase() === "minutes"
+        ? [1, 5, 10, 15, 20, 30, 45, 60]
         : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    [didResist],
+    [countUnit],
   );
 
   const selectedPreset = TIME_PRESETS.find(
@@ -559,7 +587,7 @@ export function EditLogModal({
   );
 
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
-  const countLabel = countLabelFor(count);
+  const countLabel = formatQuantity(didResist === 1 ? 0 : count, countUnit);
 
   const scrollNotesIntoView = () => {
     setTimeout(() => {
@@ -611,6 +639,9 @@ export function EditLogModal({
     await lightHaptic();
     Keyboard.dismiss();
     setShowIntensityPicker(false);
+    if (!showCountPicker) {
+      setCustomCountText(countOptions.includes(count) ? "" : String(count));
+    }
     setShowCountPicker(!showCountPicker);
   };
 
@@ -622,17 +653,16 @@ export function EditLogModal({
 
   const chooseCount = async (value: number) => {
     await lightHaptic();
-
-    if (value === 0) {
-      setDidResist(1);
-      setCount(0);
-      setShowCountPicker(false);
-      return;
-    }
-
     setCount(value);
     setDidResist(0);
     setShowCountPicker(false);
+    setCustomCountText("");
+  };
+
+  const submitCustomCount = () => {
+    const value = Number(customCountText);
+    if (!Number.isFinite(value) || value < 1) return;
+    chooseCount(Math.min(999999, Math.max(1, Math.round(value))));
   };
 
   const StatCard = ({
@@ -640,31 +670,36 @@ export function EditLogModal({
     value,
     icon,
     onPress,
+    disabled,
   }: {
     label: string;
     value: string;
     icon: keyof typeof Ionicons.glyphMap;
-    onPress: () => void;
+    onPress?: () => void;
+    disabled?: boolean;
   }) => (
     <Pressable
       onPress={onPress}
-      className="flex-1 rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm"
+      disabled={disabled}
+      className={`flex-1 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm ${disabled ? "opacity-60" : ""}`}
     >
       <View className="flex-row items-center justify-between">
-        <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-          <Ionicons name={icon} size={20} color="#000000" />
+        <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+          <Ionicons name={icon} size={19} color="#000000" />
         </View>
 
-        <View className="rounded-full border border-gray-200 bg-white px-3 py-1">
-          <Text className="text-xs font-black text-black">Edit</Text>
-        </View>
+        {onPress && !disabled ? (
+          <View className="rounded-full border border-gray-200 bg-white px-2 py-0.5">
+            <Text className="text-[10px] font-black text-black">Change</Text>
+          </View>
+        ) : null}
       </View>
 
-      <Text className="mt-3 text-xs font-black uppercase tracking-wide text-gray-500">
+      <Text className="mt-2 text-[10px] font-black uppercase tracking-wide text-gray-500">
         {label}
       </Text>
 
-      <Text className="mt-1 text-lg font-black text-black">{value}</Text>
+      <Text className="mt-0.5 text-base font-black text-black">{value}</Text>
     </Pressable>
   );
 
@@ -692,12 +727,8 @@ export function EditLogModal({
                     Edit check-in
                   </Text>
 
-                  <Text className="mt-1 text-3xl font-black text-black">
-                    Edit Log
-                  </Text>
-
-                  <Text className="mt-1 text-sm font-semibold text-gray-500">
-                    Update or delete this check-in.
+                  <Text className="mt-1 text-2xl font-black text-black">
+                    Edit the moment
                   </Text>
                 </View>
               </View>
@@ -758,89 +789,47 @@ export function EditLogModal({
               listRef={locationListRef}
             />
 
-            <ChipRow
-              title="Replacement Action"
-              items={selectedActions}
-              selectedId={selectedActionId}
-              onSelect={setSelectedActionId}
-              listRef={actionListRef}
-            />
+            <View className="mt-2 w-full rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row flex-1 items-center pr-4">
+                  <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                    <Ionicons
+                      name={
+                        didResist === 1 ? "shield-checkmark" : "shield-outline"
+                      }
+                      size={19}
+                      color="#000000"
+                    />
+                  </View>
 
-            <View className="mt-3 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
-              <View className="flex-row items-center">
-                <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                  <Ionicons
-                    name={
-                      didResist === 1 ? "shield-checkmark" : "shield-outline"
-                    }
-                    size={20}
-                    color="#000000"
-                  />
+                  <View className="ml-2 flex-1">
+                    <Text className="text-sm font-black text-black">
+                      Did you resist?
+                    </Text>
+                  </View>
                 </View>
 
-                <View className="ml-3 flex-1">
-                  <Text className="text-base font-black text-black">
-                    Did you resist?
-                  </Text>
-                  <Text className="mt-0.5 text-xs font-semibold text-gray-500">
-                    Update the result for this check-in.
-                  </Text>
-                </View>
-              </View>
-
-              <View className="mt-3 flex-row gap-2">
-                <Pressable
-                  onPress={async () => {
-                    await lightHaptic();
-                    setDidResist(1);
-                    setCount(0);
+                <Switch
+                  value={didResist === 1}
+                  onValueChange={(value) => {
+                    lightHaptic();
+                    setDidResist(value ? 1 : 0);
+                    if (value) setCount(0);
+                    else if (count === 0) setCount(1);
                   }}
-                  className={`flex-1 rounded-full border px-4 py-2.5 ${
-                    didResist === 1
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <Text
-                    className={`text-center text-sm font-black ${
-                      didResist === 1 ? "text-white" : "text-black"
-                    }`}
-                  >
-                    Yes
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={async () => {
-                    await lightHaptic();
-                    setDidResist(0);
-                    if (count === 0) {
-                      setCount(1);
-                    }
-                  }}
-                  className={`flex-1 rounded-full border px-4 py-2.5 ${
-                    didResist === 0
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <Text
-                    className={`text-center text-sm font-black ${
-                      didResist === 0 ? "text-white" : "text-black"
-                    }`}
-                  >
-                    No
-                  </Text>
-                </Pressable>
+                  trackColor={{ false: "#E5E7EB", true: "#86EFAC" }}
+                  thumbColor={didResist === 1 ? "#16A34A" : "#F9FAFB"}
+                />
               </View>
             </View>
 
-            <View className="mt-3 flex-row gap-3">
+            <View className="mt-2 flex-row gap-2">
               <StatCard
-                label="Count"
+                label="Quantity"
                 value={countLabel}
                 icon="repeat"
-                onPress={toggleCountPicker}
+                onPress={didResist === 1 ? undefined : toggleCountPicker}
+                disabled={didResist === 1}
               />
 
               <StatCard
@@ -852,7 +841,7 @@ export function EditLogModal({
             </View>
 
             {showCountPicker ? (
-              <View className="mt-3 rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
+              <View className="mt-2 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
                 <View className="flex-row items-center">
                   <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
                     <Ionicons name="repeat" size={20} color="#000000" />
@@ -860,17 +849,17 @@ export function EditLogModal({
 
                   <View className="ml-3 flex-1">
                     <Text className="text-base font-black text-black">
-                      Times given in
+                      Quantity logged
                     </Text>
                     <Text className="mt-0.5 text-xs font-semibold text-gray-500">
-                      Choose how many times this happened.
+                      Log the actual amount, not just one event.
                     </Text>
                   </View>
                 </View>
 
                 <View className="mt-3 flex-row flex-wrap">
                   {countOptions.map((value) => {
-                    const selected = count === value;
+                    const selected = count === value && !customCountText;
 
                     return (
                       <Pressable
@@ -887,12 +876,53 @@ export function EditLogModal({
                             selected ? "text-white" : "text-black"
                           }`}
                         >
-                          {countLabelFor(value)}
+                          {formatQuantity(value, countUnit)}
                         </Text>
                       </Pressable>
                     );
                   })}
+                  <Pressable
+                    onPress={() =>
+                      setCustomCountText(String(Math.max(1, count)))
+                    }
+                    className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
+                      customCountText
+                        ? "border-green-600 bg-green-600"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text
+                      className={`text-sm font-black ${customCountText ? "text-white" : "text-black"}`}
+                    >
+                      Custom
+                    </Text>
+                  </Pressable>
                 </View>
+
+                {customCountText ? (
+                  <View className="mt-1 flex-row items-center gap-2">
+                    <TextInput
+                      value={customCountText}
+                      onChangeText={setCustomCountText}
+                      placeholder={`Other ${countUnit}`}
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType={
+                        Platform.OS === "ios"
+                          ? "numbers-and-punctuation"
+                          : "number-pad"
+                      }
+                      returnKeyType="done"
+                      onSubmitEditing={submitCustomCount}
+                      className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-black"
+                    />
+                    <Pressable
+                      onPress={submitCustomCount}
+                      className="rounded-2xl bg-green-600 px-5 py-3"
+                    >
+                      <Text className="font-black text-white">Done</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </View>
             ) : null}
 
@@ -957,6 +987,14 @@ export function EditLogModal({
                 </View>
               </View>
             ) : null}
+
+            <ChipRow
+              title="Replacement action"
+              items={replacementActionOptions}
+              selectedId={selectedActionId}
+              onSelect={setSelectedActionId}
+              listRef={replacementActionListRef}
+            />
 
             <View className="mt-3 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
               <View className="flex-row items-center">
@@ -1126,35 +1164,43 @@ export function EditLogModal({
 
             <View
               ref={notesAnchorRef}
-              className="mt-3 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm"
+              className="mt-2 w-full rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm"
             >
-              <View className="flex-row items-center">
-                <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                  <Ionicons name="document-text" size={20} color="#000000" />
-                </View>
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row flex-1 items-center pr-3">
+                  <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                    <Ionicons name="document-text" size={19} color="#000000" />
+                  </View>
 
-                <View className="ml-3 flex-1">
-                  <Text className="text-base font-black text-black">Notes</Text>
-                  <Text className="mt-0.5 text-xs font-semibold text-gray-500">
-                    Optional context for this check-in.
+                  <Text className="ml-2 text-sm font-black text-black">
+                    Notes
                   </Text>
                 </View>
+
+                <Pressable
+                  onPress={() => setShowNotes((value) => !value)}
+                  className="rounded-2xl border border-gray-200 bg-white px-3 py-1.5"
+                >
+                  <Text className="text-xs font-black text-black">
+                    {showNotes ? "Hide" : "Add"}
+                  </Text>
+                </Pressable>
               </View>
 
-              <TextInput
-                ref={notesInputRef}
-                value={notesText}
-                onChangeText={setNotesText}
-                multiline
-                blurOnSubmit
-                returnKeyType="done"
-                onSubmitEditing={() => Keyboard.dismiss()}
-                onFocus={scrollNotesIntoView}
-                placeholder="Optional"
-                className="mt-3 min-h-[110px] rounded-2xl border border-gray-200 bg-white px-4 py-3 text-black"
-                placeholderTextColor="#9CA3AF"
-                textAlignVertical="top"
-              />
+              {showNotes ? (
+                <TextInput
+                  ref={notesInputRef}
+                  value={notesText}
+                  onChangeText={setNotesText}
+                  blurOnSubmit
+                  returnKeyType="done"
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                  onFocus={scrollNotesIntoView}
+                  placeholder="Anything useful to remember..."
+                  className="mt-2 min-h-[38px] rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm text-black"
+                  placeholderTextColor="#9CA3AF"
+                />
+              ) : null}
             </View>
 
             {editError ? (
@@ -1172,7 +1218,7 @@ export function EditLogModal({
               <View className="flex-row items-center justify-center">
                 <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
                 <Text className="ml-2 text-center text-lg font-black text-white">
-                  Save Changes
+                  Save Check-In
                 </Text>
               </View>
             </Pressable>

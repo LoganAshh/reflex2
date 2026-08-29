@@ -170,8 +170,6 @@ async function successHaptic() {
 type TabKey = "Overall" | string;
 type AnalyticsRoute = RouteProp<RootTabParamList, "Analytics">;
 type Nav = BottomTabNavigationProp<RootTabParamList, "Analytics">;
-type BaseItem = { id: number; name: string };
-
 function StatCard({
   label,
   value,
@@ -299,6 +297,9 @@ export default function AnalyticsScreen() {
     habits,
     cues,
     locations,
+    selectedHabits,
+    selectedCues,
+    selectedLocations,
     actions,
     selectedActionIds,
     updateLog,
@@ -375,28 +376,68 @@ export default function AnalyticsScreen() {
     return startOfDayMs(min);
   }, [logs, todayStartMs]);
 
-  const selectedActions: BaseItem[] = useMemo(() => {
-    const selectedSet = new Set(selectedActionIds);
+  const habitOptions = useMemo(() => {
+    const selectedIds = new Set(selectedHabits.map((habit) => habit.id));
+    return habits
+      .filter(
+        (habit) =>
+          selectedIds.has(habit.id) || habit.id === editingLog?.habitId,
+      )
+      .map((habit) => ({
+        id: habit.id,
+        name: habit.name,
+        color: habit.color,
+        unit: habit.unit,
+      }));
+  }, [editingLog?.habitId, habits, selectedHabits]);
 
-    return actions
-      .filter((a) => selectedSet.has(a.id))
-      .map((a) => ({ id: a.id, name: a.title }));
-  }, [actions, selectedActionIds]);
+  const cueOptions = useMemo(() => {
+    const visibleIds = new Set([
+      ...selectedCues.map((cue) => cue.id),
+      ...(editingLog?.cueIds ?? []),
+    ]);
+    return cues
+      .filter((cue) => visibleIds.has(cue.id))
+      .map((cue) => ({ id: cue.id, name: cue.name }));
+  }, [cues, editingLog?.cueIds, selectedCues]);
 
-  const habitOptions = useMemo(
-    () => habits.map((h) => ({ id: h.id, name: h.name })),
-    [habits],
-  );
+  const locationOptions = useMemo(() => {
+    const visibleIds = new Set(
+      selectedLocations.map((location) => location.id),
+    );
+    if (editingLog?.locationId != null) {
+      visibleIds.add(editingLog.locationId);
+    }
+    return locations
+      .filter((location) => visibleIds.has(location.id))
+      .map((location) => ({ id: location.id, name: location.name }));
+  }, [editingLog?.locationId, locations, selectedLocations]);
 
-  const cueOptions = useMemo(
-    () => cues.map((c) => ({ id: c.id, name: c.name })),
-    [cues],
-  );
-
-  const locationOptions = useMemo(
-    () => locations.map((l) => ({ id: l.id, name: l.name })),
-    [locations],
-  );
+  const replacementActionOptions = useMemo(() => {
+    const visibleIds = new Set(selectedActionIds);
+    if (editingLog?.selectedActionId != null) {
+      visibleIds.add(editingLog.selectedActionId);
+    }
+    const options = actions
+      .filter((action) => visibleIds.has(action.id))
+      .map((action) => ({ id: action.id, name: action.title }));
+    if (
+      editingLog?.selectedActionId != null &&
+      editingLog.selectedActionTitle &&
+      !options.some((action) => action.id === editingLog.selectedActionId)
+    ) {
+      options.push({
+        id: editingLog.selectedActionId,
+        name: editingLog.selectedActionTitle,
+      });
+    }
+    return options;
+  }, [
+    actions,
+    editingLog?.selectedActionId,
+    editingLog?.selectedActionTitle,
+    selectedActionIds,
+  ]);
 
   const habitTabs = useMemo(() => {
     const counts = new Map<string, number>();
@@ -603,7 +644,7 @@ export default function AnalyticsScreen() {
       cueIds,
       locationId,
       intensity,
-      count,
+      count: didResist === 1 ? 0 : Math.max(1, count),
       didResist: didResist === 1,
       notes: notesText,
       selectedActionId,
@@ -1239,7 +1280,7 @@ export default function AnalyticsScreen() {
         habitOptions={habitOptions}
         cueOptions={cueOptions}
         locationOptions={locationOptions}
-        selectedActions={selectedActions}
+        replacementActionOptions={replacementActionOptions}
         habitId={habitId}
         cueIds={cueIds}
         locationId={locationId}
