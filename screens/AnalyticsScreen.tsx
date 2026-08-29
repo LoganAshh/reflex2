@@ -24,6 +24,7 @@ import {
 } from "../components/analytics/AnalyticsModals";
 import { Screen } from "../components/Screen";
 import { TrackingReviewLauncher } from "../components/TrackingReviewCard";
+import { ProgressTrendChart } from "../components/analytics/ProgressTrendChart";
 
 const ICON_BUBBLE_BORDER = "#E5E7EB";
 const BRAND_GREEN = "#16A34A";
@@ -300,6 +301,7 @@ export default function AnalyticsScreen() {
     selectedHabits,
     selectedCues,
     selectedLocations,
+    cycleHistory,
     actions,
     selectedActionIds,
     updateLog,
@@ -363,6 +365,7 @@ export default function AnalyticsScreen() {
 
   const todayStartMs = useMemo(() => startOfDayMs(Date.now()), []);
   const hasAnyLogs = logs.length > 0;
+  const hasAnyAnalyticsData = hasAnyLogs || cycleHistory.length > 0;
 
   const installDayStartMs = useMemo(() => {
     if (!logs || logs.length === 0) return todayStartMs;
@@ -449,6 +452,13 @@ export default function AnalyticsScreen() {
       counts.set(h, (counts.get(h) ?? 0) + 1);
     }
 
+    for (const cycle of cycleHistory) {
+      const habitName = habits.find(
+        (habit) => habit.id === cycle.habitId,
+      )?.name;
+      if (habitName && !counts.has(habitName)) counts.set(habitName, 0);
+    }
+
     const sortedHabits = Array.from(counts.entries())
       .sort((a, b) => {
         if (b[1] !== a[1]) return b[1] - a[1];
@@ -457,7 +467,7 @@ export default function AnalyticsScreen() {
       .map(([name]) => name);
 
     return ["Overall", ...sortedHabits] as TabKey[];
-  }, [logs]);
+  }, [cycleHistory, habits, logs]);
 
   const filteredLogs = useMemo(() => {
     if (activeTab === "Overall") return logs;
@@ -881,13 +891,17 @@ export default function AnalyticsScreen() {
       ? BRAND_GREEN
       : (habits.find((habit) => habit.name === activeTab)?.color ??
         BRAND_GREEN);
+  const activeHabit =
+    activeTab === "Overall"
+      ? null
+      : (habits.find((habit) => habit.name === activeTab) ?? null);
   const activeHabitIcon: keyof typeof Ionicons.glyphMap =
     activeTab === "Overall"
       ? "stats-chart"
       : ((habits.find((habit) => habit.name === activeTab)
           ?.icon as keyof typeof Ionicons.glyphMap) ?? "ellipse");
 
-  if (!hasAnyLogs) {
+  if (!hasAnyAnalyticsData) {
     return (
       <Screen
         scroll
@@ -1050,6 +1064,12 @@ export default function AnalyticsScreen() {
             </Pressable>
           ))}
         </ScrollView>
+
+        <ProgressTrendChart
+          habit={activeHabit}
+          cycles={cycleHistory}
+          accentColor={activeHabitColor}
+        />
 
         <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
           <View className="mb-2 flex-row items-center justify-between">
