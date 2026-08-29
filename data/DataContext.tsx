@@ -536,15 +536,26 @@ async function scheduleDailyReminderNotification(
     content: {
       title: "Check in with Reflex?",
       body: "Take a minute to reflect on your urges and wins today.",
-      sound: false,
+      sound: "default",
     },
     trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: settings.hour,
       minute: settings.minute,
-      repeats: true,
       channelId: "daily-reflection",
-    } as any,
+    },
   });
+
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  if (
+    !scheduled.some(
+      (notification) => notification.identifier === notificationId,
+    )
+  ) {
+    throw new Error(
+      "The daily reminder could not be scheduled on this device.",
+    );
+  }
 
   await saveDailyReminderNotificationId(notificationId);
 }
@@ -858,6 +869,17 @@ export function DataProvider({ children }: DataProviderProps) {
         ]);
 
         await saveProfilePhotoUri(savedProfilePhoto);
+
+        if (savedDailyReminder.option !== "off") {
+          const permission = await Notifications.getPermissionsAsync();
+          if (permission.status === "granted") {
+            await scheduleDailyReminderNotification(savedDailyReminder).catch(
+              (error) => {
+                console.warn("Failed to restore daily reminder:", error);
+              },
+            );
+          }
+        }
 
         const cleanName = savedProfileName.trim();
         const cleanPhoto = savedProfilePhoto.trim();
