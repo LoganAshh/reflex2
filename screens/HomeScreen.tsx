@@ -159,6 +159,16 @@ export default function HomeScreen() {
     activeHabit?.estimatedBaseline != null &&
     activeHabit.finalTarget != null &&
     activeCurrentGoal != null;
+  const missingPlanHabits = useMemo(
+    () =>
+      selectedHabits.filter(
+        (habit) =>
+          habit.estimatedBaseline == null ||
+          habit.finalTarget == null ||
+          habit.currentGoal == null,
+      ),
+    [selectedHabits],
+  );
   const nextGoalHabit = useMemo(
     () =>
       selectedHabits.find((habit) => {
@@ -876,6 +886,35 @@ export default function HomeScreen() {
             </View>
 
             <TrackingReviewLauncher placement="home" />
+
+            {missingPlanHabits.length > 0 ? (
+              <Pressable
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("ManageList", {
+                    type: "habits",
+                    habitId: missingPlanHabits[0].id,
+                    setupMissingPlans: true,
+                  });
+                }}
+                className="mt-3 flex-row items-center rounded-3xl border border-amber-200 bg-amber-50 p-3"
+              >
+                <View className="h-9 w-9 items-center justify-center rounded-full bg-white">
+                  <Ionicons name="options" size={19} color="#B45309" />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-black text-gray-950">
+                    Finish setting up your goals
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-600">
+                    {missingPlanHabits.length === 1
+                      ? `Add amounts for ${missingPlanHabits[0].name}`
+                      : `Add amounts for ${missingPlanHabits.length} habits`}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#B45309" />
+              </Pressable>
+            ) : null}
 
             {nextGoalHabit ? (
               <Pressable

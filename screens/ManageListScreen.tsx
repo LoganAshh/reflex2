@@ -112,6 +112,14 @@ function formatLevelWithPeriod(
   return `${valueText} ${unitText} per ${periodLabel(period).toLowerCase()}`;
 }
 
+function habitNeedsPlan(habit: Habit) {
+  return (
+    habit.estimatedBaseline == null ||
+    habit.finalTarget == null ||
+    habit.currentGoal == null
+  );
+}
+
 function showMeasurementMenu(
   selectedMeasurement: (typeof MEASUREMENT_OPTIONS)[number],
   onSelect: (measurement: (typeof MEASUREMENT_OPTIONS)[number]) => void,
@@ -255,6 +263,9 @@ export default function ManageListScreen() {
   const [deferredDeselectedIds, setDeferredDeselectedIds] = useState<
     Set<number>
   >(new Set());
+  const [upgradeSetupActive, setUpgradeSetupActive] = useState(
+    route.params.setupMissingPlans === true,
+  );
 
   const didSetInitialFilter = useRef(false);
   const openedGoalHabitIdRef = useRef<number | null>(null);
@@ -338,7 +349,7 @@ export default function ManageListScreen() {
     const habitId = route.params.habitId;
     if (
       type !== "habits" ||
-      !route.params.openGoal ||
+      (!route.params.openGoal && !route.params.setupMissingPlans) ||
       habitId == null ||
       openedGoalHabitIdRef.current === habitId
     ) {
@@ -347,9 +358,16 @@ export default function ManageListScreen() {
     const habit = habits.find((item) => item.id === habitId);
     if (!habit) return;
     openedGoalHabitIdRef.current = habitId;
+    setUpgradeSetupActive(route.params.setupMissingPlans === true);
     openEdit(habit);
-    setGoalAdjustmentsOpen(true);
-  }, [habits, route.params.habitId, route.params.openGoal, type]);
+    setGoalAdjustmentsOpen(route.params.openGoal === true);
+  }, [
+    habits,
+    route.params.habitId,
+    route.params.openGoal,
+    route.params.setupMissingPlans,
+    type,
+  ]);
 
   useEffect(() => {
     if (!pendingAddedItem) return;
@@ -527,6 +545,13 @@ export default function ManageListScreen() {
     try {
       Keyboard.dismiss();
 
+      const nextUpgradeHabit =
+        upgradeSetupActive && type === "habits"
+          ? (selectedHabits.find(
+              (habit) => habit.id !== editingItem.id && habitNeedsPlan(habit),
+            ) ?? null)
+          : null;
+
       if (type === "habits") {
         const currentAmount = Number(estimatedBaseline);
         const goalAmount = Number(finalTarget);
@@ -602,6 +627,13 @@ export default function ManageListScreen() {
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       closeEdit();
+      if (upgradeSetupActive) {
+        if (nextUpgradeHabit) {
+          openEdit(nextUpgradeHabit);
+        } else if (navigation.canGoBack()) {
+          navigation.goBack();
+        }
+      }
     } catch (e: any) {
       Alert.alert("Could not save", e?.message ?? "That name is already used.");
     }

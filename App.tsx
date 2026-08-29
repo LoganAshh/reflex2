@@ -62,6 +62,7 @@ export type RootStackParamList = {
     type: ManageListType;
     habitId?: number;
     openGoal?: boolean;
+    setupMissingPlans?: boolean;
   };
   ProfileSetup: undefined;
   Settings: undefined;
