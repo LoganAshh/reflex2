@@ -12,6 +12,7 @@ import {
   Modal,
 } from "react-native";
 import * as Haptics from "expo-haptics";
+import * as Notifications from "expo-notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { DEFAULT_HABIT_ICON, type HabitIconName } from "../data/habitIcons";
 import { HabitIconPicker } from "../components/HabitIconPicker";
@@ -538,6 +539,7 @@ export default function OnboardingScreen() {
     addCustomCue,
     addCustomLocation,
     updateHabitPlan,
+    setDailyReminder,
     completeOnboarding,
   } = useData();
 
@@ -568,6 +570,8 @@ export default function OnboardingScreen() {
   );
   const [customInputFocused, setCustomInputFocused] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [eveningReminderEnabled, setEveningReminderEnabled] = useState(true);
+  const [finishing, setFinishing] = useState(false);
 
   const buzz = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -644,7 +648,7 @@ export default function OnboardingScreen() {
   );
 
   const setupStartIndex = infoSteps.length;
-  const totalSteps = infoSteps.length + 4;
+  const totalSteps = infoSteps.length + 5;
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -928,6 +932,8 @@ export default function OnboardingScreen() {
   };
 
   const onFinish = async () => {
+    if (finishing) return;
+
     if (habitIds.length === 0) {
       Alert.alert(
         "Pick at least one habit",
@@ -937,6 +943,7 @@ export default function OnboardingScreen() {
       return;
     }
 
+    setFinishing(true);
     try {
       await setSelectedHabits(habitIds);
       for (const habit of selectedHabitDetails) {
@@ -952,12 +959,45 @@ export default function OnboardingScreen() {
       }
       await setSelectedCues(cueIds);
       await setSelectedLocations(locationIds);
+
+      if (eveningReminderEnabled) {
+        try {
+          const existing = await Notifications.getPermissionsAsync();
+          const permission =
+            existing.status === "granted"
+              ? existing
+              : await Notifications.requestPermissionsAsync();
+
+          if (permission.status === "granted") {
+            await setDailyReminder({ option: "evening", hour: 20, minute: 0 });
+          } else {
+            await setDailyReminder({ option: "off", hour: 20, minute: 0 });
+            Alert.alert(
+              "Reminder is off",
+              "You can turn it on later from Settings.",
+            );
+          }
+        } catch (error) {
+          await setDailyReminder({ option: "off", hour: 20, minute: 0 }).catch(
+            () => {},
+          );
+          Alert.alert(
+            "Could not set the reminder",
+            "Your setup is still complete. You can try again from Settings.",
+          );
+        }
+      } else {
+        await setDailyReminder({ option: "off", hour: 20, minute: 0 });
+      }
+
       await completeOnboarding();
     } catch (error) {
       Alert.alert(
         "Could not finish setup",
         error instanceof Error ? error.message : "Please try again.",
       );
+    } finally {
+      setFinishing(false);
     }
   };
 
@@ -1043,6 +1083,7 @@ export default function OnboardingScreen() {
           ) : null}
 
           <Pressable
+            disabled={finishing}
             onPress={() => {
               if (isLast) {
                 Haptics.notificationAsync(
@@ -1055,7 +1096,7 @@ export default function OnboardingScreen() {
             }}
             className={`rounded-3xl bg-green-600 px-5 py-3.5 ${
               !isFirst ? "flex-1" : "w-full"
-            }`}
+            } ${finishing ? "opacity-60" : ""}`}
             style={({ pressed }) => ({
               shadowColor: "#000",
               shadowOffset: { width: 0, height: pressed ? 2 : 6 },
@@ -1073,7 +1114,7 @@ export default function OnboardingScreen() {
               />
 
               <Text className="ml-2 text-center text-base font-black text-white">
-                {primaryText}
+                {finishing ? "Finishing..." : primaryText}
               </Text>
             </View>
           </Pressable>
@@ -1407,33 +1448,107 @@ export default function OnboardingScreen() {
       );
     }
 
+    if (setupIndex === 3) {
+      return (
+        <View className="flex-1 justify-center">
+          <SetupTitle
+            title="Pick locations"
+            body="Locations help you see where certain patterns happen most often."
+            icon="location"
+          />
+
+          <ChipList<Place>
+            data={locations}
+            selected={locationSet}
+            type="locations"
+            toggle={toggle}
+            customHabit={customHabit}
+            setCustomHabit={setCustomHabit}
+            customHabitIcon={customHabitIcon}
+            setCustomHabitIcon={setCustomHabitIcon}
+            customHabitColor={customHabitColor}
+            setCustomHabitColor={setCustomHabitColor}
+            customCue={customCue}
+            setCustomCue={setCustomCue}
+            customLocation={customLocation}
+            setCustomLocation={setCustomLocation}
+            onAddCustom={onAddCustom}
+            onInputFocus={scrollCustomInputIntoView}
+            onInputBlur={stopCustomInputScroll}
+          />
+        </View>
+      );
+    }
+
     return (
       <View className="flex-1 justify-center">
         <SetupTitle
-          title="Pick locations"
-          body="Locations help you see where certain patterns happen most often."
-          icon="location"
+          title="A gentle reminder"
+          body="Reflex can remind you to check in near the end of each day. You can change this anytime in Settings."
+          icon="notifications"
         />
 
-        <ChipList<Place>
-          data={locations}
-          selected={locationSet}
-          type="locations"
-          toggle={toggle}
-          customHabit={customHabit}
-          setCustomHabit={setCustomHabit}
-          customHabitIcon={customHabitIcon}
-          setCustomHabitIcon={setCustomHabitIcon}
-          customHabitColor={customHabitColor}
-          setCustomHabitColor={setCustomHabitColor}
-          customCue={customCue}
-          setCustomCue={setCustomCue}
-          customLocation={customLocation}
-          setCustomLocation={setCustomLocation}
-          onAddCustom={onAddCustom}
-          onInputFocus={scrollCustomInputIntoView}
-          onInputBlur={stopCustomInputScroll}
-        />
+        <View className="mx-1 mt-6 gap-3">
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync();
+              setEveningReminderEnabled(true);
+            }}
+            className="flex-row items-center rounded-[26px] border bg-white p-4 shadow-sm"
+            style={{
+              borderColor: eveningReminderEnabled ? "#16A34A" : "#E5E7EB",
+              borderWidth: eveningReminderEnabled ? 2 : 1,
+            }}
+          >
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-50">
+              <Ionicons name="moon" size={24} color="#16A34A" />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-black">
+                Evening reminder
+              </Text>
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                Every day at 8:00 PM
+              </Text>
+            </View>
+            <Ionicons
+              name={
+                eveningReminderEnabled ? "checkmark-circle" : "ellipse-outline"
+              }
+              size={25}
+              color={eveningReminderEnabled ? "#16A34A" : "#9CA3AF"}
+            />
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync();
+              setEveningReminderEnabled(false);
+            }}
+            className="flex-row items-center rounded-[26px] border bg-white p-4 shadow-sm"
+            style={{
+              borderColor: eveningReminderEnabled ? "#E5E7EB" : "#111827",
+              borderWidth: eveningReminderEnabled ? 1 : 2,
+            }}
+          >
+            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-gray-100">
+              <Ionicons name="notifications-off" size={23} color="#4B5563" />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-black">Not now</Text>
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                Keep reminders off
+              </Text>
+            </View>
+            <Ionicons
+              name={
+                !eveningReminderEnabled ? "checkmark-circle" : "ellipse-outline"
+              }
+              size={25}
+              color={!eveningReminderEnabled ? "#111827" : "#9CA3AF"}
+            />
+          </Pressable>
+        </View>
       </View>
     );
   };

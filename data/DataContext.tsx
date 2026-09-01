@@ -2077,45 +2077,51 @@ export function DataProvider({ children }: DataProviderProps) {
   };
 
   const resetAll: DataContextType["resetAll"] = async () => {
-    const storedPhoto = await loadProfilePhotoUri();
-    const savedPhoto = ((profilePhotoUri ?? "").trim() || storedPhoto) ?? "";
-    await deleteManagedProfilePhoto(savedPhoto);
+    setInitializing(true);
 
-    await dropAllDataTables();
-    await initDb();
-    await seedDefaultHabitsIfEmpty();
-    await seedDefaultCuesIfEmpty();
-    await seedDefaultLocationsIfEmpty();
-    await seedDefaultActionsIfEmpty();
+    try {
+      const storedPhoto = await loadProfilePhotoUri();
+      const savedPhoto = ((profilePhotoUri ?? "").trim() || storedPhoto) ?? "";
+      await deleteManagedProfilePhoto(savedPhoto);
 
-    setSelectedHabitsState([]);
-    setSelectedCuesState([]);
-    setSelectedLocationsState([]);
-    setLogs([]);
-    setSelectedActionIds([]);
-    setGoalHistory([]);
-    setTrackingConfirmations([]);
-    setCycleHistory([]);
+      await dropAllDataTables();
+      await initDb();
+      await seedDefaultHabitsIfEmpty();
+      await seedDefaultCuesIfEmpty();
+      await seedDefaultLocationsIfEmpty();
+      await seedDefaultActionsIfEmpty();
 
-    await Promise.all([
-      saveOnboardedFlag(false),
-      saveProfileName(""),
-      saveProfilePhotoUri(""),
-      saveProfileDoneFlag(false),
-      saveAppLockEnabledFlag(false),
-      saveDailyReminderSettings(DEFAULT_DAILY_REMINDER),
-    ]);
+      setSelectedHabitsState([]);
+      setSelectedCuesState([]);
+      setSelectedLocationsState([]);
+      setLogs([]);
+      setSelectedActionIds([]);
+      setGoalHistory([]);
+      setTrackingConfirmations([]);
+      setCycleHistory([]);
 
-    await cancelDailyReminderNotification();
+      await Promise.all([
+        saveOnboardedFlag(false),
+        saveProfileName(""),
+        saveProfilePhotoUri(""),
+        saveProfileDoneFlag(false),
+        saveAppLockEnabledFlag(false),
+        saveDailyReminderSettings(DEFAULT_DAILY_REMINDER),
+      ]);
 
-    setHasOnboarded(false);
-    setProfileName("");
-    setProfilePhotoUri(null);
-    setHasCompletedLocalProfile(false);
-    setAppLockEnabledState(false);
-    setDailyReminderState(DEFAULT_DAILY_REMINDER);
+      await cancelDailyReminderNotification();
 
-    await refresh();
+      setHasOnboarded(false);
+      setProfileName("");
+      setProfilePhotoUri(null);
+      setHasCompletedLocalProfile(false);
+      setAppLockEnabledState(false);
+      setDailyReminderState(DEFAULT_DAILY_REMINDER);
+
+      await refresh();
+    } finally {
+      setInitializing(false);
+    }
   };
 
   const value = useMemo(

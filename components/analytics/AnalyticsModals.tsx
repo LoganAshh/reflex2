@@ -431,6 +431,11 @@ export function DayLogsModal({
           <ScrollView
             className="mt-4 max-h-[520px]"
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: 4,
+              paddingTop: 2,
+              paddingBottom: 2,
+            }}
           >
             {selectedDayLogs.length === 0 ? (
               <View className="rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
