@@ -4,9 +4,9 @@ import {
   Text,
   TextInput,
   Pressable,
-  FlatList,
   Alert,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   ScrollView,
   ActionSheetIOS,
@@ -37,12 +37,34 @@ import { DEFAULT_HABIT_ICON, type HabitIconName } from "../data/habitIcons";
 import { HabitIconPicker } from "../components/HabitIconPicker";
 import { Screen } from "../components/Screen";
 import { normalizeGoalAmount } from "../data/goals";
+import DraggableFlatList from "react-native-draggable-flatlist";
 
 type ManageRoute = RouteProp<RootStackParamList, "ManageList">;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Filter = "selected" | "preset" | "custom";
 type ManageItem = Habit | Cue | Place;
 type PendingAddedItem = { type: ManageListType; name: string };
+
+function HabitDragHandle({
+  disabled,
+  onLongPress,
+}: {
+  disabled: boolean;
+  onLongPress: () => void;
+}) {
+  return (
+    <Pressable
+      disabled={disabled}
+      delayLongPress={180}
+      onLongPress={onLongPress}
+      accessibilityRole="button"
+      accessibilityLabel="Hold and drag to reorder habit"
+      className="ml-1 h-12 w-8 items-center justify-center rounded-xl"
+    >
+      <Ionicons name="reorder-three" size={30} color="#6B7280" />
+    </Pressable>
+  );
+}
 
 const HABIT_COLOR_OPTIONS = [
   "#16A34A",
@@ -118,6 +140,16 @@ function habitNeedsPlan(habit: Habit) {
     habit.finalTarget == null ||
     habit.currentGoal == null
   );
+}
+
+function startingPeriodFor(habit: Habit): HabitPeriod {
+  return habit.estimatedBaseline == null ? "week" : habit.baselinePeriod;
+}
+
+function goalPeriodForSetup(habit: Habit): HabitPeriod {
+  return habit.finalTarget == null
+    ? startingPeriodFor(habit)
+    : habit.goalPeriod;
 }
 
 function showMeasurementMenu(
@@ -250,9 +282,9 @@ export default function ManageListScreen() {
     "times",
   );
   const [estimatedBaseline, setEstimatedBaseline] = useState("");
-  const [baselinePeriod, setBaselinePeriod] = useState<HabitPeriod>("day");
+  const [baselinePeriod, setBaselinePeriod] = useState<HabitPeriod>("week");
   const [finalTarget, setFinalTarget] = useState("");
-  const [goalPeriod, setGoalPeriod] = useState<HabitPeriod>("day");
+  const [goalPeriod, setGoalPeriod] = useState<HabitPeriod>("week");
   const [returnSelection, setReturnSelection] =
     useState<ManageListSelection | null>(null);
   const [pendingAddedItem, setPendingAddedItem] =
@@ -266,9 +298,15 @@ export default function ManageListScreen() {
   const [upgradeSetupActive, setUpgradeSetupActive] = useState(
     route.params.setupMissingPlans === true,
   );
+  const [savingHabitOrder, setSavingHabitOrder] = useState(false);
+  const [habitOrderPreviewIds, setHabitOrderPreviewIds] = useState<
+    number[] | null
+  >(null);
 
   const didSetInitialFilter = useRef(false);
   const openedGoalHabitIdRef = useRef<number | null>(null);
+  const editModalScrollRef = useRef<ScrollView | null>(null);
+  const goalAmountInputRef = useRef<TextInput | null>(null);
 
   const { items, selectedIds, title, singularTitle } = useMemo(() => {
     if (type === "habits") {
@@ -393,6 +431,20 @@ export default function ManageListScreen() {
 
   const filteredItems = useMemo(() => {
     if (filter === "selected") {
+      if (type === "habits") {
+        const previewHabits = habitOrderPreviewIds
+          ? habitOrderPreviewIds.flatMap((habitId) => {
+              const habit = selectedHabits.find((item) => item.id === habitId);
+              return habit ? [habit] : [];
+            })
+          : selectedHabits;
+        const deferredItems = items.filter(
+          (item) =>
+            deferredDeselectedIds.has(item.id) && !selectedIds.has(item.id),
+        );
+        return [...previewHabits, ...deferredItems];
+      }
+
       return items.filter(
         (it) => selectedIds.has(it.id) || deferredDeselectedIds.has(it.id),
       );
@@ -403,7 +455,15 @@ export default function ManageListScreen() {
     }
 
     return items.filter((it) => !!it.isCustom);
-  }, [items, selectedIds, deferredDeselectedIds, filter]);
+  }, [
+    items,
+    selectedIds,
+    deferredDeselectedIds,
+    filter,
+    selectedHabits,
+    habitOrderPreviewIds,
+    type,
+  ]);
 
   const setLogReturnSelectionParam = (selection: ManageListSelection) => {
     const rootState = navigation.getState();
@@ -478,6 +538,17 @@ export default function ManageListScreen() {
     }
   };
 
+  const persistSelectedHabitOrder = async (nextIds: number[]) => {
+    if (savingHabitOrder) return;
+    setSavingHabitOrder(true);
+    try {
+      await setSelectedHabits(nextIds);
+      await Haptics.selectionAsync();
+    } finally {
+      setSavingHabitOrder(false);
+    }
+  };
+
   const onAdd = async () => {
     const name = text.trim();
     if (!name) return;
@@ -514,9 +585,9 @@ export default function ManageListScreen() {
       setEstimatedBaseline(
         (habit.calibratedBaseline ?? habit.estimatedBaseline)?.toString() ?? "",
       );
-      setBaselinePeriod(habit.baselinePeriod ?? "day");
+      setBaselinePeriod(startingPeriodFor(habit));
       setFinalTarget(habit.finalTarget?.toString() ?? "");
-      setGoalPeriod(habit.goalPeriod ?? habit.baselinePeriod ?? "day");
+      setGoalPeriod(goalPeriodForSetup(habit));
     }
   }
 
@@ -795,24 +866,6 @@ export default function ManageListScreen() {
         </View>
       </View>
 
-      <View className="mt-5 rounded-3xl border border-gray-200 bg-gray-50 p-4 shadow-sm">
-        <View className="flex-row items-center">
-          <View className="h-10 w-10 items-center justify-center rounded-3xl border border-gray-200 bg-white">
-            <Ionicons name="bulb" size={21} color="#000000" />
-          </View>
-
-          <View className="ml-3 flex-1">
-            <Text className="text-sm font-black text-black">
-              Choose what appears
-            </Text>
-
-            <Text className="mt-1 text-sm font-semibold leading-5 text-gray-500">
-              Selected items show up on your Log screen.
-            </Text>
-          </View>
-        </View>
-      </View>
-
       <View className="mt-5 flex-row">
         {renderFilterChip("Selected", "selected")}
         {renderFilterChip("Preset", "preset")}
@@ -891,11 +944,18 @@ export default function ManageListScreen() {
     <>
       <Screen>
         <Modal visible={!!editingItem} transparent animationType="fade">
-          <View className="flex-1 justify-center bg-black/40 px-6">
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            className="flex-1 justify-center bg-black/40 px-6"
+          >
             <View className="max-h-[90%] rounded-[32px] bg-white p-5">
               <ScrollView
+                ref={editModalScrollRef}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={
+                  Platform.OS === "ios" ? "interactive" : "on-drag"
+                }
               >
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1 pr-4">
@@ -1032,8 +1092,10 @@ export default function ManageListScreen() {
                                   : "decimal-pad"
                               }
                               returnKeyType="done"
-                              blurOnSubmit
-                              onSubmitEditing={() => Keyboard.dismiss()}
+                              blurOnSubmit={false}
+                              onSubmitEditing={() =>
+                                goalAmountInputRef.current?.focus()
+                              }
                               className={`w-16 rounded-xl border border-gray-200 px-3 py-2 text-center text-black ${
                                 startingAmountLocked
                                   ? "bg-gray-100"
@@ -1104,6 +1166,7 @@ export default function ManageListScreen() {
                           </Text>
                           <View className="flex-row items-center rounded-2xl border border-gray-200 bg-gray-50 p-2">
                             <TextInput
+                              ref={goalAmountInputRef}
                               value={finalTarget}
                               onChangeText={setFinalTarget}
                               placeholder="0"
@@ -1116,6 +1179,13 @@ export default function ManageListScreen() {
                               returnKeyType="done"
                               blurOnSubmit
                               onSubmitEditing={() => Keyboard.dismiss()}
+                              onFocus={() => {
+                                requestAnimationFrame(() => {
+                                  editModalScrollRef.current?.scrollToEnd({
+                                    animated: true,
+                                  });
+                                });
+                              }}
                               className="w-16 rounded-xl border border-gray-200 bg-white px-3 py-2 text-center text-black"
                             />
                             <Pressable
@@ -1404,13 +1474,13 @@ export default function ManageListScreen() {
                 </View>
               </View>
             ) : null}
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
-        <FlatList
+        <DraggableFlatList
           data={filteredItems}
           keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => {
+          renderItem={({ item, drag, isActive }) => {
             const isSelected = selectedIds.has(item.id);
             const isCustom = item.isCustom === 1;
             const habitColor =
@@ -1418,6 +1488,15 @@ export default function ManageListScreen() {
 
             return (
               <View
+                style={
+                  isActive
+                    ? {
+                        zIndex: 50,
+                        elevation: 10,
+                        opacity: 0.97,
+                      }
+                    : undefined
+                }
                 className={`mx-5 mb-3 rounded-[28px] border p-4 shadow-sm ${
                   isSelected
                     ? "border-gray-200 bg-gray-50"
@@ -1425,7 +1504,7 @@ export default function ManageListScreen() {
                 }`}
               >
                 <View className="flex-row items-center justify-between">
-                  <View className="flex-1 flex-row items-center pr-3">
+                  <View className="flex-1 flex-row items-center pr-2">
                     <View
                       className="h-12 w-12 items-center justify-center rounded-2xl border bg-white"
                       style={{
@@ -1447,7 +1526,10 @@ export default function ManageListScreen() {
                     </View>
 
                     <View className="ml-3 flex-1">
-                      <Text className="text-base font-black text-black">
+                      <Text
+                        className="text-base font-black text-black"
+                        numberOfLines={1}
+                      >
                         {item.name}
                       </Text>
 
@@ -1460,7 +1542,7 @@ export default function ManageListScreen() {
                   {type === "habits" || isCustom ? (
                     <Pressable
                       onPress={() => openEdit(item)}
-                      className="mr-3 rounded-2xl border border-gray-300 bg-white px-4 py-2.5"
+                      className="mr-2 rounded-2xl border border-gray-300 bg-white px-3 py-2.5"
                     >
                       <Text className="font-black text-black">Edit</Text>
                     </Pressable>
@@ -1468,7 +1550,7 @@ export default function ManageListScreen() {
 
                   <Pressable
                     onPress={() => toggleSelected(item.id)}
-                    className={`rounded-2xl border px-4 py-2.5 ${
+                    className={`rounded-2xl border px-3 py-2.5 ${
                       isSelected
                         ? "border-gray-300 bg-white"
                         : "border-green-600 bg-green-600"
@@ -1482,10 +1564,41 @@ export default function ManageListScreen() {
                       {isSelected ? "Selected" : "Select"}
                     </Text>
                   </Pressable>
+
+                  {type === "habits" &&
+                  filter === "selected" &&
+                  isSelected &&
+                  selectedHabits.length > 1 ? (
+                    <HabitDragHandle
+                      disabled={savingHabitOrder}
+                      onLongPress={drag}
+                    />
+                  ) : null}
                 </View>
               </View>
             );
           }}
+          onDragBegin={() => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }}
+          onDragEnd={({ data, from, to }) => {
+            if (type !== "habits" || filter !== "selected" || from === to) {
+              return;
+            }
+            const nextIds = data
+              .filter((item) => selectedIds.has(item.id))
+              .map((item) => item.id);
+            setHabitOrderPreviewIds(nextIds);
+            const save = async () => {
+              await persistSelectedHabitOrder(nextIds);
+              setHabitOrderPreviewIds(null);
+            };
+            void save();
+          }}
+          activationDistance={8}
+          autoscrollThreshold={80}
+          autoscrollSpeed={120}
+          removeClippedSubviews={false}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={listHeader}

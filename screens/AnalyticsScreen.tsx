@@ -443,31 +443,16 @@ export default function AnalyticsScreen() {
   ]);
 
   const habitTabs = useMemo(() => {
-    const counts = new Map<string, number>();
+    return [
+      "Overall",
+      ...selectedHabits.map((habit) => habit.name),
+    ] as TabKey[];
+  }, [selectedHabits]);
 
-    for (const l of logs) {
-      const h = (l.habitName ?? "").trim();
-      if (!h) continue;
-
-      counts.set(h, (counts.get(h) ?? 0) + 1);
-    }
-
-    for (const cycle of cycleHistory) {
-      const habitName = habits.find(
-        (habit) => habit.id === cycle.habitId,
-      )?.name;
-      if (habitName && !counts.has(habitName)) counts.set(habitName, 0);
-    }
-
-    const sortedHabits = Array.from(counts.entries())
-      .sort((a, b) => {
-        if (b[1] !== a[1]) return b[1] - a[1];
-        return a[0].localeCompare(b[0]);
-      })
-      .map(([name]) => name);
-
-    return ["Overall", ...sortedHabits] as TabKey[];
-  }, [cycleHistory, habits, logs]);
+  useEffect(() => {
+    if (activeTab === "Overall" || habitTabs.includes(activeTab)) return;
+    setActiveTab("Overall");
+  }, [activeTab, habitTabs]);
 
   const filteredLogs = useMemo(() => {
     if (activeTab === "Overall") return logs;

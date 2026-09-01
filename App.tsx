@@ -14,6 +14,7 @@ import {
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as LocalAuthentication from "expo-local-authentication";
@@ -443,12 +444,14 @@ function RootStack() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <DataProvider>
-        <NavigationContainer>
-          <RootStack />
-        </NavigationContainer>
-      </DataProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <DataProvider>
+          <NavigationContainer>
+            <RootStack />
+          </NavigationContainer>
+        </DataProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

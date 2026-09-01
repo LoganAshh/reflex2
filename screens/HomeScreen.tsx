@@ -10,6 +10,7 @@ import { useData, type Habit } from "../data/DataContext";
 import * as Haptics from "expo-haptics";
 import { Screen } from "../components/Screen";
 import { TrackingReviewLauncher } from "../components/TrackingReviewCard";
+import { getPreviousCycleBounds } from "../data/tracking";
 
 function startOfDayMs(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -49,29 +50,6 @@ function formatAverage(value: number) {
   return value.toFixed(1);
 }
 
-function applyFrequencyOrdering<T extends { id: number }>(
-  items: T[],
-  frequencyCounts: Map<number, number>,
-) {
-  if (items.length === 0) return items;
-
-  const originalRank = new Map<number, number>();
-  items.forEach((item, index) => {
-    originalRank.set(item.id, index);
-  });
-
-  return [...items].sort((a, b) => {
-    const aCount = frequencyCounts.get(a.id) ?? 0;
-    const bCount = frequencyCounts.get(b.id) ?? 0;
-
-    if (aCount !== bCount) {
-      return bCount - aCount;
-    }
-
-    return (originalRank.get(a.id) ?? 0) - (originalRank.get(b.id) ?? 0);
-  });
-}
-
 function periodLabel(period: Habit["baselinePeriod"]) {
   if (period === "week") return "week";
   if (period === "28_days") return "month";
@@ -105,7 +83,6 @@ export default function HomeScreen() {
     selectedHabits,
     profileName,
     profilePhotoUri,
-    baselineSummaries,
     trackingConfirmations,
     cycleReviews,
     proposeNextGoal,
@@ -143,10 +120,6 @@ export default function HomeScreen() {
     () => habits.find((habit) => habit.id === selectedHabitId) ?? null,
     [habits, selectedHabitId],
   );
-  const activeBaseline =
-    selectedHabitId == null
-      ? null
-      : (baselineSummaries[selectedHabitId] ?? null);
   const activeCurrentGoal = activeHabit
     ? (activeHabit.currentGoal ?? activeHabit.finalTarget)
     : null;
@@ -189,117 +162,129 @@ export default function HomeScreen() {
       }) ?? null,
     [cycleReviews, selectedHabits],
   );
-  const provisionalRecent = useMemo(() => {
-    if (!activeHabit || !activeBaseline) return null;
-    const habitLogs = logs.filter((log) => log.habitId === activeHabit.id);
+  const currentProgress = useMemo(() => {
+    if (!activeHabit) return null;
+
+    const now = Date.now();
+    const period = activeCurrentGoalPeriod;
+    const previous = getPreviousCycleBounds(period, now);
+    const currentStart = previous.endAtExclusive;
+    const currentAmount = logs
+      .filter(
+        (log) =>
+          log.habitId === activeHabit.id &&
+          log.createdAt >= currentStart &&
+          log.createdAt <= now,
+      )
+      .reduce(
+        (total, log) =>
+          total + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
+        0,
+      );
+
+    let currentDayStart = currentStart;
+    let previousSameDayStart = previous.startAt;
+    while (addLocalDays(currentDayStart, 1) <= now) {
+      currentDayStart = addLocalDays(currentDayStart, 1);
+      previousSameDayStart = addLocalDays(previousSameDayStart, 1);
+    }
+    const timeIntoCurrentDay = now - currentDayStart;
+    const previousSamePoint = Math.min(
+      previous.endAtExclusive,
+      previousSameDayStart + timeIntoCurrentDay,
+    );
+
     const habitConfirmations = trackingConfirmations.filter(
       (confirmation) => confirmation.habitId === activeHabit.id,
     );
-    const trackingStarts = [
-      activeHabit.rebaselineStartedAt,
-      activeHabit.calibrationStartedAt,
-      ...habitLogs.map((log) => log.createdAt),
-      ...habitConfirmations
-        .filter((confirmation) => confirmation.status !== "not_yet")
-        .map((confirmation) => confirmation.periodStart),
-    ].filter((value): value is number => value != null);
-    if (trackingStarts.length === 0) return null;
-
-    const todayStart = startOfDayMs(new Date());
-    const recentDays =
-      activeBaseline.period === "day"
-        ? 7
-        : activeBaseline.period === "week"
-          ? 28
-          : 56;
-    const startAt = Math.max(
-      startOfDayMs(new Date(Math.min(...trackingStarts))),
-      addLocalDays(todayStart, -recentDays),
+    const wholePeriodConfirmed = habitConfirmations.some(
+      (confirmation) =>
+        period !== "week" &&
+        confirmation.period === period &&
+        confirmation.periodStart === previous.startAt &&
+        confirmation.status !== "not_yet",
     );
-    if (startAt >= todayStart) return null;
-
-    let validDays = 0;
-    let provisionalEmptyDays = 0;
-    let quantity = 0;
-    for (let dayStart = startAt; dayStart < todayStart; ) {
-      const dayEnd = addLocalDays(dayStart, 1);
-      const dayConfirmation = habitConfirmations.find(
-        (confirmation) =>
-          confirmation.period === "day" &&
-          confirmation.periodStart === dayStart,
-      );
-      const markedUnknown = dayConfirmation?.status === "not_yet";
-      if (!markedUnknown) {
-        const dayLogs = habitLogs.filter(
-          (log) => log.createdAt >= dayStart && log.createdAt < dayEnd,
+    let comparisonIsTrustworthy = wholePeriodConfirmed;
+    if (!comparisonIsTrustworthy) {
+      comparisonIsTrustworthy = true;
+      for (
+        let dayStart = previous.startAt;
+        dayStart < previousSamePoint;
+        dayStart = addLocalDays(dayStart, 1)
+      ) {
+        const dayIsConfirmed = habitConfirmations.some(
+          (confirmation) =>
+            confirmation.period === "day" &&
+            confirmation.periodStart === dayStart &&
+            confirmation.status !== "not_yet",
         );
-        validDays += 1;
-        if (dayLogs.length === 0 && !dayConfirmation) {
-          provisionalEmptyDays += 1;
+        if (!dayIsConfirmed) {
+          comparisonIsTrustworthy = false;
+          break;
         }
-        quantity += dayLogs.reduce(
-          (sum, log) =>
-            sum + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
-          0,
-        );
       }
-      dayStart = dayEnd;
-    }
-    if (validDays === 0) return null;
-    return {
-      value: (quantity / validDays) * daysInPeriod(activeBaseline.period),
-      validDays,
-      provisionalEmptyDays,
-    };
-  }, [activeHabit, activeBaseline, logs, trackingConfirmations]);
-
-  const currentDirection = useMemo(() => {
-    const recent = activeBaseline?.recent;
-    const priorRecent = activeBaseline?.priorRecent;
-    const estimate = activeBaseline?.estimated;
-    const goal = activeHabit?.currentGoal ?? activeHabit?.finalTarget;
-    const goalPeriod =
-      activeHabit?.currentGoalPeriod ?? activeHabit?.goalPeriod;
-
-    if (!activeBaseline || !activeHabit || goal == null || !goalPeriod) {
-      return {
-        value: "Needs setup",
-        sub: "Add an estimated current amount and long-term goal in Manage Habits",
-      };
     }
 
-    const comparisonLevel = activeBaseline.returningFromGap
-      ? (priorRecent ?? estimate)
-      : (provisionalRecent?.value ?? recent ?? estimate);
-    if (comparisonLevel == null) {
-      return {
-        value: "Needs setup",
-        sub: "Add an estimated current amount and long-term goal in Manage Habits",
-      };
-    }
-
-    const recentDaily = comparisonLevel / daysInPeriod(activeBaseline.period);
-    const goalDaily = goal / daysInPeriod(goalPeriod);
-    const status =
-      recentDaily <= goalDaily
-        ? "On track"
-        : goalDaily > 0 && recentDaily <= goalDaily * 1.1
-          ? "Close"
-          : "Above pace";
-    const comparisonUnit = unitForValue(activeHabitUnit, comparisonLevel);
-    const sourceLabel = activeBaseline.returningFromGap
-      ? priorRecent == null
-        ? "Estimate"
-        : "Previous recent"
-      : provisionalRecent || recent != null
-        ? "Recent"
-        : "Estimate";
+    const previousAmount = comparisonIsTrustworthy
+      ? logs
+          .filter(
+            (log) =>
+              log.habitId === activeHabit.id &&
+              log.createdAt >= previous.startAt &&
+              log.createdAt < previousSamePoint,
+          )
+          .reduce(
+            (total, log) =>
+              total + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
+            0,
+          )
+      : null;
+    const difference =
+      previousAmount == null ? null : previousAmount - currentAmount;
+    const comparisonTime =
+      period === "day"
+        ? "this time yesterday"
+        : period === "week"
+          ? "this point last week"
+          : "this point last month";
+    const comparison =
+      difference == null
+        ? undefined
+        : difference > 0
+          ? `${formatAverage(difference)} fewer than ${comparisonTime}`
+          : difference < 0
+            ? `${formatAverage(Math.abs(difference))} more than ${comparisonTime}`
+            : `Same as ${comparisonTime}`;
+    const improvementPercent =
+      difference != null &&
+      difference > 0 &&
+      previousAmount != null &&
+      previousAmount > 0
+        ? Math.round((difference / previousAmount) * 100)
+        : null;
+    const timeframe =
+      period === "day"
+        ? "today"
+        : period === "week"
+          ? "this week"
+          : "this month";
 
     return {
-      value: status,
-      sub: `${sourceLabel}: about ${formatAverage(comparisonLevel)} ${comparisonUnit} per ${periodLabel(activeBaseline.period)}`,
+      value: formatAverage(currentAmount),
+      sub: `${unitForValue(activeHabitUnit, currentAmount)} ${timeframe}`,
+      currentAmount,
+      timeframe,
+      comparison,
+      difference,
+      improvementPercent,
     };
-  }, [activeBaseline, activeHabit, activeHabitUnit, provisionalRecent]);
+  }, [
+    activeCurrentGoalPeriod,
+    activeHabit,
+    activeHabitUnit,
+    logs,
+    trackingConfirmations,
+  ]);
 
   useEffect(() => {
     const resetToken = route.params?.resetToken;
@@ -315,28 +300,7 @@ export default function HomeScreen() {
     });
   }, [route.params?.resetToken]);
 
-  const habitFrequencyCounts = useMemo(() => {
-    const activeHabitIds = new Set(habits.map((h) => h.id));
-    const counts = new Map<number, number>();
-
-    for (const log of logs) {
-      if (!activeHabitIds.has(log.habitId)) continue;
-      counts.set(log.habitId, (counts.get(log.habitId) ?? 0) + 1);
-    }
-
-    return counts;
-  }, [logs, habits]);
-
-  const habitOptions = useMemo(() => {
-    const selectedIds = new Set(selectedHabits.map((habit) => habit.id));
-    const loggedHabits = habits.filter(
-      (habit) =>
-        selectedIds.has(habit.id) ||
-        (habitFrequencyCounts.get(habit.id) ?? 0) > 0,
-    );
-
-    return applyFrequencyOrdering(loggedHabits, habitFrequencyCounts);
-  }, [habits, selectedHabits, habitFrequencyCounts]);
+  const habitOptions = selectedHabits;
 
   useEffect(() => {
     if (selectedHabitId == null) return;
@@ -350,9 +314,10 @@ export default function HomeScreen() {
   }, [habitOptions, selectedHabitId]);
 
   const stats = useMemo(() => {
+    const selectedHabitIds = new Set(selectedHabits.map((habit) => habit.id));
     const logsForStats =
       selectedHabitId == null
-        ? logs
+        ? logs.filter((log) => selectedHabitIds.has(log.habitId))
         : logs.filter((l) => l.habitId === selectedHabitId);
 
     const now = new Date();
@@ -482,9 +447,33 @@ export default function HomeScreen() {
       weekResistRate,
       todayResistRate,
     };
-  }, [logs, selectedHabitId, activeHabit, trackingConfirmations]);
+  }, [
+    logs,
+    selectedHabitId,
+    activeHabit,
+    trackingConfirmations,
+    selectedHabits,
+  ]);
 
   const positiveFeedback = useMemo(() => {
+    if (
+      selectedHabitId != null &&
+      currentProgress?.difference != null &&
+      currentProgress.difference > 0 &&
+      currentProgress.comparison
+    ) {
+      return {
+        title:
+          currentProgress.currentAmount === 0
+            ? "You Stayed on Track"
+            : "Less Habit Activity",
+        text:
+          currentProgress.currentAmount === 0
+            ? `Excellent work! No habit activity has been logged ${currentProgress.timeframe}, ${currentProgress.comparison}.`
+            : `Great job! You logged ${currentProgress.value} ${currentProgress.sub}, ${currentProgress.comparison}.`,
+      };
+    }
+
     const averageGiveInsText = formatAverage(stats.averageGiveIns);
     const todayActivityUnit =
       stats.todayGiveIns === 1
@@ -581,6 +570,8 @@ export default function HomeScreen() {
     activeHabitUnit,
     stats.todayLogs,
     stats.todayResists,
+    currentProgress,
+    selectedHabitId,
   ]);
 
   const StatTile = ({
@@ -1024,11 +1015,12 @@ export default function HomeScreen() {
                   <View className="mt-3 flex-row gap-3">
                     <StatTile
                       accentColor={activeHabitColor}
-                      label="Current direction"
+                      label="Current progress"
                       labelAtBottom
-                      value={currentDirection.value}
-                      sub={currentDirection.sub}
-                      icon="compass"
+                      value={currentProgress?.value ?? "0"}
+                      sub={currentProgress?.sub}
+                      icon="pulse"
+                      percentIncrease={currentProgress?.improvementPercent}
                     />
 
                     <StatTile
@@ -1036,7 +1028,7 @@ export default function HomeScreen() {
                       label="Current goal"
                       labelAtBottom
                       value={formatAverage(activeCurrentGoal)}
-                      sub={`or fewer ${unitForValue(
+                      sub={`${unitForValue(
                         activeHabitUnit,
                         activeCurrentGoal,
                       )} per ${periodLabel(activeCurrentGoalPeriod)}`}

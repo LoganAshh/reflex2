@@ -157,6 +157,16 @@ function daysInPeriod(period: HabitPeriod) {
   return 1;
 }
 
+function startingPeriodFor(habit: Habit): HabitPeriod {
+  return habit.estimatedBaseline == null ? "week" : habit.baselinePeriod;
+}
+
+function goalPeriodForSetup(habit: Habit): HabitPeriod {
+  return habit.finalTarget == null
+    ? startingPeriodFor(habit)
+    : habit.goalPeriod;
+}
+
 type ChipListProps<T extends { id: number; name: string; isCustom: 0 | 1 }> = {
   data: T[];
   selected: Set<number>;
@@ -688,8 +698,8 @@ export default function OnboardingScreen() {
               habit.measurementType === "minutes" ? "minutes" : "times",
             currentAmount: habit.estimatedBaseline?.toString() ?? "",
             goalAmount: habit.finalTarget?.toString() ?? "",
-            currentPeriod: habit.baselinePeriod ?? "day",
-            goalPeriod: habit.goalPeriod ?? habit.baselinePeriod ?? "day",
+            currentPeriod: startingPeriodFor(habit),
+            goalPeriod: goalPeriodForSetup(habit),
           },
         ]),
       ),
@@ -753,8 +763,8 @@ export default function OnboardingScreen() {
         habit.measurementType === "minutes" ? "minutes" : "times",
       currentAmount: habit.estimatedBaseline?.toString() ?? "",
       goalAmount: habit.finalTarget?.toString() ?? "",
-      currentPeriod: habit.baselinePeriod ?? "day",
-      goalPeriod: habit.goalPeriod ?? habit.baselinePeriod ?? "day",
+      currentPeriod: startingPeriodFor(habit),
+      goalPeriod: goalPeriodForSetup(habit),
     };
 
   const updateHabitPlanDraft = (
@@ -767,8 +777,8 @@ export default function OnboardingScreen() {
           habit.measurementType === "minutes" ? "minutes" : "times",
         currentAmount: habit.estimatedBaseline?.toString() ?? "",
         goalAmount: habit.finalTarget?.toString() ?? "",
-        currentPeriod: habit.baselinePeriod ?? "day",
-        goalPeriod: habit.goalPeriod ?? habit.baselinePeriod ?? "day",
+        currentPeriod: startingPeriodFor(habit),
+        goalPeriod: goalPeriodForSetup(habit),
       };
 
       return {
