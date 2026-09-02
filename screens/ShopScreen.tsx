@@ -439,7 +439,12 @@ export default function ShopScreen() {
             </View>
 
             <View className="ml-3 flex-1">
-              <Text className="text-base font-black text-black">
+              <Text
+                className="text-base font-black text-black"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
                 {item.title}
               </Text>
 
@@ -574,9 +579,7 @@ export default function ShopScreen() {
               placeholderTextColor="#9CA3AF"
               className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-black"
               returnKeyType="done"
-              onSubmitEditing={() => {
-                if (text.trim()) onAdd();
-              }}
+              onSubmitEditing={() => Keyboard.dismiss()}
               blurOnSubmit
             />
 

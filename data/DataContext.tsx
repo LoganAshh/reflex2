@@ -1679,7 +1679,16 @@ export function DataProvider({ children }: DataProviderProps) {
       isCustom,
     });
 
-    setActions(await loadActions());
+    const updatedActions = await loadActions();
+    const addedAction = updatedActions.find(
+      (action) => normalizeName(action.title) === normalizeName(title),
+    );
+
+    if (addedAction && !(await selectedActionExists(addedAction.id))) {
+      await addSelectedAction(addedAction.id);
+    }
+
+    setActions(updatedActions);
     setSelectedActionIds(await loadSelectedActionIds());
   };
 

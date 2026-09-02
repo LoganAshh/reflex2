@@ -11,6 +11,7 @@ import * as Haptics from "expo-haptics";
 import { Screen } from "../components/Screen";
 import { TrackingReviewLauncher } from "../components/TrackingReviewCard";
 import { getPreviousCycleBounds } from "../data/tracking";
+import { cleanHabitIcon } from "../data/habitIcons";
 
 function startOfDayMs(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -50,10 +51,10 @@ function formatAverage(value: number) {
   return value.toFixed(1);
 }
 
-function periodLabel(period: Habit["baselinePeriod"]) {
-  if (period === "week") return "week";
-  if (period === "28_days") return "month";
-  return "day";
+function currentPeriodLabel(period: Habit["baselinePeriod"]) {
+  if (period === "week") return "this week";
+  if (period === "28_days") return "this month";
+  return "today";
 }
 
 function daysInPeriod(period: Habit["baselinePeriod"]) {
@@ -120,6 +121,9 @@ export default function HomeScreen() {
     () => habits.find((habit) => habit.id === selectedHabitId) ?? null,
     [habits, selectedHabitId],
   );
+  const encouragementIcon = activeHabit
+    ? cleanHabitIcon(activeHabit.icon)
+    : "bulb";
   const activeCurrentGoal = activeHabit
     ? (activeHabit.currentGoal ?? activeHabit.finalTarget)
     : null;
@@ -861,7 +865,11 @@ export default function HomeScreen() {
                   className="h-9 w-9 items-center justify-center rounded-3xl border bg-white"
                   style={{ borderColor: "#E5E7EB" }}
                 >
-                  <Ionicons name="bulb" size={20} color={activeHabitColor} />
+                  <Ionicons
+                    name={encouragementIcon}
+                    size={20}
+                    color={activeHabitColor}
+                  />
                 </View>
 
                 <View className="ml-3 flex-1">
@@ -1031,7 +1039,7 @@ export default function HomeScreen() {
                       sub={`${unitForValue(
                         activeHabitUnit,
                         activeCurrentGoal,
-                      )} per ${periodLabel(activeCurrentGoalPeriod)}`}
+                      )} ${currentPeriodLabel(activeCurrentGoalPeriod)}`}
                       icon="flag"
                     />
                   </View>

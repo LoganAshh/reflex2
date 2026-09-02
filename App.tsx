@@ -56,13 +56,14 @@ export type TabResetParams = {
 
 export type RootTabParamList = {
   Home: TabResetParams | undefined;
+  Analytics: TabResetParams | undefined;
   Shop: TabResetParams | undefined;
   Log:
     | (TabResetParams & {
         manageListSelection?: ManageListSelection;
       })
     | undefined;
-  Analytics: TabResetParams | undefined;
+  Settings: TabResetParams | undefined;
 };
 
 export type RootStackParamList = {
@@ -289,6 +290,9 @@ function Tabs() {
             case "Analytics":
               iconName = focused ? "bar-chart" : "bar-chart-outline";
               break;
+            case "Settings":
+              iconName = focused ? "settings" : "settings-outline";
+              break;
             default:
               iconName = "ellipse";
           }
@@ -314,30 +318,13 @@ function Tabs() {
         listeners={({ navigation }) => ({
           tabPress: () => onTabPress(navigation),
         })}
-        options={({ navigation }) => ({
-          headerRight: () => (
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.getParent()?.navigate("Settings");
-              }}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={{
-                marginRight: 20,
-                height: 24,
-                width: 24,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Ionicons
-                name="settings-outline"
-                size={24}
-                color="#1F2937"
-                style={{ transform: [{ translateY: -1 }] }}
-              />
-            </Pressable>
-          ),
+      />
+
+      <Tab.Screen
+        name="Analytics"
+        component={AnalyticsScreen}
+        listeners={({ navigation }) => ({
+          tabPress: () => onTabPress(navigation),
         })}
       />
 
@@ -358,8 +345,8 @@ function Tabs() {
       />
 
       <Tab.Screen
-        name="Analytics"
-        component={AnalyticsScreen}
+        name="Settings"
+        component={SettingsScreen}
         listeners={({ navigation }) => ({
           tabPress: () => onTabPress(navigation),
         })}
