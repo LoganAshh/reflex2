@@ -38,7 +38,10 @@ const PRESET_ACTION_TITLE_UPDATES: ReadonlyArray<
   ["Step outside and say hi to someone", "Say hi to someone outside"],
   ["Text your accountability person", "Text your support person"],
   ["Join a group chat conversation", "Join a group chat"],
-  ["Put your phone in another room for 10 minutes", "Put phone away for 10 min"],
+  [
+    "Put your phone in another room for 10 minutes",
+    "Put phone away for 10 min",
+  ],
   ["Leave the triggering environment", "Leave the situation"],
   ["Put on shoes and get out of the house", "Put on shoes and go outside"],
   ["Do one small task you’ve been avoiding", "Do one avoided task"],
@@ -368,6 +371,18 @@ export async function initDb() {
   await db.execAsync(CREATE_DATA_TABLES_SQL);
 
   await ensureLocalSchemaColumns();
+
+  if (__DEV__) {
+    await db.execAsync(`
+      DELETE FROM habits
+      WHERE isCustom = 1
+        AND name IN (
+          'DEV: Recovery Demo',
+          'DEV: Six-Day Demo',
+          'DEV: Long-Term Trend'
+        );
+    `);
+  }
 }
 
 export async function seedDefaultHabitsIfEmpty() {

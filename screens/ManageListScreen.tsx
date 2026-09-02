@@ -257,6 +257,7 @@ export default function ManageListScreen() {
     updateHabit,
     updateHabitPlan,
     cycleReviews,
+    goalHistory,
     proposeNextGoal,
     approveProposedGoal,
     dismissProposedGoal,
@@ -361,6 +362,10 @@ export default function ManageListScreen() {
     editingCycleReview?.complete === true &&
     editingCycleReview.result === "goal_achieved" &&
     !editingCycleReview.goalAlreadyAdvanced;
+  const latestEditingGoalChange = editingHabit
+    ? goalHistory.find((entry) => entry.habitId === editingHabit.id)
+    : null;
+  const recoveryGoalActive = latestEditingGoalChange?.reason === "recovery";
   const finalGoalInCurrentPeriod =
     editingHabit?.finalTarget == null || editingHabit.currentGoal == null
       ? null
@@ -1385,6 +1390,18 @@ export default function ManageListScreen() {
                       </Text>
                     </View>
 
+                    {recoveryGoalActive ? (
+                      <View className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                        <Text className="text-sm font-black text-black">
+                          Goal adjustment
+                        </Text>
+                        <Text className="mt-1 text-xs font-semibold leading-4 text-gray-600">
+                          Reflex adjusted this step to keep your plan realistic.
+                          You can change it whenever you’re ready.
+                        </Text>
+                      </View>
+                    ) : null}
+
                     {editingHabit.pendingGoal != null ? (
                       <View className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
                         <Text className="text-sm font-black text-black">
@@ -1447,8 +1464,8 @@ export default function ManageListScreen() {
                     ) : finalGoalInCurrentPeriod != null &&
                       editingHabit.currentGoal > finalGoalInCurrentPeriod ? (
                       <Text className="mt-3 text-xs font-semibold leading-4 text-gray-500">
-                        The next step becomes available after a sufficiently
-                        confirmed cycle meets this goal.
+                        Once your tracking is confirmed and you meet this goal,
+                        your next step will be ready.
                       </Text>
                     ) : null}
 
@@ -1471,6 +1488,17 @@ export default function ManageListScreen() {
                       </Pressable>
                     </View>
                   </ScrollView>
+
+                  <Pressable
+                    onPress={() => setGoalAdjustmentsOpen(false)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Done reviewing current goal"
+                    className="mt-4 rounded-2xl bg-green-600 px-4 py-3"
+                  >
+                    <Text className="text-center text-sm font-black text-white">
+                      Done
+                    </Text>
+                  </Pressable>
                 </View>
               </View>
             ) : null}

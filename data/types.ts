@@ -249,6 +249,8 @@ export type DataContextType = {
   baselineSummaries: Record<number, BaselineSummary>;
   rebaselineHabit: (habitId: number) => Promise<void>;
   goalHistory: GoalHistoryEntry[];
+  acknowledgedRecoveryGoalHistoryIds: number[];
+  acknowledgeRecoveryGoal: (goalHistoryId: number) => Promise<void>;
   trackingConfirmations: TrackingConfirmation[];
   cycleReviews: Record<number, CycleReview>;
   cycleHistory: CycleHistoryEntry[];

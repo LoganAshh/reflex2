@@ -77,6 +77,30 @@ export function calculateEasierGoal(
   return Math.max(finalTarget, Math.min(ceiling, easier));
 }
 
+export function calculateRecoveryGoal(
+  current: number,
+  baseline: number,
+  finalTarget: number,
+  measurementType: HabitMeasurementType,
+  previousGoals: number[],
+) {
+  const priorStep = previousGoals.find(
+    (goal) => goal > current && goal < baseline && goal >= finalTarget,
+  );
+  if (priorStep != null) return priorStep;
+
+  const calculated = calculateEasierGoal(
+    current,
+    baseline,
+    finalTarget,
+    measurementType,
+  );
+  const minimumStep =
+    measurementType === "minutes" && baseline - current >= 5 ? 5 : 1;
+  const belowBaseline = Math.min(calculated, baseline - minimumStep);
+  return belowBaseline > current ? belowBaseline : current;
+}
+
 export function evaluateGoalCycle(input: {
   complete: boolean;
   actual: number;
@@ -109,6 +133,25 @@ export function consecutiveDifficultCycles(
   let count = 0;
   for (let index = cycles.length - 1; index >= 0; index -= 1) {
     if (!isDifficultCycle(cycles[index].result)) break;
+    count += 1;
+  }
+  return count;
+}
+
+export function consecutiveDifficultCyclesForGoal(
+  cycles: Pick<CycleHistoryEntry, "result" | "currentGoal">[],
+  currentGoal: number,
+) {
+  let count = 0;
+  for (let index = cycles.length - 1; index >= 0; index -= 1) {
+    const cycle = cycles[index];
+    if (
+      !isDifficultCycle(cycle.result) ||
+      cycle.currentGoal == null ||
+      Math.abs(cycle.currentGoal - currentGoal) > 0.0001
+    ) {
+      break;
+    }
     count += 1;
   }
   return count;

@@ -1053,6 +1053,7 @@ export default function AnalyticsScreen() {
         <ProgressTrendChart
           habit={activeHabit}
           cycles={cycleHistory}
+          logs={logs}
           accentColor={activeHabitColor}
         />
 

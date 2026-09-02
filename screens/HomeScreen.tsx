@@ -86,6 +86,9 @@ export default function HomeScreen() {
     profilePhotoUri,
     trackingConfirmations,
     cycleReviews,
+    goalHistory,
+    acknowledgedRecoveryGoalHistoryIds,
+    acknowledgeRecoveryGoal,
     proposeNextGoal,
   } = useData();
 
@@ -166,6 +169,27 @@ export default function HomeScreen() {
       }) ?? null,
     [cycleReviews, selectedHabits],
   );
+  const recoveryGoalHabit = useMemo(() => {
+    const selectedIds = new Set(selectedHabits.map((habit) => habit.id));
+    const latestChanges = new Map<number, (typeof goalHistory)[number]>();
+    for (const entry of goalHistory) {
+      if (!latestChanges.has(entry.habitId)) {
+        latestChanges.set(entry.habitId, entry);
+      }
+    }
+    const recoveryChange = goalHistory.find(
+      (entry) =>
+        selectedIds.has(entry.habitId) &&
+        latestChanges.get(entry.habitId)?.id === entry.id &&
+        entry.reason === "recovery" &&
+        !acknowledgedRecoveryGoalHistoryIds.includes(entry.id),
+    );
+    if (!recoveryChange) return null;
+    const habit = selectedHabits.find(
+      (selectedHabit) => selectedHabit.id === recoveryChange.habitId,
+    );
+    return habit ? { habit, goalHistoryId: recoveryChange.id } : null;
+  }, [acknowledgedRecoveryGoalHistoryIds, goalHistory, selectedHabits]);
   const currentProgress = useMemo(() => {
     if (!activeHabit) return null;
 
@@ -940,6 +964,51 @@ export default function HomeScreen() {
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#16A34A" />
+              </Pressable>
+            ) : null}
+
+            {recoveryGoalHabit &&
+            (selectedHabitId === null ||
+              selectedHabitId === recoveryGoalHabit.habit.id) ? (
+              <Pressable
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  await acknowledgeRecoveryGoal(
+                    recoveryGoalHabit.goalHistoryId,
+                  );
+                  navigation.navigate("ManageList", {
+                    type: "habits",
+                    habitId: recoveryGoalHabit.habit.id,
+                    openGoal: true,
+                  });
+                }}
+                className="mt-3 flex-row items-center rounded-3xl border border-blue-200 bg-blue-50 p-3"
+              >
+                <View className="h-9 w-9 items-center justify-center rounded-full bg-white">
+                  <Ionicons name="heart" size={19} color="#2563EB" />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-black text-gray-950">
+                    Your current goal was updated
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-600">
+                    {`We adjusted ${recoveryGoalHabit.habit.name}’s next step based on your recent progress. Tap to review.`}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss goal update"
+                  hitSlop={8}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    void acknowledgeRecoveryGoal(
+                      recoveryGoalHabit.goalHistoryId,
+                    );
+                  }}
+                  className="ml-2 h-9 w-9 items-center justify-center rounded-full"
+                >
+                  <Ionicons name="close" size={22} color="#2563EB" />
+                </Pressable>
               </Pressable>
             ) : null}
 

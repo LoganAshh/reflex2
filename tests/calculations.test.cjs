@@ -5,7 +5,9 @@ const {
   startOfLocalDay,
 } = require("../.test-build/baselines.js");
 const {
+  calculateRecoveryGoal,
   consecutiveDifficultCycles,
+  consecutiveDifficultCyclesForGoal,
   evaluateGoalCycle,
   normalizeGoalAmount,
 } = require("../.test-build/goals.js");
@@ -211,5 +213,33 @@ test("goal results and recovery streaks reset after improvement", () => {
       { result: "goal_achieved" },
     ]),
     0,
+  );
+});
+
+test("recovery restores one prior goal step without returning to baseline", () => {
+  assert.equal(calculateRecoveryGoal(6, 10, 0, "times", [6, 8, 9]), 8);
+  assert.equal(calculateRecoveryGoal(9, 10, 0, "times", [9, 10]), 9);
+});
+
+test("a goal change resets the difficult-cycle count", () => {
+  assert.equal(
+    consecutiveDifficultCyclesForGoal(
+      [
+        { result: "dramatically_exceeded", currentGoal: 8 },
+        { result: "returned_to_previous_level", currentGoal: 7 },
+      ],
+      7,
+    ),
+    1,
+  );
+  assert.equal(
+    consecutiveDifficultCyclesForGoal(
+      [
+        { result: "dramatically_exceeded", currentGoal: 7 },
+        { result: "returned_to_previous_level", currentGoal: 7 },
+      ],
+      7,
+    ),
+    2,
   );
 });

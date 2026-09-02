@@ -8,6 +8,7 @@ import type {
   GoalCycleResult,
   Habit,
   HabitPeriod,
+  LogEntry,
 } from "../../data/types";
 import { normalizeGoalAmount } from "../../data/goals";
 
@@ -25,7 +26,8 @@ type TrendPoint = {
   resistedUrges: number;
   result: GoalCycleResult | null;
   rangeLabel: string;
-  maxConnectionDays: number;
+  cycleDays: number;
+  provisional: boolean;
 };
 
 const RANGE_OPTIONS: Array<{ key: RangeKey; days: number | null }> = [
@@ -36,7 +38,8 @@ const RANGE_OPTIONS: Array<{ key: RangeKey; days: number | null }> = [
 ];
 
 const PLOT_HEIGHT = 168;
-const PLOT_PADDING_X = 14;
+const PLOT_PADDING_LEFT = 42;
+const PLOT_PADDING_RIGHT = 14;
 const PLOT_PADDING_Y = 14;
 
 function periodDays(period: HabitPeriod) {
@@ -51,9 +54,56 @@ function periodName(period: HabitPeriod | null) {
   return "day";
 }
 
+function completedPeriodName(period: HabitPeriod) {
+  if (period === "week") return "weeks";
+  if (period === "28_days") return "months";
+  return "days";
+}
+
 function formatNumber(value: number) {
   if (Number.isInteger(value)) return `${value}`;
   return value.toFixed(1);
+}
+
+function formatAxisNumber(value: number) {
+  const absolute = Math.abs(value);
+  let formatted: string;
+  if (absolute >= 1000) {
+    formatted = `${Number((value / 1000).toFixed(1))}k`;
+  } else {
+    formatted = formatNumber(Number(value.toFixed(1)));
+  }
+  return formatted;
+}
+
+function niceAxisStep(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return 1;
+  const magnitude = 10 ** Math.floor(Math.log10(value));
+  const fraction = value / magnitude;
+  const niceFraction =
+    fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10;
+  return niceFraction * magnitude;
+}
+
+function axisBounds(values: number[], floorAtZero: boolean) {
+  if (values.length === 0) return { min: 0, max: 1 };
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const rawRange = rawMax - rawMin || Math.max(1, Math.abs(rawMax) * 0.2);
+  const step = niceAxisStep(rawRange / 4);
+  let min = Math.floor(rawMin / step) * step;
+  let max = Math.ceil(rawMax / step) * step;
+  if (floorAtZero) min = Math.max(0, min);
+  if (min === max) max = min + step;
+  return { min, max };
+}
+
+function formatAxisDate(timestamp: number, includeYear: boolean) {
+  return new Date(timestamp).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(includeYear ? { year: "2-digit" as const } : {}),
+  });
 }
 
 function unitForValue(unit: string, value: number) {
@@ -135,7 +185,8 @@ function individualPoints(habit: Habit, cycles: CycleHistoryEntry[]) {
       resistedUrges: cycle.resistedUrges,
       result: cycle.result,
       rangeLabel: formatCycleRange(cycle.startAt, cycle.endAtExclusive),
-      maxConnectionDays: periodDays(cycle.period) * 1.6,
+      cycleDays: periodDays(cycle.period),
+      provisional: false,
     };
   });
 }
@@ -143,7 +194,7 @@ function individualPoints(habit: Habit, cycles: CycleHistoryEntry[]) {
 function overallPoints(cycles: CycleHistoryEntry[]) {
   const weeks = new Map<
     number,
-    Map<number, { reductions: number[]; resisted: number }>
+    Map<number, { levels: number[]; resisted: number }>
   >();
 
   for (const cycle of cycles) {
@@ -157,12 +208,10 @@ function overallPoints(cycles: CycleHistoryEntry[]) {
     const week = startOfLocalWeek(cycle.endAtExclusive - 1);
     const habits = weeks.get(week) ?? new Map();
     const habit = habits.get(cycle.habitId) ?? {
-      reductions: [],
+      levels: [],
       resisted: 0,
     };
-    habit.reductions.push(
-      ((cycle.baseline - cycle.actualQuantity) / cycle.baseline) * 100,
-    );
+    habit.levels.push((cycle.actualQuantity / cycle.baseline) * 100);
     habit.resisted += cycle.resistedUrges;
     habits.set(cycle.habitId, habit);
     weeks.set(week, habits);
@@ -173,8 +222,8 @@ function overallPoints(cycles: CycleHistoryEntry[]) {
     .map(([week, habits]) => {
       const habitAverages = Array.from(habits.values()).map(
         (habit) =>
-          habit.reductions.reduce((sum, value) => sum + value, 0) /
-          habit.reductions.length,
+          habit.levels.reduce((sum, value) => sum + value, 0) /
+          habit.levels.length,
       );
       const value =
         habitAverages.reduce((sum, amount) => sum + amount, 0) /
@@ -201,7 +250,94 @@ function overallPoints(cycles: CycleHistoryEntry[]) {
       month: "short",
       day: "numeric",
     })}`,
-    maxConnectionDays: 7 * 1.6,
+    cycleDays: 7,
+    provisional: false,
+  }));
+}
+
+function startOfLocalDay(timestamp: number) {
+  const date = new Date(timestamp);
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  ).getTime();
+}
+
+function addLocalDays(timestamp: number, days: number) {
+  const date = new Date(startOfLocalDay(timestamp));
+  date.setDate(date.getDate() + days);
+  return date.getTime();
+}
+
+function provisionalActivityPoints(habit: Habit, logs: LogEntry[]) {
+  const habitLogs = logs.filter((log) => log.habitId === habit.id);
+  const trackingStarts = [
+    habit.rebaselineStartedAt,
+    habit.calibrationStartedAt,
+    ...habitLogs.map((log) => log.createdAt),
+  ].filter((value): value is number => value != null && Number.isFinite(value));
+  if (trackingStarts.length === 0) return [];
+
+  const now = Date.now();
+  const today = startOfLocalDay(now);
+  const trackingStart = startOfLocalDay(Math.min(...trackingStarts));
+  const unit = habit.unit.trim() || "times";
+  const bucketPeriod: HabitPeriod =
+    habit.currentGoalPeriod === "week" ? "day" : "week";
+  const earliest =
+    bucketPeriod === "day"
+      ? addLocalDays(today, -27)
+      : addLocalDays(today, -111);
+  let bucketStart = Math.max(trackingStart, earliest);
+  if (bucketPeriod === "week") bucketStart = startOfLocalWeek(bucketStart);
+
+  const raw: Array<{
+    startAt: number;
+    endAtExclusive: number;
+    timestamp: number;
+    quantity: number;
+    resisted: number;
+  }> = [];
+  const bucketDays = periodDays(bucketPeriod);
+  for (
+    let startAt = bucketStart;
+    startAt <= today;
+    startAt = addLocalDays(startAt, bucketDays)
+  ) {
+    const fullEnd = addLocalDays(startAt, bucketDays);
+    const observedEndExclusive = Math.min(fullEnd, now + 1);
+    const displayEndExclusive = Math.min(fullEnd, addLocalDays(today, 1));
+    const bucketLogs = habitLogs.filter(
+      (log) => log.createdAt >= startAt && log.createdAt < observedEndExclusive,
+    );
+    raw.push({
+      startAt,
+      endAtExclusive: displayEndExclusive,
+      timestamp: observedEndExclusive - 1,
+      quantity: bucketLogs.reduce(
+        (sum, log) =>
+          sum + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
+        0,
+      ),
+      resisted: bucketLogs.filter((log) => log.didResist === 1).length,
+    });
+  }
+
+  return raw.map<TrendPoint>((bucket, index) => ({
+    id: `provisional:${habit.id}:${bucketPeriod}:${bucket.startAt}`,
+    timestamp: bucket.timestamp,
+    value: bucket.quantity,
+    priorValue: raw[index - 1]?.quantity ?? null,
+    actual: bucket.quantity,
+    goal: null,
+    period: bucketPeriod,
+    unit,
+    resistedUrges: bucket.resisted,
+    result: null,
+    rangeLabel: formatCycleRange(bucket.startAt, bucket.endAtExclusive),
+    cycleDays: bucketDays,
+    provisional: true,
   }));
 }
 
@@ -212,6 +348,7 @@ function Line({
   y2,
   color,
   dashed = false,
+  opacity = 1,
 }: {
   x1: number;
   y1: number;
@@ -219,9 +356,13 @@ function Line({
   y2: number;
   color: string;
   dashed?: boolean;
+  opacity?: number;
 }) {
   const length = Math.hypot(x2 - x1, y2 - y1);
   const angle = `${Math.atan2(y2 - y1, x2 - x1)}rad`;
+  const dashWidth = 5;
+  const dashGap = 4;
+  const dashCount = Math.ceil(length / (dashWidth + dashGap));
   return (
     <View
       pointerEvents="none"
@@ -230,33 +371,126 @@ function Line({
         left: (x1 + x2) / 2 - length / 2,
         top: (y1 + y2) / 2 - 1,
         width: length,
-        height: dashed ? 1 : 2,
-        backgroundColor: color,
-        opacity: dashed ? 0.45 : 1,
+        height: 2,
+        backgroundColor: dashed ? "transparent" : color,
+        opacity,
         transform: [{ rotate: angle }],
       }}
-    />
+    >
+      {dashed
+        ? Array.from({ length: dashCount }, (_, index) => (
+            <View
+              key={index}
+              style={{
+                position: "absolute",
+                left: index * (dashWidth + dashGap),
+                width: Math.min(
+                  dashWidth,
+                  length - index * (dashWidth + dashGap),
+                ),
+                height: 1,
+                backgroundColor: color,
+                opacity: 0.42,
+              }}
+            />
+          ))
+        : null}
+    </View>
+  );
+}
+
+function darkenHex(color: string, amount = 0.28) {
+  const match = color.match(/^#([0-9a-f]{6})$/i);
+  if (!match) return color;
+  const value = Number.parseInt(match[1], 16);
+  const channel = (shift: number) =>
+    Math.max(0, Math.round(((value >> shift) & 255) * (1 - amount)));
+  return `#${[channel(16), channel(8), channel(0)]
+    .map((part) => part.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function GoalLegendItem({
+  color,
+  dashed,
+  label,
+}: {
+  color: string;
+  dashed?: boolean;
+  label: string;
+}) {
+  return (
+    <View className="flex-row items-center">
+      <View className="mr-1.5 h-2 w-6 justify-center overflow-hidden">
+        {dashed ? (
+          <View className="flex-row justify-between">
+            {[0, 1, 2].map((index) => (
+              <View
+                key={index}
+                className="h-0.5 w-1.5 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </View>
+        ) : (
+          <View
+            className="h-0.5 w-full rounded-full"
+            style={{ backgroundColor: color }}
+          />
+        )}
+      </View>
+      <Text className="text-[10px] font-black text-gray-500">{label}</Text>
+    </View>
   );
 }
 
 export function ProgressTrendChart({
   habit,
   cycles,
+  logs,
   accentColor,
 }: {
   habit: Habit | null;
   cycles: CycleHistoryEntry[];
+  logs: LogEntry[];
   accentColor: string;
 }) {
-  const [range, setRange] = useState<RangeKey>("3M");
+  const [range, setRange] = useState<RangeKey>("4W");
   const [width, setWidth] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const lastHapticId = useRef<string | null>(null);
+  const manuallySelectedRange = useRef(false);
 
-  const allPoints = useMemo(
-    () => (habit ? individualPoints(habit, cycles) : overallPoints(cycles)),
-    [cycles, habit],
-  );
+  const completedHabitCycleCount = habit
+    ? cycles.filter((cycle) => cycle.habitId === habit.id).length
+    : 0;
+  const usingProvisionalPoints =
+    habit != null &&
+    habit.currentGoalPeriod !== "day" &&
+    completedHabitCycleCount < 4;
+  const allPoints = useMemo(() => {
+    if (!habit) return overallPoints(cycles);
+    if (usingProvisionalPoints) return provisionalActivityPoints(habit, logs);
+    return individualPoints(habit, cycles);
+  }, [cycles, habit, logs, usingProvisionalPoints]);
+  const suggestedRange = useMemo<RangeKey>(() => {
+    if (usingProvisionalPoints) return "4W";
+    if (habit?.currentGoalPeriod === "28_days" && allPoints.length >= 4) {
+      return "3M";
+    }
+    if (allPoints.length < 5) return "4W";
+    const first = allPoints[0]?.timestamp;
+    const last = allPoints.at(-1)?.timestamp;
+    if (first == null || last == null) return "4W";
+    return last - first >= 28 * 24 * 60 * 60 * 1000 ? "3M" : "4W";
+  }, [allPoints, habit?.currentGoalPeriod, usingProvisionalPoints]);
+
+  useEffect(() => {
+    if (!manuallySelectedRange.current) {
+      setRange(suggestedRange);
+    }
+  }, [suggestedRange]);
+
   const points = useMemo(() => {
     const days = RANGE_OPTIONS.find((option) => option.key === range)?.days;
     if (days == null) return allPoints;
@@ -276,23 +510,32 @@ export function ProgressTrendChart({
 
   const selected =
     points.find((point) => point.id === selectedId) ?? points.at(-1) ?? null;
-  const currentGoal = habit?.currentGoal ?? null;
+  const currentGoal = usingProvisionalPoints
+    ? null
+    : (habit?.currentGoal ?? null);
+  const longTermGoal =
+    usingProvisionalPoints || habit?.finalTarget == null
+      ? null
+      : normalizeGoalAmount(
+          habit.finalTarget,
+          habit.goalPeriod,
+          habit.currentGoalPeriod,
+        );
+  const showLongTermGoal =
+    longTermGoal != null &&
+    (currentGoal == null || Math.abs(longTermGoal - currentGoal) > 0.0001);
+  const longTermColor = darkenHex(accentColor);
   const scaleValues = [
     ...points.map((point) => point.value),
     ...(currentGoal == null ? [] : [currentGoal]),
+    ...(!showLongTermGoal || longTermGoal == null ? [] : [longTermGoal]),
   ];
-  let minValue = scaleValues.length ? Math.min(...scaleValues) : 0;
-  let maxValue = scaleValues.length ? Math.max(...scaleValues) : 1;
-  if (minValue === maxValue) {
-    minValue -= Math.max(1, Math.abs(minValue) * 0.1);
-    maxValue += Math.max(1, Math.abs(maxValue) * 0.1);
-  } else {
-    const padding = (maxValue - minValue) * 0.12;
-    minValue -= padding;
-    maxValue += padding;
-  }
+  const { min: minValue, max: maxValue } = axisBounds(
+    scaleValues,
+    habit != null,
+  );
 
-  const plotWidth = Math.max(1, width - PLOT_PADDING_X * 2);
+  const plotWidth = Math.max(1, width - PLOT_PADDING_LEFT - PLOT_PADDING_RIGHT);
   const plotHeight = PLOT_HEIGHT - PLOT_PADDING_Y * 2;
   const minTime = points[0]?.timestamp ?? 0;
   const maxTime = points.at(-1)?.timestamp ?? minTime;
@@ -300,8 +543,8 @@ export function ProgressTrendChart({
     point,
     x:
       points.length === 1 || maxTime === minTime
-        ? PLOT_PADDING_X + plotWidth / 2
-        : PLOT_PADDING_X +
+        ? PLOT_PADDING_LEFT + plotWidth / 2
+        : PLOT_PADDING_LEFT +
           ((point.timestamp - minTime) / (maxTime - minTime)) * plotWidth,
     y:
       PLOT_PADDING_Y +
@@ -333,6 +576,17 @@ export function ProgressTrendChart({
   const delta =
     selected?.priorValue == null ? null : selected.value - selected.priorValue;
   const result = selected ? resultLabel(selected.result) : null;
+  const yAxisRatios = [0, 0.25, 0.5, 0.75, 1];
+  const xAxisDates =
+    minTime === maxTime
+      ? minTime > 0
+        ? [minTime]
+        : []
+      : Array.from(
+          { length: 4 },
+          (_, index) => minTime + ((maxTime - minTime) * index) / 3,
+        );
+  const includeYearOnXAxis = maxTime - minTime > 365 * 24 * 60 * 60 * 1000;
 
   return (
     <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
@@ -342,9 +596,11 @@ export function ProgressTrendChart({
             Progress over time
           </Text>
           <Text className="mt-0.5 text-xs font-semibold text-gray-500">
-            {habit
-              ? `Your completed ${periodName(habit.currentGoalPeriod)} cycles · Lower is better`
-              : "Average reduction from each habit’s baseline · Higher is better"}
+            {habit && usingProvisionalPoints
+              ? `${habit.currentGoalPeriod === "week" ? "Daily" : "Weekly"} activity · Lower is better`
+              : habit
+                ? `Completed ${completedPeriodName(habit.currentGoalPeriod)} · Lower is better`
+                : "Overall activity score · Lower is better"}
           </Text>
         </View>
         <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
@@ -360,6 +616,7 @@ export function ProgressTrendChart({
               key={option.key}
               onPress={() => {
                 Haptics.selectionAsync().catch(() => {});
+                manuallySelectedRange.current = true;
                 setRange(option.key);
               }}
               className="flex-1 rounded-full border px-2 py-1.5"
@@ -377,6 +634,21 @@ export function ProgressTrendChart({
           );
         })}
       </View>
+
+      {habit && (currentGoal != null || showLongTermGoal) ? (
+        <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2 px-1">
+          {currentGoal != null ? (
+            <GoalLegendItem color={accentColor} label="Current goal" />
+          ) : null}
+          {showLongTermGoal && longTermGoal != null ? (
+            <GoalLegendItem
+              color={longTermColor}
+              dashed
+              label="Long-term goal"
+            />
+          ) : null}
+        </View>
+      ) : null}
 
       {points.length === 0 ? (
         <View className="mt-3 h-40 items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white px-5">
@@ -399,14 +671,32 @@ export function ProgressTrendChart({
             onResponderGrant={selectNearest}
             onResponderMove={selectNearest}
           >
+            {yAxisRatios.map((ratio) => (
+              <View
+                key={`label:${ratio}`}
+                pointerEvents="none"
+                className="absolute justify-center"
+                style={{
+                  left: 2,
+                  top: PLOT_PADDING_Y + plotHeight * ratio - 7,
+                  width: PLOT_PADDING_LEFT - 9,
+                  height: 14,
+                }}
+              >
+                <Text className="text-right text-[9px] font-bold text-gray-400">
+                  {formatAxisNumber(maxValue - (maxValue - minValue) * ratio)}
+                </Text>
+              </View>
+            ))}
+
             {[0.25, 0.5, 0.75].map((ratio) => (
               <View
                 key={ratio}
                 pointerEvents="none"
                 style={{
                   position: "absolute",
-                  left: PLOT_PADDING_X,
-                  right: PLOT_PADDING_X,
+                  left: PLOT_PADDING_LEFT,
+                  right: PLOT_PADDING_RIGHT,
                   top: PLOT_PADDING_Y + plotHeight * ratio,
                   height: 1,
                   backgroundColor: "#F3F4F6",
@@ -415,37 +705,41 @@ export function ProgressTrendChart({
             ))}
 
             {habit && currentGoal != null && width > 0 ? (
-              <>
-                <View
-                  pointerEvents="none"
-                  style={{
-                    position: "absolute",
-                    left: PLOT_PADDING_X,
-                    right: PLOT_PADDING_X,
-                    top:
-                      PLOT_PADDING_Y +
-                      ((maxValue - currentGoal) / (maxValue - minValue)) *
-                        plotHeight,
-                    height: 1,
-                    backgroundColor: accentColor,
-                    opacity: 0.35,
-                  }}
-                />
-                <Text
-                  pointerEvents="none"
-                  className="absolute right-2 bg-white px-1 text-[9px] font-black"
-                  style={{
-                    color: accentColor,
-                    top:
-                      PLOT_PADDING_Y +
-                      ((maxValue - currentGoal) / (maxValue - minValue)) *
-                        plotHeight -
-                      12,
-                  }}
-                >
-                  Current goal
-                </Text>
-              </>
+              <Line
+                x1={PLOT_PADDING_LEFT}
+                y1={
+                  PLOT_PADDING_Y +
+                  ((maxValue - currentGoal) / (maxValue - minValue)) *
+                    plotHeight
+                }
+                x2={width - PLOT_PADDING_RIGHT}
+                y2={
+                  PLOT_PADDING_Y +
+                  ((maxValue - currentGoal) / (maxValue - minValue)) *
+                    plotHeight
+                }
+                color={accentColor}
+                opacity={0.35}
+              />
+            ) : null}
+
+            {habit && showLongTermGoal && longTermGoal != null && width > 0 ? (
+              <Line
+                x1={PLOT_PADDING_LEFT}
+                y1={
+                  PLOT_PADDING_Y +
+                  ((maxValue - longTermGoal) / (maxValue - minValue)) *
+                    plotHeight
+                }
+                x2={width - PLOT_PADDING_RIGHT}
+                y2={
+                  PLOT_PADDING_Y +
+                  ((maxValue - longTermGoal) / (maxValue - minValue)) *
+                    plotHeight
+                }
+                color={longTermColor}
+                dashed
+              />
             ) : null}
 
             {width > 0
@@ -454,15 +748,14 @@ export function ProgressTrendChart({
                   const gapDays =
                     (coordinate.point.timestamp - previous.point.timestamp) /
                     (24 * 60 * 60 * 1000);
-                  if (
-                    gapDays >
-                    Math.max(
-                      previous.point.maxConnectionDays,
-                      coordinate.point.maxConnectionDays,
-                    )
-                  ) {
+                  const expectedDays = Math.max(
+                    previous.point.cycleDays,
+                    coordinate.point.cycleDays,
+                  );
+                  if (gapDays > expectedDays * 2.5) {
                     return null;
                   }
+                  const crossesMissingCycle = gapDays > expectedDays * 1.5;
                   return (
                     <Line
                       key={`${previous.point.id}:${coordinate.point.id}`}
@@ -471,6 +764,7 @@ export function ProgressTrendChart({
                       x2={coordinate.x}
                       y2={coordinate.y}
                       color={accentColor}
+                      dashed={crossesMissingCycle}
                     />
                   );
                 })
@@ -479,20 +773,51 @@ export function ProgressTrendChart({
             {width > 0
               ? coordinates.map((coordinate) => {
                   const active = coordinate.point.id === selected?.id;
+                  const pointGoal = coordinate.point.goal;
+                  const meetsCurrentGoal =
+                    habit != null &&
+                    pointGoal != null &&
+                    coordinate.point.value <= pointGoal;
+                  const meetsLongTermGoal =
+                    habit != null &&
+                    longTermGoal != null &&
+                    coordinate.point.value <= longTermGoal;
+                  const dotColor = meetsLongTermGoal
+                    ? longTermColor
+                    : accentColor;
+                  const dotSize = meetsLongTermGoal
+                    ? active
+                      ? 18
+                      : 14
+                    : active
+                      ? 14
+                      : 10;
                   return (
                     <View
                       key={coordinate.point.id}
                       pointerEvents="none"
                       className="absolute items-center justify-center rounded-full bg-white"
                       style={{
-                        left: coordinate.x - (active ? 7 : 5),
-                        top: coordinate.y - (active ? 7 : 5),
-                        width: active ? 14 : 10,
-                        height: active ? 14 : 10,
+                        left: coordinate.x - dotSize / 2,
+                        top: coordinate.y - dotSize / 2,
+                        width: dotSize,
+                        height: dotSize,
                         borderWidth: active ? 3 : 2,
-                        borderColor: accentColor,
+                        borderColor: dotColor,
+                        backgroundColor: meetsCurrentGoal
+                          ? dotColor
+                          : "#FFFFFF",
+                        opacity: habit != null && !meetsCurrentGoal ? 0.55 : 1,
                       }}
-                    />
+                    >
+                      {meetsLongTermGoal ? (
+                        <Ionicons
+                          name="checkmark"
+                          size={active ? 10 : 8}
+                          color="#FFFFFF"
+                        />
+                      ) : null}
+                    </View>
                   );
                 })
               : null}
@@ -513,23 +838,25 @@ export function ProgressTrendChart({
             ) : null}
           </View>
 
-          <View className="mt-2 flex-row justify-between px-1">
-            <Text className="text-[10px] font-bold text-gray-400">
-              {new Date(points[0].timestamp).toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-              })}
-            </Text>
-            <Text className="text-[10px] font-bold text-gray-400">
-              Tap or drag to inspect
-            </Text>
-            <Text className="text-[10px] font-bold text-gray-400">
-              {new Date(points.at(-1)?.timestamp ?? 0).toLocaleDateString(
-                undefined,
-                { month: "short", day: "numeric" },
-              )}
-            </Text>
+          <View
+            className={`mt-2 flex-row ${xAxisDates.length === 1 ? "justify-center" : "justify-between"}`}
+            style={{
+              marginLeft: PLOT_PADDING_LEFT,
+              marginRight: PLOT_PADDING_RIGHT,
+            }}
+          >
+            {xAxisDates.map((timestamp, index) => (
+              <Text
+                key={`${timestamp}:${index}`}
+                className="text-[9px] font-bold text-gray-400"
+              >
+                {formatAxisDate(timestamp, includeYearOnXAxis)}
+              </Text>
+            ))}
           </View>
+          <Text className="mt-1 text-center text-[10px] font-bold text-gray-400">
+            Tap or drag to inspect
+          </Text>
 
           {selected ? (
             <View className="mt-3 rounded-2xl border border-gray-200 bg-white p-3">
@@ -539,10 +866,13 @@ export function ProgressTrendChart({
               <Text className="mt-1 text-xl font-black text-black">
                 {habit && selected.actual != null
                   ? `${formatNumber(selected.actual)} ${unitForValue(selected.unit, selected.actual)} per ${periodName(selected.period)}`
-                  : selected.value >= 0
-                    ? `${formatNumber(selected.value)}% below baseline`
-                    : `${formatNumber(Math.abs(selected.value))}% above baseline`}
+                  : `Overall score: ${formatNumber(selected.value)}`}
               </Text>
+              {habit == null ? (
+                <Text className="mt-1 text-xs font-semibold text-gray-600">
+                  You started at 100
+                </Text>
+              ) : null}
               {habit && selected.goal != null ? (
                 <Text className="mt-1 text-xs font-semibold text-gray-600">
                   Goal then: {formatNumber(selected.goal)}{" "}
@@ -558,7 +888,7 @@ export function ProgressTrendChart({
                       ? delta <= 0
                         ? "#15803D"
                         : "#6B7280"
-                      : delta >= 0
+                      : delta <= 0
                         ? "#15803D"
                         : "#6B7280",
                   }}
@@ -569,16 +899,21 @@ export function ProgressTrendChart({
                       : delta > 0
                         ? `${formatNumber(delta)} more than the previous cycle`
                         : "Same as the previous cycle"
-                    : delta > 0
-                      ? `${formatNumber(delta)} percentage points better than the prior week`
-                      : delta < 0
-                        ? `${formatNumber(Math.abs(delta))} percentage points below the prior week`
-                        : "Same as the prior week"}
+                    : delta < 0
+                      ? `Down ${formatNumber(Math.abs(delta))} points from last week`
+                      : delta > 0
+                        ? `Up ${formatNumber(delta)} points from last week`
+                        : "Same as last week"}
                 </Text>
               ) : null}
               {result ? (
                 <Text className="mt-1 text-xs font-semibold text-gray-600">
                   {result}
+                </Text>
+              ) : null}
+              {selected.provisional ? (
+                <Text className="mt-1 text-xs font-semibold text-gray-500">
+                  {`Your completed-${habit?.currentGoalPeriod === "week" ? "week" : "month"} trend is still building. This activity is not used for goal results yet.`}
                 </Text>
               ) : null}
               {selected.resistedUrges > 0 ? (

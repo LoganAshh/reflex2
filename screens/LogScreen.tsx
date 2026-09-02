@@ -349,12 +349,16 @@ function ExactDateTimePickerOverlay({
 
       <View
         className="mt-4 items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 px-2 py-3"
-        style={Platform.OS === "ios" ? { height: 220 } : undefined}
+        style={
+          Platform.OS === "ios" ? { height: isDate ? 360 : 220 } : undefined
+        }
       >
         <DateTimePicker
           value={value}
           mode={mode}
-          display={Platform.OS === "ios" ? "spinner" : "default"}
+          display={
+            Platform.OS === "ios" ? (isDate ? "inline" : "spinner") : "default"
+          }
           onChange={(_, selectedDate) => {
             if (!selectedDate) {
               if (Platform.OS !== "ios") onClose();
@@ -366,7 +370,9 @@ function ExactDateTimePickerOverlay({
           textColor="#000000"
           themeVariant="light"
           style={
-            Platform.OS === "ios" ? { width: "100%", height: 200 } : undefined
+            Platform.OS === "ios"
+              ? { width: "100%", height: isDate ? 340 : 200 }
+              : undefined
           }
         />
       </View>
@@ -455,7 +461,7 @@ function LogDateTimeModal({
     >
       <View className="flex-1">
         <Pressable
-          className="flex-1 items-center justify-center bg-black/40 px-6"
+          className="flex-1 items-center justify-center bg-black/40 px-4"
           onPress={() => {
             if (showDatePicker) setShowDatePicker(false);
             else if (showTimePicker) setShowTimePicker(false);

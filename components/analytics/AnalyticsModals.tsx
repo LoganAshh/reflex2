@@ -1035,7 +1035,7 @@ export function EditLogModal({
                   <DateTimePicker
                     value={datePickerValue}
                     mode="date"
-                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    display={Platform.OS === "ios" ? "inline" : "default"}
                     onChange={(_, selectedDate) => {
                       if (!selectedDate) return;
 
@@ -1049,6 +1049,11 @@ export function EditLogModal({
                     }}
                     textColor="#000000"
                     themeVariant="light"
+                    style={
+                      Platform.OS === "ios"
+                        ? { width: "100%", height: 340 }
+                        : undefined
+                    }
                   />
 
                   {Platform.OS === "ios" ? (
