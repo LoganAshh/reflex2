@@ -148,7 +148,10 @@ function resultLabel(result: GoalCycleResult | null) {
 function individualPoints(habit: Habit, cycles: CycleHistoryEntry[]) {
   const relevant = cycles
     .filter(
-      (cycle) => cycle.habitId === habit.id && cycle.actualQuantity != null,
+      (cycle) =>
+        cycle.habitId === habit.id &&
+        cycle.period === habit.currentGoalPeriod &&
+        cycle.actualQuantity != null,
     )
     .sort((a, b) => a.startAt - b.startAt);
 
@@ -462,7 +465,11 @@ export function ProgressTrendChart({
   const manuallySelectedRange = useRef(false);
 
   const completedHabitCycleCount = habit
-    ? cycles.filter((cycle) => cycle.habitId === habit.id).length
+    ? cycles.filter(
+        (cycle) =>
+          cycle.habitId === habit.id &&
+          cycle.period === habit.currentGoalPeriod,
+      ).length
     : 0;
   const usingProvisionalPoints =
     habit != null &&
@@ -538,7 +545,8 @@ export function ProgressTrendChart({
   const plotWidth = Math.max(1, width - PLOT_PADDING_LEFT - PLOT_PADDING_RIGHT);
   const plotHeight = PLOT_HEIGHT - PLOT_PADDING_Y * 2;
   const minTime = points[0]?.timestamp ?? 0;
-  const maxTime = points.at(-1)?.timestamp ?? minTime;
+  const latestPointTime = points.at(-1)?.timestamp ?? minTime;
+  const maxTime = Math.max(latestPointTime, Date.now());
   const coordinates = points.map((point, index) => ({
     point,
     x:
