@@ -57,10 +57,12 @@ export type TabResetParams = {
 export type RootTabParamList = {
   Home: TabResetParams | undefined;
   Analytics: TabResetParams | undefined;
-  Shop: TabResetParams | undefined;
+  Help: TabResetParams | undefined;
   Log:
     | (TabResetParams & {
         manageListSelection?: ManageListSelection;
+        fromHelp?: boolean;
+        helpSelectedActionId?: number | null;
       })
     | undefined;
   Settings: TabResetParams | undefined;
@@ -281,8 +283,8 @@ function Tabs() {
             case "Home":
               iconName = focused ? "home" : "home-outline";
               break;
-            case "Shop":
-              iconName = focused ? "flash" : "flash-outline";
+            case "Help":
+              iconName = focused ? "shield-checkmark" : "shield-outline";
               break;
             case "Log":
               iconName = focused ? "add-circle" : "add-circle-outline";
@@ -337,8 +339,9 @@ function Tabs() {
       />
 
       <Tab.Screen
-        name="Shop"
-        component={ShopScreen}
+        name="Help"
+        component={UrgeHelpScreen}
+        options={{ title: "Urge help" }}
         listeners={({ navigation }) => ({
           tabPress: () => onTabPress(navigation),
         })}

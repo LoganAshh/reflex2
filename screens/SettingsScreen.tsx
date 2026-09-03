@@ -59,7 +59,7 @@ function Row({
       }}
       disabled={!clickable}
       className={[
-        "rounded-[28px] border p-4 shadow-sm",
+        "rounded-[28px] border px-4 py-3 shadow-sm",
         danger ? "border-red-200 bg-red-50" : "border-gray-200 bg-white",
         disabled ? "opacity-50" : "",
       ].join(" ")}
@@ -67,13 +67,13 @@ function Row({
       <View className="flex-row items-center justify-between">
         <View className="flex-row flex-1 items-center pr-4">
           <View
-            className={`h-11 w-11 items-center justify-center rounded-2xl border ${
+            className={`h-10 w-10 items-center justify-center rounded-2xl border ${
               danger ? "border-red-200 bg-white" : "border-gray-200 bg-white"
             }`}
           >
             <Ionicons
               name={icon}
-              size={23}
+              size={21}
               color={danger ? "#DC2626" : "#000000"}
             />
           </View>
@@ -121,9 +121,9 @@ function SectionTitle({
   icon: keyof typeof Ionicons.glyphMap;
 }) {
   return (
-    <View className="mb-3 mt-6 flex-row items-center">
-      <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <Ionicons name={icon} size={19} color="#000000" />
+    <View className="mb-2 mt-4 flex-row items-center">
+      <View className="h-8 w-8 items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <Ionicons name={icon} size={17} color="#000000" />
       </View>
 
       <Text className="ml-2 text-xs font-black uppercase tracking-widest text-green-600">
@@ -511,19 +511,19 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <View className="mt-6 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+      <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
         <View className="flex-row items-center">
           {profilePhotoUri ? (
             <View className="rounded-full border-4 border-green-600 bg-white">
               <Image
                 source={{ uri: profilePhotoUri }}
-                className="h-16 w-16 rounded-full"
+                className="h-14 w-14 rounded-full"
                 resizeMode="cover"
               />
             </View>
           ) : (
-            <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white">
-              <Ionicons name="person" size={28} color="#000000" />
+            <View className="h-14 w-14 items-center justify-center rounded-full border-4 border-green-600 bg-white">
+              <Ionicons name="person" size={25} color="#000000" />
             </View>
           )}
 
@@ -555,11 +555,11 @@ export default function SettingsScreen() {
 
       <SectionTitle title="Reminders" icon="notifications" />
 
-      <View className="rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+      <View className="rounded-[32px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
         <View className="flex-row items-start justify-between">
           <View className="flex-row flex-1 items-start pr-4">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="alarm" size={24} color="#000000" />
+            <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="alarm" size={21} color="#000000" />
             </View>
 
             <View className="ml-3 flex-1">
@@ -567,7 +567,7 @@ export default function SettingsScreen() {
                 Daily reflection reminder
               </Text>
 
-              <Text className="mt-2 text-sm font-black text-green-600">
+              <Text className="mt-1 text-sm font-black text-green-600">
                 {dailyReminder.option === "off"
                   ? "Currently off"
                   : `${getReminderLabel(dailyReminder.option)} · ${formatReminderTime(
@@ -585,7 +585,7 @@ export default function SettingsScreen() {
           {busy === "reminder" ? <ActivityIndicator /> : null}
         </View>
 
-        <View className="mt-5 flex-row flex-wrap gap-2">
+        <View className="mt-3 flex-row flex-wrap gap-2">
           {(
             ["off", "morning", "evening", "custom"] as DailyReminderOption[]
           ).map((option) => {
@@ -597,7 +597,7 @@ export default function SettingsScreen() {
                 onPress={() => onChooseReminder(option)}
                 disabled={!!busy}
                 className={[
-                  "flex-row items-center rounded-full border px-4 py-2.5",
+                  "flex-row items-center rounded-full border px-4 py-2",
                   selected
                     ? "border-green-600 bg-green-600"
                     : "border-gray-200 bg-white",
@@ -624,7 +624,7 @@ export default function SettingsScreen() {
         </View>
 
         {dailyReminder.option === "custom" && (
-          <View className="mt-5 rounded-[28px] border border-gray-200 bg-white p-2">
+          <View className="mt-3 rounded-[28px] border border-gray-200 bg-white p-2">
             <DateTimePicker
               value={
                 new Date(2000, 0, 1, dailyReminder.hour, dailyReminder.minute)
@@ -672,7 +672,7 @@ export default function SettingsScreen() {
 
       <SectionTitle title="Profile" icon="person-circle" />
 
-      <View className="gap-3">
+      <View className="gap-2">
         <Row
           title="Edit profile"
           subtitle="Change your local username and profile picture."
@@ -700,7 +700,7 @@ export default function SettingsScreen() {
 
       <SectionTitle title="Data" icon="folder" />
 
-      <View className="gap-3">
+      <View className="gap-2">
         <Row
           title="Export data"
           subtitle="Exporting creates a file you control and can store or share."
@@ -754,7 +754,7 @@ export default function SettingsScreen() {
 
       <SectionTitle title="About" icon="information-circle" />
 
-      <View className="gap-3">
+      <View className="gap-2">
         <Row
           title="Version"
           subtitle={version}
@@ -767,7 +767,7 @@ export default function SettingsScreen() {
           }
         />
 
-        <View className="rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+        <View className="rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
           <View className="flex-row items-center">
             <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
               <Ionicons name="leaf" size={23} color="#000000" />

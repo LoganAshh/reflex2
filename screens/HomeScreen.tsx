@@ -70,6 +70,85 @@ function unitForValue(unit: string, value: number) {
   return unit;
 }
 
+const MOTIVATIONAL_QUOTES = [
+  {
+    text: "An urge is temporary. Your next choice still belongs to you.",
+    attribution: null,
+  },
+  {
+    text: "Progress comes from returning, not from being perfect.",
+    attribution: null,
+  },
+  {
+    text: "A difficult moment does not erase the work you’ve done.",
+    attribution: null,
+  },
+  {
+    text: "Until you make the unconscious conscious, it will direct your life and you will call it fate.",
+    attribution: "Carl Jung",
+  },
+  {
+    text: "Awareness turns automatic patterns into choices.",
+    attribution: null,
+  },
+  {
+    text: "A pause is progress when autopilot was the alternative.",
+    attribution: null,
+  },
+  {
+    text: "You can restart from the very next choice.",
+    attribution: null,
+  },
+  {
+    text: "Small choices become strong patterns when repeated.",
+    attribution: null,
+  },
+  {
+    text: "One difficult moment does not decide the rest of your day.",
+    attribution: null,
+  },
+  {
+    text: "Noticing the pattern is already a step outside it.",
+    attribution: null,
+  },
+  {
+    text: "You do not need a perfect day to make a better choice.",
+    attribution: null,
+  },
+  {
+    text: "If there is no struggle, there is no progress.",
+    attribution: "Frederick Douglass",
+  },
+  {
+    text: "Nothing great was ever achieved without enthusiasm.",
+    attribution: "Ralph Waldo Emerson",
+  },
+  {
+    text: "Things do not change; we change.",
+    attribution: "Henry David Thoreau",
+  },
+  {
+    text: "Well done is better than well said.",
+    attribution: "Benjamin Franklin",
+  },
+  {
+    text: "Fall seven times, stand up eight.",
+    attribution: "Japanese proverb",
+  },
+  {
+    text: "No man is free who is not master of himself.",
+    attribution: "Epictetus",
+  },
+  {
+    text: "The mind converts and changes every hindrance to its activity into an aid.",
+    attribution: "Marcus Aurelius",
+  },
+  {
+    text: "Although the world is full of suffering, it is full also of the overcoming of it.",
+    attribution: "Helen Keller",
+  },
+] as const;
+
 type TabNav = BottomTabNavigationProp<RootTabParamList, "Home">;
 type StackNav = NativeStackNavigationProp<RootStackParamList>;
 type Nav = TabNav & StackNav;
@@ -502,6 +581,22 @@ export default function HomeScreen() {
       };
     }
 
+    if (stats.comparisonDays === 0 && stats.todayLogs === 0) {
+      const dayNumber = Math.floor(startOfDayMs(new Date()) / 86_400_000);
+      const habitOffset = selectedHabitId ?? 0;
+      const quote =
+        MOTIVATIONAL_QUOTES[
+          Math.abs(dayNumber + habitOffset) % MOTIVATIONAL_QUOTES.length
+        ];
+
+      return {
+        title: "A Thought for Today",
+        text: quote.attribution
+          ? `“${quote.text}” — ${quote.attribution}`
+          : quote.text,
+      };
+    }
+
     const averageGiveInsText = formatAverage(stats.averageGiveIns);
     const todayActivityUnit =
       stats.todayGiveIns === 1
@@ -784,7 +879,7 @@ export default function HomeScreen() {
               <Pressable
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("Shop");
+                  navigation.navigate("ShopPicker", { showDoneButton: true });
                 }}
                 className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
               >
@@ -819,7 +914,7 @@ export default function HomeScreen() {
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                navigation.navigate("Shop");
+                navigation.navigate("ShopPicker", { showDoneButton: true });
               }}
               className="rounded-3xl border border-gray-200 bg-gray-50 px-5 py-3.5 shadow-sm"
             >

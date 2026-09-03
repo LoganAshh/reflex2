@@ -1357,6 +1357,10 @@ export default function LogScreen() {
     const submittedCount = submittedDidResist ? 0 : Math.max(1, count);
     const submittedNotes = notes.trim() || undefined;
     const submittedCreatedAt = logDate.getTime();
+    const submittedFromHelp = route.params?.fromHelp === true;
+    const submittedSelectedActionId = submittedFromHelp
+      ? (route.params?.helpSelectedActionId ?? null)
+      : null;
 
     try {
       const newLogId = await addLog({
@@ -1368,6 +1372,7 @@ export default function LogScreen() {
         count: submittedCount,
         didResist: submittedDidResist,
         notes: submittedNotes,
+        selectedActionId: submittedSelectedActionId,
       });
 
       if (newLogId != null) {
@@ -1379,6 +1384,7 @@ export default function LogScreen() {
           count: submittedCount,
           didResist: submittedDidResist,
           notes: submittedNotes,
+          selectedActionId: submittedSelectedActionId,
           createdAt: submittedCreatedAt,
         });
       }
@@ -1388,6 +1394,15 @@ export default function LogScreen() {
       );
 
       resetToDefaults(getDefaultHabitIdAfterLog(submittedHabitId));
+
+      if (submittedFromHelp) {
+        navigation.setParams({
+          fromHelp: undefined,
+          helpSelectedActionId: undefined,
+        });
+        navigation.navigate("Home");
+        return;
+      }
 
       if (newLogId != null) {
         navigation.navigate("UrgeHelp", { logId: newLogId });

@@ -12,7 +12,8 @@ import * as Haptics from "expo-haptics";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
-import type { RootTabParamList } from "../App";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList, RootTabParamList } from "../App";
 import { useData, type LogEntry } from "../data/DataContext";
 import {
   AnalyticsCalendar,
@@ -169,8 +170,20 @@ async function successHaptic() {
 }
 
 type TabKey = "Overall" | string;
+type PatternRangeKey = "4W" | "3M" | "6M" | "All";
+
+const PATTERN_RANGE_OPTIONS: Array<{
+  key: PatternRangeKey;
+  days: number | null;
+}> = [
+  { key: "4W", days: 28 },
+  { key: "3M", days: 90 },
+  { key: "6M", days: 180 },
+  { key: "All", days: null },
+];
 type AnalyticsRoute = RouteProp<RootTabParamList, "Analytics">;
-type Nav = BottomTabNavigationProp<RootTabParamList, "Analytics">;
+type Nav = BottomTabNavigationProp<RootTabParamList, "Analytics"> &
+  NativeStackNavigationProp<RootStackParamList>;
 function StatCard({
   label,
   value,
@@ -310,6 +323,7 @@ export default function AnalyticsScreen() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("Overall");
   const [monthOffset, setMonthOffset] = useState(0);
+  const [patternRange, setPatternRange] = useState<PatternRangeKey>("4W");
   const [dayModalOpen, setDayModalOpen] = useState(false);
   const [selectedDayMs, setSelectedDayMs] = useState<number | null>(null);
   const [editingLog, setEditingLog] = useState<LogEntry | null>(null);
@@ -352,6 +366,7 @@ export default function AnalyticsScreen() {
     handledResetTokenRef.current = resetToken;
     setActiveTab("Overall");
     setMonthOffset(0);
+    setPatternRange("4W");
     setDayModalOpen(false);
     setSelectedDayMs(null);
     closeEditModalWithoutHaptic();
@@ -678,8 +693,25 @@ export default function AnalyticsScreen() {
   };
 
   const data = useMemo(() => {
-    const weekStart = startOfWeekMs(new Date());
-    const weekLogs = filteredLogs.filter((l) => l.createdAt >= weekStart);
+    const selectedRange = PATTERN_RANGE_OPTIONS.find(
+      (option) => option.key === patternRange,
+    );
+    const now = new Date();
+    const rangeStart =
+      selectedRange?.days == null
+        ? null
+        : startOfDayMs(
+            new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              now.getDate() - (selectedRange.days - 1),
+            ).getTime(),
+          );
+    const patternLogs = filteredLogs.filter(
+      (log) =>
+        log.didResist !== 1 &&
+        (rangeStart == null || log.createdAt >= rangeStart),
+    );
     const topN = (m: Map<string, number>) =>
       Array.from(m.entries())
         .sort((a, b) => b[1] - a[1])
@@ -701,7 +733,7 @@ export default function AnalyticsScreen() {
       return "Night";
     };
 
-    for (const l of weekLogs) {
+    for (const l of patternLogs) {
       const loc = (l.locationName ?? "").trim();
 
       for (const cue of l.cueNames) {
@@ -717,11 +749,12 @@ export default function AnalyticsScreen() {
     }
 
     return {
+      gaveInCount: patternLogs.length,
       topCues: topN(cueCounts),
       topLocations: topN(locCounts),
       topTimes: topN(timeCounts),
     };
-  }, [filteredLogs]);
+  }, [filteredLogs, patternRange]);
 
   const extraAnalytics = useMemo(() => {
     const now = Date.now();
@@ -869,7 +902,7 @@ export default function AnalyticsScreen() {
     };
   }, [filteredLogs, activeTab]);
 
-  const patternTitle = "Weekly patterns";
+  const patternTitle = "Habit activity patterns";
 
   const activeHabitColor =
     activeTab === "Overall"
@@ -961,7 +994,7 @@ export default function AnalyticsScreen() {
             <Pressable
               onPress={async () => {
                 await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("Shop");
+                navigation.navigate("ShopPicker", { showDoneButton: true });
               }}
               className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
             >
@@ -1097,13 +1130,16 @@ export default function AnalyticsScreen() {
 
         <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="flex-row items-center justify-between">
-            <View>
+            <View className="flex-1 pr-3">
               <Text className="text-xl font-black text-black">
                 {patternTitle}
               </Text>
 
-              <Text className="mt-1 text-sm font-semibold text-gray-500">
-                Your most common triggers this week.
+              <Text
+                className="mt-1 text-sm font-semibold text-gray-500"
+                numberOfLines={1}
+              >
+                When, where, and why it happens.
               </Text>
             </View>
 
@@ -1115,29 +1151,78 @@ export default function AnalyticsScreen() {
             </View>
           </View>
 
-          <ListBlock
-            accentColor={activeHabitColor}
-            title="Most Common Cues"
-            items={data.topCues}
-            empty="Add cues in your logs to see patterns."
-            icon="alert-circle"
-          />
+          <View className="mt-3 flex-row gap-2">
+            {PATTERN_RANGE_OPTIONS.map((option) => {
+              const selected = patternRange === option.key;
 
-          <ListBlock
-            accentColor={activeHabitColor}
-            title="Most Common Locations"
-            items={data.topLocations}
-            empty="Add locations in your logs to see patterns."
-            icon="location"
-          />
+              return (
+                <Pressable
+                  key={option.key}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setPatternRange(option.key);
+                  }}
+                  className="flex-1 rounded-full border px-2 py-1.5"
+                  style={{
+                    borderColor: selected
+                      ? activeHabitColor
+                      : ICON_BUBBLE_BORDER,
+                    backgroundColor: selected ? activeHabitColor : "#FFFFFF",
+                  }}
+                >
+                  <Text
+                    className={`text-center text-xs font-black ${
+                      selected ? "text-white" : "text-black"
+                    }`}
+                  >
+                    {option.key}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-          <ListBlock
-            accentColor={activeHabitColor}
-            title="Most Common Times"
-            items={data.topTimes}
-            empty="Log a few check-ins and this will populate."
-            icon="time"
-          />
+          {data.gaveInCount === 0 ? (
+            <View className="mt-4 flex-row items-center rounded-[28px] border border-green-200 bg-green-50 p-4">
+              <View className="h-11 w-11 items-center justify-center rounded-2xl border border-green-200 bg-white">
+                <Ionicons
+                  name="checkmark-circle"
+                  size={23}
+                  color={activeHabitColor}
+                />
+              </View>
+
+              <Text className="ml-3 flex-1 text-sm font-bold leading-5 text-gray-700">
+                No habit activity in this period.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <ListBlock
+                accentColor={activeHabitColor}
+                title="Most common cues"
+                items={data.topCues}
+                empty="No cues were recorded with your habit activity."
+                icon="alert-circle"
+              />
+
+              <ListBlock
+                accentColor={activeHabitColor}
+                title="Most common locations"
+                items={data.topLocations}
+                empty="No locations were recorded with your habit activity."
+                icon="location"
+              />
+
+              <ListBlock
+                accentColor={activeHabitColor}
+                title="Most common times"
+                items={data.topTimes}
+                empty="No times were recorded with your habit activity."
+                icon="time"
+              />
+            </>
+          )}
         </View>
 
         <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">

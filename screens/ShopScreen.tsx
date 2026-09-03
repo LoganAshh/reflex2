@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
-import type { RootStackParamList, RootTabParamList } from "../App";
+import type { RootStackParamList } from "../App";
 import { useData, type ReplacementAction } from "../data/DataContext";
 import { Screen } from "../components/Screen";
 
@@ -32,9 +32,7 @@ const PRESET_CATEGORIES = [
 
 type PresetCategory = (typeof PRESET_CATEGORIES)[number];
 type Filter = typeof SELECTED | typeof ALL | typeof CUSTOM | PresetCategory;
-type ShopRoute =
-  | RouteProp<RootTabParamList, "Shop">
-  | RouteProp<RootStackParamList, "ShopPicker">;
+type ShopRoute = RouteProp<RootStackParamList, "ShopPicker">;
 
 function interleaveAll(actions: ReplacementAction[]): ReplacementAction[] {
   const customs: ReplacementAction[] = [];
@@ -111,8 +109,7 @@ export default function ShopScreen() {
     deleteCustomAction,
   } = useData();
 
-  const showDoneButton =
-    route.name === "ShopPicker" && route.params?.showDoneButton === true;
+  const showDoneButton = route.params?.showDoneButton === true;
 
   const [filter, setFilter] = useState<Filter>(ALL);
   const [searchText, setSearchText] = useState("");
@@ -127,7 +124,6 @@ export default function ShopScreen() {
   const actionListRef = useRef<FlatList<ReplacementAction> | null>(null);
   const filterScrollRef = useRef<ScrollView | null>(null);
   const filterScrollOffsetRef = useRef(0);
-  const handledResetTokenRef = useRef<number | null>(null);
   const didSetInitialFilter = useRef(false);
 
   useEffect(() => {
@@ -136,28 +132,6 @@ export default function ShopScreen() {
     didSetInitialFilter.current = true;
     setFilter(selectedActionIds.length > 0 ? SELECTED : ALL);
   }, [selectedActionIds.length]);
-
-  useEffect(() => {
-    const resetToken =
-      route.name === "Shop" ? route.params?.resetToken : undefined;
-
-    if (!resetToken) return;
-    if (handledResetTokenRef.current === resetToken) return;
-
-    handledResetTokenRef.current = resetToken;
-    setFilter(selectedActionIds.length > 0 ? SELECTED : ALL);
-    setSearchText("");
-    setText("");
-    setNewCategory("Physical");
-    Keyboard.dismiss();
-
-    actionListRef.current?.scrollToOffset({ offset: 0, animated: true });
-    filterScrollRef.current?.scrollTo({ x: 0, animated: true });
-
-    setTimeout(() => {
-      filterScrollOffsetRef.current = 0;
-    }, 350);
-  }, [route, selectedActionIds.length]);
 
   const selectedActions = useMemo(() => {
     if (selectedActionIds.length === 0) return [];
@@ -425,6 +399,7 @@ export default function ShopScreen() {
   const ActionCard = ({ item }: { item: ReplacementAction }) => {
     const isCustom = item.isCustom === 1;
     const isSelected = selectedActionIds.includes(item.id);
+    const shouldFitTitle = item.title.length > (isCustom ? 14 : 21);
 
     return (
       <View
@@ -442,7 +417,7 @@ export default function ShopScreen() {
               <Text
                 className="text-base font-black text-black"
                 numberOfLines={1}
-                adjustsFontSizeToFit
+                adjustsFontSizeToFit={shouldFitTitle}
                 minimumFontScale={0.85}
               >
                 {item.title}

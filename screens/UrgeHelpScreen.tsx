@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { Alert, View, Text, Pressable, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import {
@@ -14,8 +14,7 @@ import {
   usePreventRemove,
 } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../App";
+import type { RootStackParamList, RootTabParamList } from "../App";
 import { useData, type ReplacementAction } from "../data/DataContext";
 import { Screen } from "../components/Screen";
 
@@ -27,8 +26,10 @@ const QUICK_ACTION_TITLES = [
 
 const SELECTED_ACTION_BOX_MAX_HEIGHT = 110;
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
-type HelpRoute = RouteProp<RootStackParamList, "UrgeHelp">;
+type HelpRoute =
+  | RouteProp<RootStackParamList, "UrgeHelp">
+  | RouteProp<RootTabParamList, "Help">;
+type HelpMode = "decision" | "menu" | "guided" | "single" | "log_choice";
 
 type Step =
   | {
@@ -56,6 +57,12 @@ type Step =
       title: string;
       body: string;
       tip?: string;
+      icon: keyof typeof Ionicons.glyphMap;
+    }
+  | {
+      kind: "menu" | "log_choice";
+      title: string;
+      body: string;
       icon: keyof typeof Ionicons.glyphMap;
     };
 
@@ -148,9 +155,10 @@ function getQuickActionIcon(title: string): keyof typeof Ionicons.glyphMap {
 }
 
 export default function UrgeHelpScreen() {
-  const navigation = useNavigation<Nav>();
+  const navigation = useNavigation<any>();
   const route = useRoute<HelpRoute>();
-  const { logId } = route.params;
+  const logId = route.name === "UrgeHelp" ? route.params.logId : null;
+  const isHelpFirst = logId == null;
 
   const {
     actions,
@@ -160,7 +168,7 @@ export default function UrgeHelpScreen() {
     logs,
   } = useData();
 
-  const [mode, setMode] = useState<"decision" | "guided">("decision");
+  const [mode, setMode] = useState<HelpMode>(isHelpFirst ? "menu" : "decision");
   const [stepIndex, setStepIndex] = useState(0);
   const [selectedActionId, setSelectedActionId] = useState<number | null>(null);
   const [savingAction, setSavingAction] = useState(false);
@@ -169,9 +177,12 @@ export default function UrgeHelpScreen() {
   const [pendingQuickActionId, setPendingQuickActionId] = useState<
     number | null
   >(null);
+  const [triedStepIndexes, setTriedStepIndexes] = useState<number[]>([]);
   const [selectedActionsContentHeight, setSelectedActionsContentHeight] =
     useState(0);
   const allowExitRef = useRef(false);
+  const hasReceivedHelpRef = useRef(false);
+  const suppressExitPromptRef = useRef(false);
   const previousSelectedActionIdsRef = useRef<number[]>(selectedActionIds);
 
   const quickActions = useMemo(() => {
@@ -229,6 +240,32 @@ export default function UrgeHelpScreen() {
     [logs, logId],
   );
 
+  const recentLog = useMemo(() => {
+    if (!isHelpFirst) return null;
+
+    const now = Date.now();
+    const cutoff = now - 30 * 60 * 1000;
+
+    return (
+      logs
+        .filter((log) => log.createdAt >= cutoff && log.createdAt <= now)
+        .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null
+    );
+  }, [isHelpFirst, logs]);
+
+  const recentLogTime = useMemo(() => {
+    if (!recentLog) return null;
+
+    const minutesAgo = Math.max(
+      0,
+      Math.floor((Date.now() - recentLog.createdAt) / 60_000),
+    );
+
+    if (minutesAgo === 0) return "just now";
+    if (minutesAgo === 1) return "1 minute ago";
+    return `${minutesAgo} minutes ago`;
+  }, [recentLog]);
+
   const selectedActionTitle = useMemo(() => {
     if (selectedActionId == null) return null;
 
@@ -241,6 +278,21 @@ export default function UrgeHelpScreen() {
 
   const hasSelectedActionsOverflow =
     selectedActionsContentHeight > SELECTED_ACTION_BOX_MAX_HEIGHT + 4;
+  const selectedActionsScrollRef = useRef<ScrollView | null>(null);
+  const shouldResetSelectedActionsScrollRef = useRef(false);
+
+  useEffect(() => {
+    return navigation.addListener("focus", () => {
+      suppressExitPromptRef.current = false;
+
+      if (!shouldResetSelectedActionsScrollRef.current) return;
+
+      shouldResetSelectedActionsScrollRef.current = false;
+      requestAnimationFrame(() => {
+        selectedActionsScrollRef.current?.scrollTo({ y: 0, animated: false });
+      });
+    });
+  }, [navigation]);
 
   useEffect(() => {
     if (selectedActions.length > 0) {
@@ -249,6 +301,8 @@ export default function UrgeHelpScreen() {
   }, [selectedActions.length]);
 
   useEffect(() => {
+    if (isHelpFirst) return;
+
     const nextSelectedActionId = currentLog?.selectedActionId ?? null;
 
     if (!savingAction) {
@@ -274,26 +328,78 @@ export default function UrgeHelpScreen() {
     keepQuickActionFallbackOpen,
     pendingQuickActionId,
     savingAction,
+    isHelpFirst,
   ]);
 
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerBackVisible: mode !== "decision",
-      headerLeft: mode === "decision" ? () => null : undefined,
-      gestureEnabled: mode !== "decision",
-    });
-  }, [navigation, mode]);
+    const showBackButton = isHelpFirst ? mode !== "menu" : mode !== "decision";
 
-  usePreventRemove(mode === "guided", ({ data }) => {
+    const goBackWithinHelp = () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      setStepIndex(0);
+      setMode(!isHelpFirst && mode === "menu" ? "decision" : "menu");
+    };
+
+    if (isHelpFirst) {
+      navigation.setOptions({
+        title: "Urge help",
+        headerLeft: showBackButton
+          ? () => (
+              <Pressable
+                onPress={goBackWithinHelp}
+                hitSlop={12}
+                className="h-10 w-10 items-center justify-center"
+              >
+                <Ionicons name="chevron-back" size={28} color="#111827" />
+              </Pressable>
+            )
+          : () => null,
+      });
+      return;
+    }
+
+    navigation.setOptions({
+      headerBackVisible: false,
+      headerLeft: showBackButton
+        ? () => (
+            <Pressable
+              onPress={goBackWithinHelp}
+              hitSlop={12}
+              className="h-10 w-10 items-center justify-center"
+            >
+              <Ionicons name="chevron-back" size={28} color="#111827" />
+            </Pressable>
+          )
+        : () => null,
+      gestureEnabled: showBackButton,
+    });
+  }, [isHelpFirst, navigation, mode]);
+
+  usePreventRemove(!isHelpFirst && mode !== "decision", ({ data }) => {
     if (allowExitRef.current) {
       navigation.dispatch(data.action);
       return;
     }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setMode("decision");
+    setMode(mode === "menu" ? "decision" : "menu");
     setStepIndex(0);
   });
+
+  useEffect(() => {
+    if (!isHelpFirst) return;
+
+    const resetToken = route.name === "Help" ? route.params?.resetToken : null;
+    if (!resetToken) return;
+
+    setMode("menu");
+    setStepIndex(0);
+    setSelectedActionId(null);
+    setPendingQuickActionId(null);
+    setKeepQuickActionFallbackOpen(false);
+    setTriedStepIndexes([]);
+    hasReceivedHelpRef.current = false;
+  }, [isHelpFirst, route]);
 
   const currentStep: Step = useMemo(() => {
     if (mode === "decision") {
@@ -302,6 +408,24 @@ export default function UrgeHelpScreen() {
         title: "Nice job logging",
         body: "You paused and checked in instead of staying on autopilot. What do you want to do next?",
         icon: "checkmark-circle",
+      };
+    }
+
+    if (mode === "menu") {
+      return {
+        kind: "menu",
+        title: "What Would Help Right Now?",
+        body: "Choose one step, or use the full walkthrough.",
+        icon: "shield-checkmark",
+      };
+    }
+
+    if (mode === "log_choice") {
+      return {
+        kind: "log_choice",
+        title: "Use Your Recent Log?",
+        body: `Add this help to your ${recentLog?.habitName ?? "habit"} log from ${recentLogTime ?? "recently"}?`,
+        icon: "time",
       };
     }
 
@@ -315,7 +439,7 @@ export default function UrgeHelpScreen() {
 
     if (stepIndex < helpSteps.length) return helpSteps[stepIndex];
     return doneStep;
-  }, [mode, stepIndex]);
+  }, [mode, recentLog?.habitName, recentLogTime, stepIndex]);
 
   const totalSteps = helpSteps.length + 1;
   const currentStepNumber = stepIndex + 1;
@@ -355,8 +479,13 @@ export default function UrgeHelpScreen() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
+    if (isHelpFirst) {
+      setSavingAction(false);
+      return;
+    }
+
     try {
-      await updateLogSelectedAction(logId, actionId);
+      await updateLogSelectedAction(logId as number, actionId);
     } catch {
       setSelectedActionId(previousActionId);
     } finally {
@@ -394,8 +523,13 @@ export default function UrgeHelpScreen() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
+    if (isHelpFirst) {
+      setSavingAction(false);
+      return;
+    }
+
     try {
-      await updateLogSelectedAction(logId, nextActionId);
+      await updateLogSelectedAction(logId as number, nextActionId);
     } catch {
       setSelectedActionId(previousActionId);
       setPendingQuickActionId(
@@ -427,13 +561,116 @@ export default function UrgeHelpScreen() {
   const goToShop = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     previousSelectedActionIdsRef.current = selectedActionIds;
-    navigation.navigate("ShopPicker", { showDoneButton: true });
+    shouldResetSelectedActionsScrollRef.current = true;
+    suppressExitPromptRef.current = true;
+
+    const stackNavigation = isHelpFirst ? navigation.getParent() : navigation;
+    stackNavigation?.navigate("ShopPicker", { showDoneButton: true });
   };
 
   const startGuided = () => {
     allowExitRef.current = false;
+    hasReceivedHelpRef.current = true;
     setMode("guided");
     setStepIndex(0);
+  };
+
+  const startSingleStep = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hasReceivedHelpRef.current = true;
+    setStepIndex(index);
+    setMode("single");
+  };
+
+  const markCurrentStepTried = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+      () => {},
+    );
+    setTriedStepIndexes((current) =>
+      current.includes(stepIndex) ? current : [...current, stepIndex],
+    );
+    setMode("menu");
+    setStepIndex(0);
+  };
+
+  const savePendingAction = async () => {
+    const actionToSave = pendingQuickActionId;
+
+    if (actionToSave != null && !selectedActionIds.includes(actionToSave)) {
+      await toggleSelectedAction(actionToSave);
+    }
+  };
+
+  const openFullLog = async () => {
+    await savePendingAction();
+
+    const actionIdForLog = selectedActionId;
+
+    suppressExitPromptRef.current = true;
+    hasReceivedHelpRef.current = false;
+    setMode("menu");
+    setStepIndex(0);
+    setSelectedActionId(null);
+    setPendingQuickActionId(null);
+    setKeepQuickActionFallbackOpen(false);
+    setTriedStepIndexes([]);
+
+    navigation.navigate("Log", {
+      resetToken: Date.now(),
+      fromHelp: true,
+      helpSelectedActionId: actionIdForLog,
+    });
+  };
+
+  const updateRecentLogAndExit = async () => {
+    if (!recentLog) {
+      await openFullLog();
+      return;
+    }
+
+    setSavingAction(true);
+
+    try {
+      await savePendingAction();
+
+      if (selectedActionId != null) {
+        await updateLogSelectedAction(recentLog.id, selectedActionId);
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+        () => {},
+      );
+      suppressExitPromptRef.current = true;
+      hasReceivedHelpRef.current = false;
+      setMode("menu");
+      setStepIndex(0);
+      setSelectedActionId(null);
+      setPendingQuickActionId(null);
+      setKeepQuickActionFallbackOpen(false);
+      setTriedStepIndexes([]);
+      navigation.navigate("Home");
+    } catch {
+      Alert.alert("Could not update the log", "Please try again.");
+    } finally {
+      setSavingAction(false);
+    }
+  };
+
+  const finishHelp = async () => {
+    if (isHelpFirst) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+        () => {},
+      );
+
+      if (recentLog) {
+        setMode("log_choice");
+      } else {
+        await openFullLog();
+      }
+      return;
+    }
+
+    await completeLogAndExit();
   };
 
   const onPrimary = async () => {
@@ -443,7 +680,7 @@ export default function UrgeHelpScreen() {
     }
 
     if (currentStep.kind === "done") {
-      await completeLogAndExit();
+      await finishHelp();
       return;
     }
 
@@ -453,6 +690,112 @@ export default function UrgeHelpScreen() {
   const onBack = () => {
     if (!canGoBack) return;
     setStepIndex((v) => Math.max(0, v - 1));
+  };
+
+  useEffect(() => {
+    if (!isHelpFirst) return;
+
+    return navigation.addListener("blur", () => {
+      if (!hasReceivedHelpRef.current || suppressExitPromptRef.current) {
+        return;
+      }
+
+      Alert.alert(
+        "Log this urge before you go?",
+        "Logging it helps keep your progress accurate.",
+        [
+          {
+            text: "Not now",
+            style: "cancel",
+            onPress: () => {
+              hasReceivedHelpRef.current = false;
+              setMode("menu");
+              setStepIndex(0);
+              setTriedStepIndexes([]);
+            },
+          },
+          {
+            text: "Log urge",
+            onPress: () => {
+              openFullLog();
+            },
+          },
+        ],
+      );
+    });
+  }, [isHelpFirst, mode, navigation, selectedActionId]);
+
+  const renderHelpMenu = () => {
+    if (currentStep.kind !== "menu") return null;
+
+    const options: Array<{
+      title: string;
+      detail: string;
+      icon: keyof typeof Ionicons.glyphMap;
+      onPress: () => void;
+    }> = [
+      {
+        title: "Pause for 2 minutes",
+        detail: "Give the urge time to pass.",
+        icon: "pause-circle",
+        onPress: () => startSingleStep(1),
+      },
+      {
+        title: "Change my environment",
+        detail: "Move away from what triggered it.",
+        icon: "walk",
+        onPress: () => startSingleStep(2),
+      },
+      {
+        title: "Choose a replacement action",
+        detail: "Do something easier and enjoyable.",
+        icon: "flash",
+        onPress: () => startSingleStep(4),
+      },
+      {
+        title: "Full guided help",
+        detail: "Walk through every step in order.",
+        icon: "list",
+        onPress: startGuided,
+      },
+    ];
+
+    return (
+      <View className="mt-7 w-[96%] gap-3">
+        {options.map((option) => (
+          <Pressable
+            key={option.title}
+            onPress={option.onPress}
+            className="w-full rounded-[24px] border border-gray-200 bg-white p-4 shadow-sm"
+            style={({ pressed }) => ({
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: pressed ? 1 : 4 },
+              shadowOpacity: 0.12,
+              shadowRadius: pressed ? 2 : 4,
+              elevation: pressed ? 2 : 5,
+              transform: [{ translateY: pressed ? 1 : 0 }],
+            })}
+          >
+            <View className="flex-row items-center">
+              <View className="h-12 w-12 items-center justify-center rounded-2xl bg-green-50">
+                <Ionicons name={option.icon} size={24} color="#16A34A" />
+              </View>
+
+              <View className="ml-3 flex-1">
+                <Text className="text-base font-black text-black">
+                  {option.title}
+                </Text>
+                <Text className="mt-0.5 text-sm leading-5 text-gray-500">
+                  {option.detail}
+                </Text>
+              </View>
+
+              <Ionicons name="chevron-forward" size={21} color="#6B7280" />
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    );
   };
 
   const renderActionPicker = () => {
@@ -565,6 +908,7 @@ export default function UrgeHelpScreen() {
         ) : (
           <>
             <ScrollView
+              ref={selectedActionsScrollRef}
               className="mt-3"
               style={{ maxHeight: SELECTED_ACTION_BOX_MAX_HEIGHT }}
               nestedScrollEnabled
@@ -639,7 +983,7 @@ export default function UrgeHelpScreen() {
 
         <View className="mt-3 rounded-[20px] border border-gray-200 bg-white p-3">
           <Text className="text-[10px] font-black uppercase tracking-wide text-gray-500">
-            Saved to this log
+            {isHelpFirst ? "Ready for your log" : "Saved to this log"}
           </Text>
 
           <Text className="mt-0.5 text-sm font-black text-black">
@@ -652,7 +996,9 @@ export default function UrgeHelpScreen() {
 
   const primaryLabel =
     currentStep.kind === "done"
-      ? "Complete Log"
+      ? isHelpFirst
+        ? "Continue to Check-In"
+        : "Complete Log"
       : currentStep.kind === "action"
         ? "Continue"
         : "Next";
@@ -693,7 +1039,7 @@ export default function UrgeHelpScreen() {
           <Text className={bodyClassName}>{currentStep.body}</Text>
 
           {"tip" in currentStep && currentStep.tip ? (
-            <View className="mt-8 w-full rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+            <View className="mt-8 w-[96%] rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
               <View className="flex-row items-center">
                 <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
                   <Ionicons name="bulb" size={24} color="#000000" />
@@ -712,6 +1058,7 @@ export default function UrgeHelpScreen() {
             </View>
           ) : null}
 
+          {renderHelpMenu()}
           {renderActionPicker()}
         </View>
       </ScrollView>
@@ -746,7 +1093,7 @@ export default function UrgeHelpScreen() {
           <Pressable
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              startGuided();
+              setMode("menu");
             }}
             className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
             style={({ pressed }) => ({
@@ -764,6 +1111,79 @@ export default function UrgeHelpScreen() {
                 Help me resist
               </Text>
             </View>
+          </Pressable>
+        </View>
+      ) : mode === "menu" ? (
+        <View className="pb-4" />
+      ) : mode === "single" ? (
+        <View className="pb-8 pt-4">
+          <Pressable
+            onPress={markCurrentStepTried}
+            className="w-full rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+            style={({ pressed }) => ({
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: pressed ? 2 : 6 },
+              shadowOpacity: 0.25,
+              shadowRadius: pressed ? 3 : 6,
+              elevation: pressed ? 3 : 8,
+              transform: [{ translateY: pressed ? 2 : 0 }],
+            })}
+          >
+            <Text className="text-center text-lg font-black text-white">
+              Complete step
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={finishHelp}
+            className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+            style={({ pressed }) => ({
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: pressed ? 1 : 4 },
+              shadowOpacity: 0.12,
+              shadowRadius: pressed ? 2 : 4,
+              elevation: pressed ? 2 : 5,
+              transform: [{ translateY: pressed ? 1 : 0 }],
+            })}
+          >
+            <Text className="text-center text-lg font-black text-black">
+              {isHelpFirst ? "Log this urge" : "Finish help"}
+            </Text>
+          </Pressable>
+        </View>
+      ) : mode === "log_choice" ? (
+        <View className="pb-8 pt-4">
+          <Pressable
+            onPress={updateRecentLogAndExit}
+            disabled={savingAction}
+            className={`w-full rounded-3xl px-5 py-4 shadow-sm ${
+              savingAction ? "bg-green-400" : "bg-green-600"
+            }`}
+            style={({ pressed }) => ({
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: pressed ? 2 : 6 },
+              shadowOpacity: 0.25,
+              shadowRadius: pressed ? 3 : 6,
+              elevation: pressed ? 3 : 8,
+              transform: [{ translateY: pressed ? 2 : 0 }],
+            })}
+          >
+            <Text className="text-center text-lg font-black text-white">
+              Update recent log
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={openFullLog}
+            disabled={savingAction}
+            className="mt-3 w-full rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
+            style={({ pressed }) => ({
+              transform: [{ translateY: pressed ? 1 : 0 }],
+            })}
+          >
+            <Text className="text-center text-lg font-black text-black">
+              Create a new log
+            </Text>
           </Pressable>
         </View>
       ) : (
