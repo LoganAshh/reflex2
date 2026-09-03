@@ -897,7 +897,7 @@ export function DataProvider({ children }: DataProviderProps) {
 
         if (savedDailyReminder.option !== "off") {
           const permission = await Notifications.getPermissionsAsync();
-          if (permission.status === "granted") {
+          if (permission.granted) {
             await scheduleDailyReminderNotification(savedDailyReminder).catch(
               (error) => {
                 console.warn("Failed to restore daily reminder:", error);

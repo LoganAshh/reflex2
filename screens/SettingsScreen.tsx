@@ -341,14 +341,14 @@ export default function SettingsScreen() {
 
   async function ensureNotificationPermission() {
     const existing = await Notifications.getPermissionsAsync();
-    let status = existing.status;
+    let granted = existing.granted;
 
-    if (status !== "granted") {
+    if (!granted) {
       const requested = await Notifications.requestPermissionsAsync();
-      status = requested.status;
+      granted = requested.granted;
     }
 
-    if (status !== "granted") {
+    if (!granted) {
       Alert.alert(
         "Notifications are off",
         "Turn on notifications for Reflex in Settings to use daily reminders.",

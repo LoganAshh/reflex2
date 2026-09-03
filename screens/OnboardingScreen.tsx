@@ -973,12 +973,11 @@ export default function OnboardingScreen() {
       if (eveningReminderEnabled) {
         try {
           const existing = await Notifications.getPermissionsAsync();
-          const permission =
-            existing.status === "granted"
-              ? existing
-              : await Notifications.requestPermissionsAsync();
+          const permission = existing.granted
+            ? existing
+            : await Notifications.requestPermissionsAsync();
 
-          if (permission.status === "granted") {
+          if (permission.granted) {
             await setDailyReminder({ option: "evening", hour: 20, minute: 0 });
           } else {
             await setDailyReminder({ option: "off", hour: 20, minute: 0 });
