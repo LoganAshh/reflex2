@@ -54,6 +54,12 @@ export type TabResetParams = {
   resetToken?: number;
 };
 
+export type WeeklyReviewLogRequest = {
+  token: number;
+  habitId: number;
+  createdAt: number;
+};
+
 export type RootTabParamList = {
   Home: TabResetParams | undefined;
   Analytics: TabResetParams | undefined;
@@ -86,6 +92,13 @@ export type RootStackParamList = {
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const TAB_BAR_STYLE = {
+  height: 76,
+  paddingBottom: 6,
+  paddingTop: 8,
+  borderTopWidth: 0.5,
+  borderTopColor: "#E5E7EB",
+};
 
 function AppLoadingScreen() {
   return (
@@ -268,13 +281,7 @@ function Tabs() {
         headerShown: true,
         tabBarShowLabel: false,
         tabBarInactiveTintColor: "#9CA3AF",
-        tabBarStyle: {
-          height: 76,
-          paddingBottom: 6,
-          paddingTop: 8,
-          borderTopWidth: 0.5,
-          borderTopColor: "#E5E7EB",
-        },
+        tabBarStyle: TAB_BAR_STYLE,
         tabBarIconStyle: { marginTop: 2 },
         tabBarIcon: ({ focused, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap;

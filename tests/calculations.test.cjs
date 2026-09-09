@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
+  CALIBRATION_RULES,
   getCalibrationCandidate,
   startOfLocalDay,
 } = require("../.test-build/baselines.js");
@@ -88,6 +89,27 @@ function log(createdAt, count) {
 test("period conversion keeps the same daily rate", () => {
   assert.equal(normalizeGoalAmount(2, "day", "week"), 14);
   assert.equal(normalizeGoalAmount(8, "week", "28_days"), 32);
+});
+
+test("calibration timing balances faster feedback with enough known days", () => {
+  assert.deepEqual(CALIBRATION_RULES.day, {
+    elapsedDays: 7,
+    observedDays: 6,
+    recentDays: 7,
+    recentObservedDays: 3,
+  });
+  assert.deepEqual(CALIBRATION_RULES.week, {
+    elapsedDays: 14,
+    observedDays: 10,
+    recentDays: 28,
+    recentObservedDays: 7,
+  });
+  assert.deepEqual(CALIBRATION_RULES["28_days"], {
+    elapsedDays: 28,
+    observedDays: 21,
+    recentDays: 56,
+    recentObservedDays: 14,
+  });
 });
 
 test("baseline calibration waits for enough elapsed and observed days", () => {

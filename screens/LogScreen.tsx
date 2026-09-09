@@ -20,6 +20,7 @@ import {
   Animated,
   UIManager,
   findNodeHandle,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -32,7 +33,11 @@ import {
 import type { RouteProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList, RootTabParamList } from "../App";
+import type {
+  RootStackParamList,
+  RootTabParamList,
+  WeeklyReviewLogRequest,
+} from "../App";
 import { Screen } from "../components/Screen";
 import {
   useData,
@@ -131,6 +136,16 @@ function formatDateButton(date: Date) {
 
 function formatTimeButton(date: Date) {
   return date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatWeeklyReviewDateTime(date: Date) {
+  return date.toLocaleString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
@@ -399,11 +414,13 @@ function LogDateTimeModal({
   value,
   onChange,
   onClose,
+  lockDate = false,
 }: {
   visible: boolean;
   value: Date;
   onChange: (date: Date) => void;
   onClose: () => void;
+  lockDate?: boolean;
 }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -420,7 +437,7 @@ function LogDateTimeModal({
   const selectedRelativeTimePreset = RELATIVE_TIME_PRESETS.find((preset) => {
     const presetDate = dateForRelativeTimePreset(preset);
     return (
-      isSameCalendarDay(value, presetDate) &&
+      (lockDate || isSameCalendarDay(value, presetDate)) &&
       value.getHours() === presetDate.getHours() &&
       value.getMinutes() === presetDate.getMinutes()
     );
@@ -442,7 +459,8 @@ function LogDateTimeModal({
 
   const applyRelativeTimePreset = async (preset: RelativeTimePreset) => {
     await lightHaptic();
-    onChange(dateForRelativeTimePreset(preset));
+    const presetDate = dateForRelativeTimePreset(preset);
+    onChange(lockDate ? mergeTimePart(value, presetDate) : presetDate);
     setShowTimePicker(false);
   };
 
@@ -495,68 +513,83 @@ function LogDateTimeModal({
             >
               <View className="flex-row items-center">
                 <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                  <Ionicons name="calendar" size={24} color="#000000" />
+                  <Ionicons
+                    name={lockDate ? "time" : "calendar"}
+                    size={24}
+                    color="#000000"
+                  />
                 </View>
 
                 <View className="ml-3 flex-1">
                   <Text className="text-xl font-black text-black">
-                    Edit date & time
+                    {lockDate ? "Edit time" : "Edit date & time"}
                   </Text>
                   <Text className="mt-1 text-sm font-semibold text-gray-500">
-                    Change when this check-in happened.
+                    {lockDate
+                      ? "The day stays connected to your weekly review."
+                      : "Change when this check-in happened."}
                   </Text>
                 </View>
               </View>
 
-              <View className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-3">
-                <View className="flex-row flex-wrap">
-                  {DATE_PRESETS.map((preset) => {
-                    const selected = selectedDatePreset?.label === preset.label;
+              {!lockDate ? (
+                <View className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                  <View className="flex-row flex-wrap">
+                    {DATE_PRESETS.map((preset) => {
+                      const selected =
+                        selectedDatePreset?.label === preset.label;
 
-                    return (
-                      <Pressable
-                        key={preset.label}
-                        onPress={() => applyDatePreset(preset)}
-                        className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
-                          selected
-                            ? "border-green-600 bg-green-600"
-                            : "border-gray-200 bg-white"
-                        }`}
-                      >
-                        <Text
-                          className={`text-sm font-black ${
-                            selected ? "text-white" : "text-black"
+                      return (
+                        <Pressable
+                          key={preset.label}
+                          onPress={() => applyDatePreset(preset)}
+                          className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
+                            selected
+                              ? "border-green-600 bg-green-600"
+                              : "border-gray-200 bg-white"
                           }`}
                         >
-                          {preset.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <Pressable
-                  onPress={() => {
-                    lightHaptic();
-                    Keyboard.dismiss();
-                    setShowTimePicker(false);
-                    setShowDatePicker(true);
-                  }}
-                  className="mt-1 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
-                >
-                  <View>
-                    <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
-                      Exact date
-                    </Text>
-                    <Text className="mt-1 text-sm font-black text-black">
-                      {formatDateButton(value)}
-                    </Text>
+                          <Text
+                            className={`text-sm font-black ${
+                              selected ? "text-white" : "text-black"
+                            }`}
+                          >
+                            {preset.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
-                  <Ionicons name="calendar-outline" size={18} color="#000000" />
-                </Pressable>
-              </View>
 
-              <View className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                  <Pressable
+                    onPress={() => {
+                      lightHaptic();
+                      Keyboard.dismiss();
+                      setShowTimePicker(false);
+                      setShowDatePicker(true);
+                    }}
+                    className="mt-1 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3"
+                  >
+                    <View>
+                      <Text className="text-xs font-black uppercase tracking-wide text-gray-500">
+                        Exact date
+                      </Text>
+                      <Text className="mt-1 text-sm font-black text-black">
+                        {formatDateButton(value)}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={18}
+                      color="#000000"
+                    />
+                  </Pressable>
+                </View>
+              ) : null}
+
+              <View
+                className={`${lockDate ? "mt-5" : "mt-3"} rounded-2xl border border-gray-200 bg-gray-50 p-3`}
+              >
                 <View className="flex-row flex-wrap">
                   {RELATIVE_TIME_PRESETS.map((preset) => {
                     const selected =
@@ -660,6 +693,7 @@ function ChipRow<T extends BaseItem>({
   allowNone,
   onAdd,
   listRef,
+  locked = false,
 }: {
   title: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -670,8 +704,9 @@ function ChipRow<T extends BaseItem>({
   onSelect?: (id: number | null) => void;
   onToggle?: (id: number | null) => void;
   allowNone?: boolean;
-  onAdd: () => void;
+  onAdd?: () => void;
   listRef: React.RefObject<FlatList<ChipItem> | null>;
+  locked?: boolean;
 }) {
   const data: ChipItem[] = [
     ...(allowNone
@@ -684,7 +719,9 @@ function ChipRow<T extends BaseItem>({
       kind: "value" as const,
       color: typeof x.color === "string" ? x.color : null,
     })),
-    { key: "add", label: "+ Add", id: null, kind: "add" as const },
+    ...(onAdd
+      ? [{ key: "add", label: "+ Add", id: null, kind: "add" as const }]
+      : []),
   ];
 
   const renderItem = ({ item }: { item: ChipItem }) => {
@@ -706,9 +743,10 @@ function ChipRow<T extends BaseItem>({
 
     return (
       <Pressable
+        disabled={locked && item.kind !== "add"}
         onPress={() => {
           if (item.kind === "add") {
-            onAdd();
+            onAdd?.();
             return;
           }
 
@@ -1046,14 +1084,140 @@ function CountPickerModal({
   );
 }
 
-export default function LogScreen() {
+function QuickAddLogItemModal({
+  visible,
+  type,
+  value,
+  saving,
+  error,
+  onChange,
+  onAdd,
+  onClose,
+}: {
+  visible: boolean;
+  type: "cues" | "locations";
+  value: string;
+  saving: boolean;
+  error: string | null;
+  onChange: (value: string) => void;
+  onAdd: () => void;
+  onClose: () => void;
+}) {
+  const singular = type === "cues" ? "cue" : "location";
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+      >
+        <ScrollView
+          className="flex-1 bg-black/40"
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            paddingHorizontal: 16,
+          }}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode="on-drag"
+        >
+          <Pressable
+            className="w-full rounded-[32px] bg-white p-5"
+            onPress={() => {}}
+          >
+            <View className="flex-row items-center">
+              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                <Ionicons
+                  name={type === "cues" ? "alert-circle" : "location"}
+                  size={24}
+                  color="#000000"
+                />
+              </View>
+              <View className="ml-3 flex-1">
+                <Text className="text-xl font-black text-black">
+                  Add {singular}
+                </Text>
+                <Text className="mt-1 text-sm font-semibold text-gray-500">
+                  It will be selected for this log.
+                </Text>
+              </View>
+            </View>
+
+            <TextInput
+              autoFocus
+              value={value}
+              onChangeText={onChange}
+              placeholder={`Enter a ${singular}`}
+              placeholderTextColor="#9CA3AF"
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
+              blurOnSubmit
+              onSubmitEditing={() => Keyboard.dismiss()}
+              className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-base text-black"
+            />
+
+            {error ? (
+              <Text className="mt-2 text-sm font-bold text-red-600">
+                {error}
+              </Text>
+            ) : null}
+
+            <Pressable
+              disabled={saving || value.trim().length === 0}
+              onPress={onAdd}
+              className={`mt-4 rounded-2xl px-5 py-3 ${
+                saving || value.trim().length === 0
+                  ? "bg-green-300"
+                  : "bg-green-600"
+              }`}
+            >
+              <Text className="text-center text-sm font-black text-white">
+                {saving ? "Adding..." : "Add"}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              disabled={saving}
+              onPress={onClose}
+              onPressIn={onClose}
+              className="mt-2 rounded-2xl border border-gray-200 bg-white px-5 py-3"
+            >
+              <Text className="text-center text-sm font-black text-black">
+                Cancel
+              </Text>
+            </Pressable>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+type LogScreenProps = {
+  weeklyReviewLogOverride?: WeeklyReviewLogRequest;
+  onWeeklyReviewReturn?: () => void;
+};
+
+export default function LogScreen({
+  weeklyReviewLogOverride,
+  onWeeklyReviewReturn,
+}: LogScreenProps = {}) {
   const navigation = useNavigation<Nav>();
   const route = useRoute<LogRoute>();
 
   const {
+    cues,
+    locations,
     selectedHabits,
     selectedCues,
     selectedLocations,
+    addCustomCue,
+    addCustomLocation,
     logs,
     addLog,
     updateLog,
@@ -1079,6 +1243,16 @@ export default function LogScreen() {
     body: string;
     icon: keyof typeof Ionicons.glyphMap;
   } | null>(null);
+  const [quickAddType, setQuickAddType] = useState<"cues" | "locations" | null>(
+    null,
+  );
+  const [quickAddText, setQuickAddText] = useState("");
+  const [quickAddSaving, setQuickAddSaving] = useState(false);
+  const [quickAddError, setQuickAddError] = useState<string | null>(null);
+  const [pendingQuickAdd, setPendingQuickAdd] = useState<{
+    type: "cues" | "locations";
+    name: string;
+  } | null>(null);
 
   const keyboardLiftAnim = useRef(new Animated.Value(0)).current;
   const habitListRef = useRef<FlatList<ChipItem> | null>(null);
@@ -1089,6 +1263,7 @@ export default function LogScreen() {
   const scrollViewRef = useRef<ScrollView | null>(null);
   const handledManageListTokenRef = useRef<number | null>(null);
   const handledResetTokenRef = useRef<number | null>(null);
+  const handledWeeklyReviewLogTokenRef = useRef<number | null>(null);
   const saveInProgressRef = useRef(false);
 
   useFocusEffect(
@@ -1148,6 +1323,20 @@ export default function LogScreen() {
     [selectedHabits, habitId],
   );
   const countUnit = activeHabit?.unit?.trim() || "times";
+  const weeklyReviewLog = weeklyReviewLogOverride;
+  const visibleHabitOptions = weeklyReviewLog
+    ? orderedHabits.filter((habit) => habit.id === weeklyReviewLog.habitId)
+    : orderedHabits;
+  const weeklyReviewDraftChanged =
+    weeklyReviewLog != null &&
+    (habitId !== weeklyReviewLog.habitId ||
+      cueIds.length > 0 ||
+      locationId != null ||
+      notes.trim().length > 0 ||
+      didResist ||
+      intensity != null ||
+      count !== 1 ||
+      logDate.getTime() !== weeklyReviewLog.createdAt);
 
   const orderedCues = useMemo(
     () => applyFrequencyOrdering(selectedCues, cueAssociationCounts),
@@ -1158,6 +1347,37 @@ export default function LogScreen() {
     () => applyFrequencyOrdering(selectedLocations, locationAssociationCounts),
     [selectedLocations, locationAssociationCounts],
   );
+
+  useEffect(() => {
+    if (!pendingQuickAdd) return;
+    const normalizedName = pendingQuickAdd.name.trim().toLowerCase();
+
+    if (pendingQuickAdd.type === "cues") {
+      const addedCue = cues.find(
+        (cue) => cue.name.trim().toLowerCase() === normalizedName,
+      );
+      if (!addedCue) return;
+
+      setCueIds((current) =>
+        current.includes(addedCue.id) ? current : [...current, addedCue.id],
+      );
+      setPendingQuickAdd(null);
+      setTimeout(() => cueListRef.current?.scrollToEnd({ animated: true }), 80);
+      return;
+    }
+
+    const addedLocation = locations.find(
+      (location) => location.name.trim().toLowerCase() === normalizedName,
+    );
+    if (!addedLocation) return;
+
+    setLocationId(addedLocation.id);
+    setPendingQuickAdd(null);
+    setTimeout(
+      () => locationListRef.current?.scrollToEnd({ animated: true }),
+      80,
+    );
+  }, [cues, locations, pendingQuickAdd]);
 
   const scrollChipRowsToStart = () => {
     habitListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -1297,6 +1517,21 @@ export default function LogScreen() {
   ]);
 
   useEffect(() => {
+    const request = weeklyReviewLog;
+    if (!request) return;
+    if (handledWeeklyReviewLogTokenRef.current === request.token) return;
+    if (!selectedHabits.some((habit) => habit.id === request.habitId)) return;
+
+    handledWeeklyReviewLogTokenRef.current = request.token;
+    resetToDefaults(request.habitId);
+    setLogDate(new Date(request.createdAt));
+
+    setTimeout(() => {
+      scrollChipToId(habitListRef, orderedHabits, request.habitId);
+    }, 120);
+  }, [orderedHabits, selectedHabits, weeklyReviewLog]);
+
+  useEffect(() => {
     const showEvent =
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent =
@@ -1333,6 +1568,66 @@ export default function LogScreen() {
     setSaving(false);
   };
 
+  const closeQuickAdd = () => {
+    if (quickAddSaving) return;
+    setQuickAddType(null);
+    setQuickAddText("");
+    setQuickAddError(null);
+    Keyboard.dismiss();
+  };
+
+  const addQuickItem = async () => {
+    const type = quickAddType;
+    const name = quickAddText.trim();
+    if (!type || !name || quickAddSaving) return;
+
+    setQuickAddSaving(true);
+    setQuickAddError(null);
+    Keyboard.dismiss();
+
+    try {
+      if (type === "cues") {
+        await addCustomCue(name, true);
+      } else {
+        await addCustomLocation(name, true);
+      }
+
+      setPendingQuickAdd({ type, name });
+      setQuickAddType(null);
+      setQuickAddText("");
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error: any) {
+      setQuickAddError(error?.message ?? `Could not add this ${type}.`);
+    } finally {
+      setQuickAddSaving(false);
+    }
+  };
+
+  const returnToWeeklyReview = () => onWeeklyReviewReturn?.();
+
+  const attemptReturnToWeeklyReview = () => {
+    const request = weeklyReviewLog;
+    if (!request || !onWeeklyReviewReturn) return;
+
+    const discardAndReturn = () => {
+      returnToWeeklyReview();
+    };
+
+    if (!weeklyReviewDraftChanged) {
+      discardAndReturn();
+      return;
+    }
+
+    Alert.alert("Discard this log?", "Your changes have not been saved.", [
+      { text: "Keep editing", style: "cancel" },
+      {
+        text: "Discard and return",
+        style: "destructive",
+        onPress: discardAndReturn,
+      },
+    ]);
+  };
+
   const onSave = async () => {
     if (saveInProgressRef.current) return;
 
@@ -1361,6 +1656,7 @@ export default function LogScreen() {
     const submittedSelectedActionId = submittedFromHelp
       ? (route.params?.helpSelectedActionId ?? null)
       : null;
+    const submittedWeeklyReviewLog = weeklyReviewLog;
 
     try {
       const newLogId = await addLog({
@@ -1392,6 +1688,12 @@ export default function LogScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
         () => {},
       );
+
+      if (submittedWeeklyReviewLog) {
+        unlockSave();
+        returnToWeeklyReview();
+        return;
+      }
 
       resetToDefaults(getDefaultHabitIdAfterLog(submittedHabitId));
 
@@ -1526,6 +1828,21 @@ export default function LogScreen() {
         value={logDate}
         onChange={setLogDate}
         onClose={() => setShowLogDateTimeModal(false)}
+        lockDate={weeklyReviewLog != null}
+      />
+
+      <QuickAddLogItemModal
+        visible={quickAddType != null}
+        type={quickAddType ?? "cues"}
+        value={quickAddText}
+        saving={quickAddSaving}
+        error={quickAddError}
+        onChange={(value) => {
+          setQuickAddText(value);
+          setQuickAddError(null);
+        }}
+        onAdd={() => void addQuickItem()}
+        onClose={closeQuickAdd}
       />
 
       <InfoModal
@@ -1554,25 +1871,40 @@ export default function LogScreen() {
           }}
         >
           <View className="flex-row items-center justify-between">
-            <View className="flex-1 pr-4">
-              <Text className="text-xs font-black uppercase tracking-widest text-green-600">
-                Check-in
-              </Text>
-
-              <View className="mt-0.5 flex-row items-center">
-                <Text className="text-2xl font-black text-black">
-                  Log the moment
+            <View className="flex-row flex-1 items-center pr-4">
+              <View className="flex-1">
+                <Text className="text-xs font-black uppercase tracking-widest text-green-600">
+                  Check-in
                 </Text>
 
-                <HeaderInfoBubble
-                  onPress={() =>
-                    openInfo(
-                      "Hidden shortcuts",
-                      "Tap the top-right icon to change the date and time of this check-in. Tap the icon beside each section to learn what that section is for.",
-                      "information-circle",
-                    )
-                  }
-                />
+                <View className="mt-0.5 flex-row items-center">
+                  <Text className="text-2xl font-black text-black">
+                    Log the moment
+                  </Text>
+
+                  <HeaderInfoBubble
+                    onPress={() =>
+                      openInfo(
+                        "Hidden shortcuts",
+                        weeklyReviewLog
+                          ? "Tap the top-right icon to change the time. Tap the icon beside each section to learn what that section is for."
+                          : "Tap the top-right icon to change the date and time of this check-in. Tap the icon beside each section to learn what that section is for.",
+                        "information-circle",
+                      )
+                    }
+                  />
+                </View>
+
+                {weeklyReviewLog ? (
+                  <Text
+                    className="mt-1 text-xs font-bold text-gray-500"
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                  >
+                    {formatWeeklyReviewDateTime(logDate)}
+                  </Text>
+                ) : null}
               </View>
             </View>
 
@@ -1613,18 +1945,26 @@ export default function LogScreen() {
             onInfo={() =>
               openInfo(
                 "Habit",
-                "Choose the habit or urge you are logging right now.",
+                weeklyReviewLog
+                  ? "This log belongs to the habit you selected in your weekly review."
+                  : "Choose the habit or urge you are logging right now.",
                 "radio-button-on",
               )
             }
-            items={orderedHabits}
+            items={visibleHabitOptions}
             selectedId={habitId}
             onSelect={(id) => {
+              if (weeklyReviewLog) return;
               setHabitId(id);
               setErrorMsg(null);
             }}
-            onAdd={() => navigation.navigate("ManageList", { type: "habits" })}
+            onAdd={
+              weeklyReviewLog
+                ? undefined
+                : () => navigation.navigate("ManageList", { type: "habits" })
+            }
             listRef={habitListRef}
+            locked={weeklyReviewLog != null}
           />
 
           <ChipRow<SelectedCue>
@@ -1652,7 +1992,13 @@ export default function LogScreen() {
               );
             }}
             allowNone
-            onAdd={() => navigation.navigate("ManageList", { type: "cues" })}
+            onAdd={() => {
+              if (weeklyReviewLog) {
+                setQuickAddType("cues");
+                return;
+              }
+              navigation.navigate("ManageList", { type: "cues" });
+            }}
             listRef={cueListRef}
           />
 
@@ -1670,9 +2016,13 @@ export default function LogScreen() {
             selectedId={locationId}
             onSelect={setLocationId}
             allowNone
-            onAdd={() =>
-              navigation.navigate("ManageList", { type: "locations" })
-            }
+            onAdd={() => {
+              if (weeklyReviewLog) {
+                setQuickAddType("locations");
+                return;
+              }
+              navigation.navigate("ManageList", { type: "locations" });
+            }}
             listRef={locationListRef}
           />
 
@@ -1798,6 +2148,23 @@ export default function LogScreen() {
               </Text>
             </View>
           </Pressable>
+
+          {weeklyReviewLog ? (
+            <Pressable
+              onPress={async () => {
+                await lightHaptic();
+                Keyboard.dismiss();
+                attemptReturnToWeeklyReview();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel and return to weekly review"
+              className="mt-2 w-full rounded-3xl border border-gray-300 bg-white px-5 py-3"
+            >
+              <Text className="text-center text-base font-black text-black">
+                Cancel
+              </Text>
+            </Pressable>
+          ) : null}
         </Animated.View>
       </ScrollView>
     </Screen>

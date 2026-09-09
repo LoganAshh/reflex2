@@ -251,6 +251,8 @@ export type DataContextType = {
   goalHistory: GoalHistoryEntry[];
   acknowledgedRecoveryGoalHistoryIds: number[];
   acknowledgeRecoveryGoal: (goalHistoryId: number) => Promise<void>;
+  acknowledgedCalculatedHabitIds: number[];
+  acknowledgeCalculatedHabits: (habitIds: number[]) => Promise<void>;
   trackingConfirmations: TrackingConfirmation[];
   cycleReviews: Record<number, CycleReview>;
   cycleHistory: CycleHistoryEntry[];

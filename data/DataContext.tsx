@@ -111,6 +111,8 @@ import {
   saveDailyReminderNotificationId,
   loadAcknowledgedRecoveryGoalHistoryIds,
   saveAcknowledgedRecoveryGoalHistoryIds,
+  loadAcknowledgedCalculatedHabitIds,
+  saveAcknowledgedCalculatedHabitIds,
   deleteManagedProfilePhoto,
   normalizeStoredProfilePhotoUri,
 } from "./profileStorage";
@@ -580,6 +582,7 @@ async function resetDbForDev() {
   await saveAppLockEnabledFlag(false);
   await saveDailyReminderSettings(DEFAULT_DAILY_REMINDER);
   await saveAcknowledgedRecoveryGoalHistoryIds([]);
+  await saveAcknowledgedCalculatedHabitIds([]);
   await cancelDailyReminderNotification();
 }
 
@@ -614,6 +617,8 @@ export function DataProvider({ children }: DataProviderProps) {
     acknowledgedRecoveryGoalHistoryIds,
     setAcknowledgedRecoveryGoalHistoryIds,
   ] = useState<number[]>([]);
+  const [acknowledgedCalculatedHabitIds, setAcknowledgedCalculatedHabitIds] =
+    useState<number[]>([]);
   const [trackingConfirmations, setTrackingConfirmations] = useState<
     TrackingConfirmation[]
   >([]);
@@ -883,6 +888,7 @@ export function DataProvider({ children }: DataProviderProps) {
           savedAppLockEnabled,
           savedDailyReminder,
           savedAcknowledgedRecoveryGoalHistoryIds,
+          savedAcknowledgedCalculatedHabitIds,
         ] = await Promise.all([
           loadOnboardedFlag(),
           loadProfileName(),
@@ -891,6 +897,7 @@ export function DataProvider({ children }: DataProviderProps) {
           loadAppLockEnabledFlag(),
           loadDailyReminderSettings(),
           loadAcknowledgedRecoveryGoalHistoryIds(),
+          loadAcknowledgedCalculatedHabitIds(),
         ]);
 
         await saveProfilePhotoUri(savedProfilePhoto);
@@ -920,6 +927,9 @@ export function DataProvider({ children }: DataProviderProps) {
           setDailyReminderState(savedDailyReminder);
           setAcknowledgedRecoveryGoalHistoryIds(
             savedAcknowledgedRecoveryGoalHistoryIds,
+          );
+          setAcknowledgedCalculatedHabitIds(
+            savedAcknowledgedCalculatedHabitIds,
           );
         }
 
@@ -2100,6 +2110,7 @@ export function DataProvider({ children }: DataProviderProps) {
       saveAppLockEnabledFlag(restoredAppLockEnabled),
       saveDailyReminderSettings(restoredDailyReminder),
       saveAcknowledgedRecoveryGoalHistoryIds([]),
+      saveAcknowledgedCalculatedHabitIds([]),
     ]);
 
     await scheduleDailyReminderNotification(restoredDailyReminder);
@@ -2111,6 +2122,7 @@ export function DataProvider({ children }: DataProviderProps) {
     setAppLockEnabledState(restoredAppLockEnabled);
     setDailyReminderState(restoredDailyReminder);
     setAcknowledgedRecoveryGoalHistoryIds([]);
+    setAcknowledgedCalculatedHabitIds([]);
 
     await refresh();
   };
@@ -2131,6 +2143,18 @@ export function DataProvider({ children }: DataProviderProps) {
       ].slice(-100);
       setAcknowledgedRecoveryGoalHistoryIds(nextIds);
       await saveAcknowledgedRecoveryGoalHistoryIds(nextIds);
+    };
+
+  const acknowledgeCalculatedHabits: DataContextType["acknowledgeCalculatedHabits"] =
+    async (habitIds) => {
+      const validIds = habitIds.filter((id) => Number.isInteger(id) && id > 0);
+      if (validIds.length === 0) return;
+
+      const nextIds = Array.from(
+        new Set([...acknowledgedCalculatedHabitIds, ...validIds]),
+      ).slice(-100);
+      setAcknowledgedCalculatedHabitIds(nextIds);
+      await saveAcknowledgedCalculatedHabitIds(nextIds);
     };
 
   const resetAll: DataContextType["resetAll"] = async () => {
@@ -2155,6 +2179,7 @@ export function DataProvider({ children }: DataProviderProps) {
       setSelectedActionIds([]);
       setGoalHistory([]);
       setAcknowledgedRecoveryGoalHistoryIds([]);
+      setAcknowledgedCalculatedHabitIds([]);
       setTrackingConfirmations([]);
       setCycleHistory([]);
 
@@ -2166,6 +2191,7 @@ export function DataProvider({ children }: DataProviderProps) {
         saveAppLockEnabledFlag(false),
         saveDailyReminderSettings(DEFAULT_DAILY_REMINDER),
         saveAcknowledgedRecoveryGoalHistoryIds([]),
+        saveAcknowledgedCalculatedHabitIds([]),
       ]);
 
       await cancelDailyReminderNotification();
@@ -2218,6 +2244,8 @@ export function DataProvider({ children }: DataProviderProps) {
       goalHistory,
       acknowledgedRecoveryGoalHistoryIds,
       acknowledgeRecoveryGoal,
+      acknowledgedCalculatedHabitIds,
+      acknowledgeCalculatedHabits,
       trackingConfirmations,
       cycleReviews,
       cycleHistory,
@@ -2270,6 +2298,7 @@ export function DataProvider({ children }: DataProviderProps) {
       baselineSummaries,
       goalHistory,
       acknowledgedRecoveryGoalHistoryIds,
+      acknowledgedCalculatedHabitIds,
       trackingConfirmations,
       cycleReviews,
       cycleHistory,

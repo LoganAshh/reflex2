@@ -956,7 +956,10 @@ export default function AnalyticsScreen() {
           </View>
         </View>
 
-        <TrackingReviewLauncher placement="analytics" />
+        <TrackingReviewLauncher
+          placement="analytics"
+          habitId={activeHabit?.id ?? null}
+        />
 
         <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="items-center">
@@ -1126,7 +1129,10 @@ export default function AnalyticsScreen() {
           />
         </View>
 
-        <TrackingReviewLauncher placement="analytics" />
+        <TrackingReviewLauncher
+          placement="analytics"
+          habitId={activeHabit?.id ?? null}
+        />
 
         <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="flex-row items-center justify-between">

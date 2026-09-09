@@ -24,14 +24,14 @@ export const CALIBRATION_RULES: Record<
     recentObservedDays: 3,
   },
   week: {
-    elapsedDays: 28,
-    observedDays: 21,
+    elapsedDays: 14,
+    observedDays: 10,
     recentDays: 28,
     recentObservedDays: 7,
   },
   "28_days": {
-    elapsedDays: 56,
-    observedDays: 42,
+    elapsedDays: 28,
+    observedDays: 21,
     recentDays: 56,
     recentObservedDays: 14,
   },

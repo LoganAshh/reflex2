@@ -1,5 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
+  Dimensions,
+  Easing,
   Modal,
   Pressable,
   SafeAreaView,
@@ -9,6 +12,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import type { WeeklyReviewLogRequest } from "../App";
+import LogScreen from "../screens/LogScreen";
 import { useData, type Habit, type TrackingStatus } from "../data/DataContext";
 import { startOfLocalDay } from "../data/baselines";
 import { getPreviousCycleBounds } from "../data/tracking";
@@ -31,7 +36,13 @@ function dateRange(startAt: number, endAtExclusive: number) {
   })}`;
 }
 
-export function TrackingReviewCard({ habits }: { habits: Habit[] }) {
+export function TrackingReviewCard({
+  habits,
+  onAddMissingLog,
+}: {
+  habits: Habit[];
+  onAddMissingLog?: (habitId: number, dayStart: number) => void;
+}) {
   const { logs, trackingConfirmations, setTrackingConfirmationsBatch } =
     useData();
   const [habitId, setHabitId] = useState<number | null>(habits[0]?.id ?? null);
@@ -54,7 +65,7 @@ export function TrackingReviewCard({ habits }: { habits: Habit[] }) {
   }, [habitId]);
 
   const habit = useMemo(
-    () => habits.find((item) => item.id === habitId) ?? null,
+    () => habits.find((item) => item.id === habitId) ?? habits[0] ?? null,
     [habitId, habits],
   );
 
@@ -150,7 +161,9 @@ export function TrackingReviewCard({ habits }: { habits: Habit[] }) {
           : (gapChoices[day.startAt] ??
             (day.confirmation?.status === "nothing_happened"
               ? "nothing_happened"
-              : "not_yet"))) as TrackingStatus,
+              : day.confirmation?.status === "not_yet"
+                ? "not_yet"
+                : "nothing_happened"))) as TrackingStatus,
       }));
       const hasAnyLogs = weekDays.some((day) => day.logs.length > 0);
       await setTrackingConfirmationsBatch([
@@ -247,7 +260,9 @@ export function TrackingReviewCard({ habits }: { habits: Habit[] }) {
                 gapChoices[day.startAt] ??
                 (day.confirmation?.status === "nothing_happened"
                   ? "nothing_happened"
-                  : "not_yet");
+                  : day.confirmation?.status === "not_yet"
+                    ? "not_yet"
+                    : "nothing_happened");
               return (
                 <View
                   key={day.startAt}
@@ -269,46 +284,68 @@ export function TrackingReviewCard({ habits }: { habits: Habit[] }) {
                           : "Empty · unknown"}
                     </Text>
                   </View>
-                  {reviewingGaps && day.logs.length === 0 ? (
-                    <View className="mt-2 flex-row gap-2">
-                      <Pressable
-                        onPress={() =>
-                          setGapChoices((current) => ({
-                            ...current,
-                            [day.startAt]: "nothing_happened",
-                          }))
-                        }
-                        className={`flex-1 rounded-xl border px-2 py-2 ${
-                          emptyChoice === "nothing_happened"
-                            ? "border-green-600 bg-green-600"
-                            : "border-gray-200 bg-white"
-                        }`}
-                      >
-                        <Text
-                          className={`text-center text-[11px] font-black ${emptyChoice === "nothing_happened" ? "text-white" : "text-black"}`}
+                  {reviewingGaps ? (
+                    <View className="mt-2 gap-2">
+                      {day.logs.length === 0 ? (
+                        <View className="flex-row gap-2">
+                          <Pressable
+                            onPress={() =>
+                              setGapChoices((current) => ({
+                                ...current,
+                                [day.startAt]: "nothing_happened",
+                              }))
+                            }
+                            className={`flex-1 rounded-xl border px-2 py-2 ${
+                              emptyChoice === "nothing_happened"
+                                ? "border-green-600 bg-green-600"
+                                : "border-gray-200 bg-white"
+                            }`}
+                          >
+                            <Text
+                              className={`text-center text-[11px] font-black ${emptyChoice === "nothing_happened" ? "text-white" : "text-black"}`}
+                            >
+                              Nothing happened
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() =>
+                              setGapChoices((current) => ({
+                                ...current,
+                                [day.startAt]: "not_yet",
+                              }))
+                            }
+                            className={`flex-1 rounded-xl border px-2 py-2 ${
+                              emptyChoice === "not_yet"
+                                ? "border-gray-700 bg-gray-700"
+                                : "border-gray-200 bg-white"
+                            }`}
+                          >
+                            <Text
+                              className={`text-center text-[11px] font-black ${emptyChoice === "not_yet" ? "text-white" : "text-black"}`}
+                            >
+                              Forgot or unsure
+                            </Text>
+                          </Pressable>
+                        </View>
+                      ) : null}
+
+                      {onAddMissingLog ? (
+                        <Pressable
+                          onPress={() => onAddMissingLog(habit.id, day.startAt)}
+                          className="flex-row items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-2"
                         >
-                          Nothing happened
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() =>
-                          setGapChoices((current) => ({
-                            ...current,
-                            [day.startAt]: "not_yet",
-                          }))
-                        }
-                        className={`flex-1 rounded-xl border px-2 py-2 ${
-                          emptyChoice === "not_yet"
-                            ? "border-gray-700 bg-gray-700"
-                            : "border-gray-200 bg-white"
-                        }`}
-                      >
-                        <Text
-                          className={`text-center text-[11px] font-black ${emptyChoice === "not_yet" ? "text-white" : "text-black"}`}
-                        >
-                          Forgot or unsure
-                        </Text>
-                      </Pressable>
+                          <Ionicons
+                            name="add-circle-outline"
+                            size={16}
+                            color="#111827"
+                          />
+                          <Text className="ml-1.5 text-[11px] font-black text-black">
+                            {day.logs.length === 0
+                              ? "Add missing log"
+                              : "Add another log"}
+                          </Text>
+                        </Pressable>
+                      ) : null}
                     </View>
                   ) : null}
                 </View>
@@ -353,7 +390,7 @@ export function TrackingReviewCard({ habits }: { habits: Habit[] }) {
                 className="mt-2 rounded-2xl border border-gray-200 bg-white px-4 py-3"
               >
                 <Text className="text-center text-sm font-black text-black">
-                  Review empty days
+                  Review days
                 </Text>
               </Pressable>
             </>
@@ -373,15 +410,78 @@ export function TrackingReviewCard({ habits }: { habits: Habit[] }) {
   );
 }
 
+function WeeklyReviewLogOverlay({
+  request,
+  onClose,
+}: {
+  request: WeeklyReviewLogRequest;
+  onClose: () => void;
+}) {
+  const screenWidth = Dimensions.get("window").width;
+  const translateX = useRef(new Animated.Value(screenWidth)).current;
+  const closingRef = useRef(false);
+
+  useEffect(() => {
+    Animated.timing(translateX, {
+      toValue: 0,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [translateX]);
+
+  const close = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+
+    Animated.timing(translateX, {
+      toValue: screenWidth,
+      duration: 220,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(onClose);
+  };
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        zIndex: 20,
+        elevation: 20,
+        backgroundColor: "#FFFFFF",
+        transform: [{ translateX }],
+      }}
+    >
+      <LogScreen
+        weeklyReviewLogOverride={request}
+        onWeeklyReviewReturn={close}
+      />
+    </Animated.View>
+  );
+}
+
 export function TrackingReviewLauncher({
   placement,
+  habitId = null,
 }: {
   placement: "home" | "analytics";
+  habitId?: number | null;
 }) {
   const { selectedHabits, logs, trackingConfirmations } = useData();
   const [open, setOpen] = useState(false);
+  const [activeReviewLog, setActiveReviewLog] =
+    useState<WeeklyReviewLogRequest | null>(null);
+  const [modalHabitIds, setModalHabitIds] = useState<number[]>([]);
   const previousWeek = getPreviousCycleBounds("week");
-  const reviewableHabits = selectedHabits.filter((habit) => {
+  const scopedHabits =
+    placement === "home" && habitId != null
+      ? selectedHabits.filter((habit) => habit.id === habitId)
+      : selectedHabits;
+  const reviewableHabits = scopedHabits.filter((habit) => {
     const starts = [
       habit.calibrationStartedAt,
       ...logs
@@ -414,12 +514,37 @@ export function TrackingReviewLauncher({
   });
   const hasDueReview = dueHabits.length > 0;
   const visibleHabits = placement === "home" ? dueHabits : reviewableHabits;
+  const modalHabits = useMemo(
+    () =>
+      modalHabitIds
+        .map((id) => selectedHabits.find((habit) => habit.id === id))
+        .filter((habit): habit is Habit => habit != null),
+    [modalHabitIds, selectedHabits],
+  );
+
+  const openReview = () => {
+    if (visibleHabits.length === 0) return;
+    setModalHabitIds(visibleHabits.map((habit) => habit.id));
+    setOpen(true);
+  };
+
+  const addMissingLog = (missingHabitId: number, dayStart: number) => {
+    const now = new Date();
+    const selectedDay = new Date(dayStart);
+    selectedDay.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), 0);
+    const token = Date.now();
+    setActiveReviewLog({
+      token,
+      habitId: missingHabitId,
+      createdAt: selectedDay.getTime(),
+    });
+  };
 
   useEffect(() => {
-    if (open && visibleHabits.length === 0) {
+    if (open && modalHabitIds.length > 0 && modalHabits.length === 0) {
       setOpen(false);
     }
-  }, [open, visibleHabits.length]);
+  }, [modalHabitIds.length, modalHabits.length, open]);
 
   if (placement === "home" && !hasDueReview && !open) return null;
   if (placement === "analytics" && reviewableHabits.length === 0 && !open) {
@@ -432,12 +557,12 @@ export function TrackingReviewLauncher({
         <Pressable
           onPress={() => {
             Haptics.selectionAsync();
-            setOpen(true);
+            openReview();
           }}
-          className="mt-3 flex-row items-center rounded-2xl border border-green-200 bg-green-50 px-4 py-3"
+          className="mt-3 flex-row items-center rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3"
         >
           <View className="h-9 w-9 items-center justify-center rounded-xl bg-white">
-            <Ionicons name="calendar-outline" size={19} color="#16A34A" />
+            <Ionicons name="calendar-outline" size={19} color="#0F766E" />
           </View>
           <View className="ml-3 flex-1">
             <Text className="text-sm font-black text-black">
@@ -449,15 +574,13 @@ export function TrackingReviewLauncher({
               About 1 minute
             </Text>
           </View>
-          <View className="rounded-full bg-green-600 px-3 py-2">
-            <Text className="text-xs font-black text-white">Review</Text>
-          </View>
+          <Ionicons name="chevron-forward" size={20} color="#0F766E" />
         </Pressable>
       ) : (
         <Pressable
           onPress={() => {
             Haptics.selectionAsync();
-            setOpen(true);
+            openReview();
           }}
           className="mt-5 flex-row items-center rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm"
         >
@@ -478,38 +601,58 @@ export function TrackingReviewLauncher({
         </Pressable>
       )}
 
-      <Modal
-        visible={open}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setOpen(false)}
-      >
-        <SafeAreaView className="flex-1 bg-white">
-          <View className="flex-row items-center justify-between border-b border-gray-200 px-5 py-4">
-            <View className="flex-1 pr-4">
-              <Text className="text-xs font-black uppercase tracking-widest text-green-600">
-                Tracking
-              </Text>
-              <Text className="mt-1 text-2xl font-black text-black">
-                Weekly review
-              </Text>
+      {open ? (
+        <Modal
+          visible
+          animationType="slide"
+          presentationStyle="pageSheet"
+          allowSwipeDismissal={activeReviewLog == null}
+          onRequestClose={() => {
+            if (!activeReviewLog) setOpen(false);
+          }}
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+            <View className="flex-row items-center justify-between border-b border-gray-200 px-5 py-4">
+              <View className="flex-1 pr-4">
+                <Text className="text-xs font-black uppercase tracking-widest text-teal-700">
+                  Tracking
+                </Text>
+                <Text className="mt-1 text-2xl font-black text-black">
+                  Weekly review
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setOpen(false)}
+                className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
+              >
+                <Ionicons name="close" size={20} color="#000000" />
+              </Pressable>
             </View>
-            <Pressable
-              onPress={() => setOpen(false)}
-              className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                flexGrow: 1,
+                paddingHorizontal: 20,
+                paddingBottom: 32,
+              }}
+              showsVerticalScrollIndicator={false}
             >
-              <Ionicons name="close" size={20} color="#000000" />
-            </Pressable>
-          </View>
-          <ScrollView
-            className="flex-1 px-5"
-            contentContainerStyle={{ paddingBottom: 32 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <TrackingReviewCard habits={visibleHabits} />
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
+              <TrackingReviewCard
+                key={`${placement}:${habitId ?? "overall"}:${modalHabitIds.join(",")}`}
+                habits={modalHabits}
+                onAddMissingLog={addMissingLog}
+              />
+            </ScrollView>
+
+            {activeReviewLog ? (
+              <WeeklyReviewLogOverlay
+                request={activeReviewLog}
+                onClose={() => setActiveReviewLog(null)}
+              />
+            ) : null}
+          </SafeAreaView>
+        </Modal>
+      ) : null}
     </>
   );
 }

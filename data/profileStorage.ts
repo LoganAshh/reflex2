@@ -10,6 +10,7 @@ const APP_LOCK_ENABLED_KEY = "appLockEnabled";
 const DAILY_REMINDER_KEY = "dailyReminderSettings";
 const DAILY_REMINDER_NOTIFICATION_ID_KEY = "dailyReminderNotificationId";
 const ACKNOWLEDGED_RECOVERY_GOAL_IDS_KEY = "acknowledgedRecoveryGoalHistoryIds";
+const ACKNOWLEDGED_CALCULATED_HABIT_IDS_KEY = "acknowledgedCalculatedHabitIds";
 const PROFILE_PHOTOS_DIR_NAME = "profile-photos";
 
 const profilePhotoPrefix = `${PROFILE_PHOTOS_DIR_NAME}/`;
@@ -274,6 +275,33 @@ export async function saveAcknowledgedRecoveryGoalHistoryIds(
   ).slice(-100);
   await saveString(
     ACKNOWLEDGED_RECOVERY_GOAL_IDS_KEY,
+    JSON.stringify(cleanIds),
+  );
+}
+
+export async function loadAcknowledgedCalculatedHabitIds(): Promise<number[]> {
+  const value = await loadString(ACKNOWLEDGED_CALCULATED_HABIT_IDS_KEY);
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return Array.from(
+      new Set(
+        parsed.filter((id): id is number => Number.isInteger(id) && id > 0),
+      ),
+    ).slice(-100);
+  } catch {
+    return [];
+  }
+}
+
+export async function saveAcknowledgedCalculatedHabitIds(
+  ids: number[],
+): Promise<void> {
+  const cleanIds = Array.from(
+    new Set(ids.filter((id) => Number.isInteger(id) && id > 0)),
+  ).slice(-100);
+  await saveString(
+    ACKNOWLEDGED_CALCULATED_HABIT_IDS_KEY,
     JSON.stringify(cleanIds),
   );
 }
