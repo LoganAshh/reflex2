@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { useData } from "../data/DataContext";
 import { persistPickedProfilePhoto } from "../data/profileStorage";
+import { INPUT_LIMITS } from "../data/inputLimits";
 import { Screen } from "../components/Screen";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -216,6 +217,7 @@ export default function ProfileSetupScreen({ navigation }: ProfileSetupProps) {
           <TextInput
             value={name}
             onChangeText={setName}
+            maxLength={INPUT_LIMITS.profileName}
             placeholder="Enter your first name"
             placeholderTextColor="#9CA3AF"
             autoCapitalize="words"

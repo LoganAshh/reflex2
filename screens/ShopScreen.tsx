@@ -17,6 +17,7 @@ import type { RouteProp } from "@react-navigation/native";
 import type { RootStackParamList } from "../App";
 import { useData, type ReplacementAction } from "../data/DataContext";
 import { Screen } from "../components/Screen";
+import { INPUT_LIMITS } from "../data/inputLimits";
 
 const SELECTED = "selected" as const;
 const ALL = "all" as const;
@@ -541,6 +542,7 @@ export default function ShopScreen() {
             <TextInput
               value={text}
               onChangeText={setText}
+              maxLength={INPUT_LIMITS.replacementAction}
               placeholder="e.g., 10 push-ups, call a friend"
               placeholderTextColor="#9CA3AF"
               className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-black"
@@ -656,6 +658,7 @@ export default function ShopScreen() {
             <TextInput
               value={editTitle}
               onChangeText={setEditTitle}
+              maxLength={INPUT_LIMITS.replacementAction}
               placeholder="Custom action"
               placeholderTextColor="#9CA3AF"
               className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"

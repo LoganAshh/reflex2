@@ -37,6 +37,7 @@ import { DEFAULT_HABIT_ICON, type HabitIconName } from "../data/habitIcons";
 import { HabitIconPicker } from "../components/HabitIconPicker";
 import { Screen } from "../components/Screen";
 import { normalizeGoalAmount } from "../data/goals";
+import { managedItemInputLimit } from "../data/inputLimits";
 import DraggableFlatList from "react-native-draggable-flatlist";
 
 type ManageRoute = RouteProp<RootStackParamList, "ManageList">;
@@ -477,6 +478,28 @@ export default function ManageListScreen() {
     type,
   ]);
 
+  useEffect(() => {
+    setHabitOrderPreviewIds((currentIds) => {
+      if (currentIds == null) return null;
+
+      const selectedIdsInSavedOrder = selectedHabits.map((habit) => habit.id);
+      const selectedIdSet = new Set(selectedIdsInSavedOrder);
+      const keptIds = currentIds.filter((habitId) =>
+        selectedIdSet.has(habitId),
+      );
+      const keptIdSet = new Set(keptIds);
+      const addedIds = selectedIdsInSavedOrder.filter(
+        (habitId) => !keptIdSet.has(habitId),
+      );
+      const nextIds = [...keptIds, ...addedIds];
+      const unchanged =
+        nextIds.length === currentIds.length &&
+        nextIds.every((habitId, index) => habitId === currentIds[index]);
+
+      return unchanged ? currentIds : nextIds;
+    });
+  }, [selectedHabits]);
+
   const setLogReturnSelectionParam = (selection: ManageListSelection) => {
     const rootState = navigation.getState();
     const mainRoute = rootState.routes.find((r) => r.name === "Main");
@@ -906,6 +929,7 @@ export default function ManageListScreen() {
             <TextInput
               value={text}
               onChangeText={setText}
+              maxLength={managedItemInputLimit(type)}
               placeholder={`New ${singularTitle}...`}
               placeholderTextColor="#9CA3AF"
               className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-black"
@@ -1002,6 +1026,7 @@ export default function ManageListScreen() {
                   <TextInput
                     value={editText}
                     onChangeText={setEditText}
+                    maxLength={managedItemInputLimit(type)}
                     placeholder={singularTitle}
                     placeholderTextColor="#9CA3AF"
                     className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
@@ -1629,12 +1654,25 @@ export default function ManageListScreen() {
               .map((item) => item.id);
             setHabitOrderPreviewIds(nextIds);
             const save = async () => {
-              await persistSelectedHabitOrder(nextIds);
-              setHabitOrderPreviewIds(null);
+              try {
+                await persistSelectedHabitOrder(nextIds);
+              } catch {
+                setHabitOrderPreviewIds(null);
+                Alert.alert(
+                  "Couldn't save habit order",
+                  "Your previous order has been restored. Please try again.",
+                );
+              }
             };
             void save();
           }}
           activationDistance={8}
+          animationConfig={{
+            damping: 30,
+            mass: 0.2,
+            stiffness: 220,
+            overshootClamping: true,
+          }}
           autoscrollThreshold={80}
           autoscrollSpeed={120}
           removeClippedSubviews={false}

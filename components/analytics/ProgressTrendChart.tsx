@@ -30,11 +30,15 @@ type TrendPoint = {
   provisional: boolean;
 };
 
-const RANGE_OPTIONS: Array<{ key: RangeKey; days: number | null }> = [
-  { key: "4W", days: 28 },
-  { key: "3M", days: 90 },
-  { key: "6M", days: 180 },
-  { key: "All", days: null },
+const RANGE_OPTIONS: Array<{
+  key: RangeKey;
+  label: string;
+  days: number | null;
+}> = [
+  { key: "4W", label: "Month", days: 28 },
+  { key: "3M", label: "3M", days: 90 },
+  { key: "6M", label: "6M", days: 180 },
+  { key: "All", label: "All", days: null },
 ];
 
 const PLOT_HEIGHT = 168;
@@ -275,16 +279,8 @@ function addLocalDays(timestamp: number, days: number) {
 
 function provisionalActivityPoints(habit: Habit, logs: LogEntry[]) {
   const habitLogs = logs.filter((log) => log.habitId === habit.id);
-  const trackingStarts = [
-    habit.rebaselineStartedAt,
-    habit.calibrationStartedAt,
-    ...habitLogs.map((log) => log.createdAt),
-  ].filter((value): value is number => value != null && Number.isFinite(value));
-  if (trackingStarts.length === 0) return [];
-
   const now = Date.now();
   const today = startOfLocalDay(now);
-  const trackingStart = startOfLocalDay(Math.min(...trackingStarts));
   const unit = habit.unit.trim() || "times";
   const bucketPeriod: HabitPeriod =
     habit.currentGoalPeriod === "week" ? "day" : "week";
@@ -292,6 +288,22 @@ function provisionalActivityPoints(habit: Habit, logs: LogEntry[]) {
     bucketPeriod === "day"
       ? addLocalDays(today, -27)
       : addLocalDays(today, -111);
+  const visibleLogStarts = habitLogs
+    .map((log) => log.createdAt)
+    .filter((createdAt) => createdAt >= earliest && createdAt <= now);
+  const hasOlderLogs = habitLogs.some((log) => log.createdAt < earliest);
+  const trackingStartValue =
+    habit.rebaselineStartedAt ??
+    (visibleLogStarts.length > 0
+      ? Math.min(...visibleLogStarts)
+      : hasOlderLogs
+        ? null
+        : habit.calibrationStartedAt);
+  if (trackingStartValue == null || !Number.isFinite(trackingStartValue)) {
+    return [];
+  }
+
+  const trackingStart = startOfLocalDay(trackingStartValue);
   let bucketStart = Math.max(trackingStart, earliest);
   if (bucketPeriod === "week") bucketStart = startOfLocalWeek(bucketStart);
 
@@ -644,7 +656,7 @@ export function ProgressTrendChart({
               <Text
                 className={`text-center text-xs font-black ${active ? "text-white" : "text-black"}`}
               >
-                {option.key}
+                {option.label}
               </Text>
             </Pressable>
           );

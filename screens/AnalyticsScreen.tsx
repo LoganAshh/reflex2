@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Keyboard,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -29,21 +30,6 @@ import { ProgressTrendChart } from "../components/analytics/ProgressTrendChart";
 
 const ICON_BUBBLE_BORDER = "#E5E7EB";
 const BRAND_GREEN = "#16A34A";
-
-function startOfWeekMs(d: Date) {
-  const day = d.getDay();
-  const diffToMonday = (day + 6) % 7;
-  const monday = new Date(
-    d.getFullYear(),
-    d.getMonth(),
-    d.getDate() - diffToMonday,
-  );
-  return new Date(
-    monday.getFullYear(),
-    monday.getMonth(),
-    monday.getDate(),
-  ).getTime();
-}
 
 function startOfMonthMs(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
@@ -170,136 +156,128 @@ async function successHaptic() {
 }
 
 type TabKey = "Overall" | string;
-type PatternRangeKey = "4W" | "3M" | "6M" | "All";
+type PatternRangeKey = "Week" | "4W" | "3M" | "All";
+type PatternDetailKey = "when" | "where" | "why";
+type ActivityDetailKey = "activity" | "outcomes" | "intensity";
 
 const PATTERN_RANGE_OPTIONS: Array<{
   key: PatternRangeKey;
+  label: string;
   days: number | null;
 }> = [
-  { key: "4W", days: 28 },
-  { key: "3M", days: 90 },
-  { key: "6M", days: 180 },
-  { key: "All", days: null },
+  { key: "Week", label: "Week", days: 7 },
+  { key: "4W", label: "Month", days: 28 },
+  { key: "3M", label: "3M", days: 90 },
+  { key: "All", label: "All", days: null },
 ];
+
+function rangeLabel(range: PatternRangeKey) {
+  return PATTERN_RANGE_OPTIONS.find((option) => option.key === range)?.label;
+}
 type AnalyticsRoute = RouteProp<RootTabParamList, "Analytics">;
 type Nav = BottomTabNavigationProp<RootTabParamList, "Analytics"> &
   NativeStackNavigationProp<RootStackParamList>;
-function StatCard({
+function ActivitySummaryRow({
   label,
-  value,
-  sub,
+  summary,
   icon,
+  onPress,
+  disabled = false,
   accentColor = BRAND_GREEN,
 }: {
   label: string;
-  value: string;
-  sub?: string;
+  summary: string;
   icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  disabled?: boolean;
   accentColor?: string;
 }) {
   return (
-    <View className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 p-4 shadow-sm">
-      <View className="flex-row items-start justify-between">
-        <View
-          className="h-10 w-10 items-center justify-center rounded-2xl border bg-white"
-          style={{ borderColor: ICON_BUBBLE_BORDER }}
-        >
-          <Ionicons name={icon} size={21} color={accentColor} />
-        </View>
-      </View>
-
-      <Text className="mt-4 text-3xl font-black text-black">{value}</Text>
-      <Text className="mt-1 text-xs font-black uppercase tracking-wide text-gray-500">
-        {label}
-      </Text>
-
-      {sub ? (
-        <Text className="mt-1 text-xs font-semibold text-gray-500">{sub}</Text>
-      ) : null}
-    </View>
-  );
-}
-
-function MiniStat({
-  label,
-  value,
-  icon,
-  accentColor = BRAND_GREEN,
-}: {
-  label: string;
-  value: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  accentColor?: string;
-}) {
-  return (
-    <View className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole={disabled ? undefined : "button"}
+      accessibilityHint={
+        disabled ? undefined : `View ${label.toLowerCase()} details`
+      }
+      className="mt-2.5 flex-row items-center rounded-2xl border border-gray-200 bg-white px-3 py-3"
+    >
       <View
-        className="h-9 w-9 items-center justify-center rounded-xl border bg-white"
+        className="h-10 w-10 items-center justify-center rounded-xl border bg-white"
         style={{ borderColor: ICON_BUBBLE_BORDER }}
       >
-        <Ionicons name={icon} size={19} color={accentColor} />
+        <Ionicons name={icon} size={20} color={accentColor} />
       </View>
 
-      <Text className="mt-3 text-xl font-black text-black">{value}</Text>
-      <Text className="mt-1 text-xs font-bold text-gray-500">{label}</Text>
-    </View>
-  );
-}
-
-function ListBlock({
-  title,
-  items,
-  empty,
-  icon,
-  accentColor = BRAND_GREEN,
-}: {
-  title: string;
-  items: { name: string; count: number }[];
-  empty: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  accentColor?: string;
-}) {
-  return (
-    <View className="mt-4 rounded-[28px] border border-gray-200 bg-white p-4 shadow-sm">
-      <View className="flex-row items-center">
-        <View
-          className="h-11 w-11 items-center justify-center rounded-2xl border bg-white"
-          style={{ borderColor: ICON_BUBBLE_BORDER }}
+      <View className="ml-3 flex-1">
+        <Text className="text-sm font-black text-black">{label}</Text>
+        <Text
+          className="mt-0.5 text-xs font-semibold text-gray-500"
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.85}
         >
-          <Ionicons name={icon} size={23} color={accentColor} />
-        </View>
-
-        <Text className="ml-3 flex-1 text-base font-black text-black">
-          {title}
+          {summary}
         </Text>
       </View>
 
-      {items.length === 0 ? (
-        <Text className="mt-3 text-sm leading-5 text-gray-500">{empty}</Text>
-      ) : (
-        <View className="mt-3">
-          {items.map((x, idx) => (
-            <View
-              key={`${x.name}-${idx}`}
-              className="mb-2 flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3"
-            >
-              <Text className="flex-1 pr-3 text-sm font-bold text-black">
-                {x.name}
-              </Text>
+      {!disabled ? (
+        <Ionicons name="chevron-forward" size={19} color="#6B7280" />
+      ) : null}
+    </Pressable>
+  );
+}
 
-              <View className="rounded-full bg-white px-3 py-1">
-                <Text
-                  className="text-sm font-black"
-                  style={{ color: accentColor }}
-                >
-                  {x.count}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-    </View>
+function PatternSummaryRow({
+  label,
+  items,
+  icon,
+  onPress,
+  accentColor = BRAND_GREEN,
+}: {
+  label: string;
+  items: { name: string; count: number }[];
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  accentColor?: string;
+}) {
+  const summary = items
+    .slice(0, 1)
+    .map((item) => `${item.name} · ${item.count}`)
+    .join("");
+  const canOpen = items.length > 1;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={!canOpen}
+      accessibilityRole={canOpen ? "button" : undefined}
+      accessibilityHint={
+        canOpen ? `View all ${label.toLowerCase()} patterns` : undefined
+      }
+      className="mt-2.5 flex-row items-center rounded-2xl border border-gray-200 bg-white px-3 py-3"
+    >
+      <View
+        className="h-10 w-10 items-center justify-center rounded-xl border bg-white"
+        style={{ borderColor: ICON_BUBBLE_BORDER }}
+      >
+        <Ionicons name={icon} size={20} color={accentColor} />
+      </View>
+
+      <View className="ml-3 flex-1">
+        <Text className="text-sm font-black text-black">{label}</Text>
+        <Text
+          className="mt-0.5 text-xs font-semibold text-gray-500"
+          numberOfLines={1}
+        >
+          {summary || "No information recorded"}
+        </Text>
+      </View>
+
+      {canOpen ? (
+        <Ionicons name="chevron-forward" size={19} color="#6B7280" />
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -327,6 +305,11 @@ export default function AnalyticsScreen() {
     "calendar",
   );
   const [patternRange, setPatternRange] = useState<PatternRangeKey>("4W");
+  const [insightRange, setInsightRange] = useState<PatternRangeKey>("4W");
+  const [patternDetailKey, setPatternDetailKey] =
+    useState<PatternDetailKey | null>(null);
+  const [activityDetailKey, setActivityDetailKey] =
+    useState<ActivityDetailKey | null>(null);
   const [dayModalOpen, setDayModalOpen] = useState(false);
   const [selectedDayMs, setSelectedDayMs] = useState<number | null>(null);
   const [editingLog, setEditingLog] = useState<LogEntry | null>(null);
@@ -373,6 +356,9 @@ export default function AnalyticsScreen() {
     setActiveTab("Overall");
     setMonthOffset(0);
     setPatternRange("4W");
+    setInsightRange("4W");
+    setPatternDetailKey(null);
+    setActivityDetailKey(null);
     setDayModalOpen(false);
     setSelectedDayMs(null);
     closeEditModalWithoutHaptic();
@@ -751,10 +737,9 @@ export default function AnalyticsScreen() {
         log.didResist !== 1 &&
         (rangeStart == null || log.createdAt >= rangeStart),
     );
-    const topN = (m: Map<string, number>) =>
+    const ranked = (m: Map<string, number>) =>
       Array.from(m.entries())
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
         .map(([name, count]) => ({ name, count }));
 
     const cueCounts = new Map<string, number>();
@@ -789,157 +774,89 @@ export default function AnalyticsScreen() {
 
     return {
       gaveInCount: patternLogs.length,
-      topCues: topN(cueCounts),
-      topLocations: topN(locCounts),
-      topTimes: topN(timeCounts),
+      topCues: ranked(cueCounts),
+      topLocations: ranked(locCounts),
+      topTimes: ranked(timeCounts),
     };
   }, [filteredLogs, patternRange]);
 
-  const extraAnalytics = useMemo(() => {
-    const now = Date.now();
-    const weekStart = startOfWeekMs(new Date(now));
-    const thirtyDaysAgo = startOfDayMs(now - 29 * 24 * 60 * 60 * 1000);
-    const weekLogs = filteredLogs.filter((l) => l.createdAt >= weekStart);
-    const monthLogs = filteredLogs.filter((l) => l.createdAt >= thirtyDaysAgo);
-    const weeklyTotal = weekLogs.length;
-    const weeklyResisted = weekLogs.filter((l) => l.didResist === 1).length;
-    const weeklyGaveIn = weeklyTotal - weeklyResisted;
-    const weeklyResistRate = percent(weeklyResisted, weeklyTotal);
-    const allResisted = filteredLogs.filter((l) => l.didResist === 1).length;
-    const allGiveIn = filteredLogs.length - allResisted;
-    const overallResistRate = percent(allResisted, filteredLogs.length);
+  const activePatternDetail =
+    patternDetailKey === "when"
+      ? {
+          title: "When it happens",
+          icon: "time" as const,
+          items: data.topTimes,
+          total: data.gaveInCount,
+        }
+      : patternDetailKey === "where"
+        ? {
+            title: "Where it happens",
+            icon: "location" as const,
+            items: data.topLocations,
+            total: data.gaveInCount,
+          }
+        : patternDetailKey === "why"
+          ? {
+              title: "Why it happens",
+              icon: "alert-circle" as const,
+              items: data.topCues,
+              total: data.gaveInCount,
+            }
+          : null;
 
-    let sumIntensity = 0;
-    let intensityCount = 0;
-
-    for (const l of filteredLogs) {
-      if (typeof l.intensity === "number") {
-        sumIntensity += l.intensity;
-        intensityCount += 1;
-      }
-    }
-
-    const avgIntensity =
-      intensityCount > 0 ? sumIntensity / intensityCount : null;
-
-    let resistedIntensitySum = 0;
-    let resistedIntensityCount = 0;
-    let gaveInIntensitySum = 0;
-    let gaveInIntensityCount = 0;
-
-    for (const l of filteredLogs) {
-      if (typeof l.intensity !== "number") continue;
-
-      if (l.didResist === 1) {
-        resistedIntensitySum += l.intensity;
-        resistedIntensityCount += 1;
-      } else {
-        gaveInIntensitySum += l.intensity;
-        gaveInIntensityCount += 1;
-      }
-    }
-
-    const avgResistedIntensity =
-      resistedIntensityCount > 0
-        ? resistedIntensitySum / resistedIntensityCount
-        : null;
-    const avgGaveInIntensity =
-      gaveInIntensityCount > 0
-        ? gaveInIntensitySum / gaveInIntensityCount
-        : null;
-    const weekdayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const weekdayCounts = new Map<string, number>(
-      weekdayOrder.map((d) => [d, 0] as const),
+  const activitySummary = useMemo(() => {
+    const selectedRange = PATTERN_RANGE_OPTIONS.find(
+      (option) => option.key === insightRange,
     );
-
-    for (const l of weekLogs) {
-      const jsDay = new Date(l.createdAt).getDay();
-      const idx = (jsDay + 6) % 7;
-      const key = weekdayOrder[idx];
-
-      weekdayCounts.set(key, (weekdayCounts.get(key) ?? 0) + 1);
-    }
-
-    const weeklyTrend = weekdayOrder.map((label) => ({
-      label,
-      count: weekdayCounts.get(label) ?? 0,
-    }));
-    const weeklyTrendMax = Math.max(...weeklyTrend.map((x) => x.count), 1);
-    const habitMap = new Map<
-      string,
-      { total: number; resisted: number; gaveIn: number }
-    >();
-    const sourceLogs = activeTab === "Overall" ? monthLogs : filteredLogs;
-
-    for (const l of sourceLogs) {
-      const habit = (l.habitName ?? "").trim();
-      if (!habit) continue;
-
-      const curr = habitMap.get(habit) ?? {
-        total: 0,
-        resisted: 0,
-        gaveIn: 0,
-      };
-
-      curr.total += 1;
-
-      if (l.didResist === 1) curr.resisted += 1;
-      else curr.gaveIn += 1;
-
-      habitMap.set(habit, curr);
-    }
-
-    const habitBreakdown = Array.from(habitMap.entries())
-      .map(([name, stats]) => ({
-        name,
-        total: stats.total,
-        resisted: stats.resisted,
-        gaveIn: stats.gaveIn,
-        resistRate: percent(stats.resisted, stats.total),
-      }))
-      .sort((a, b) => {
-        if (b.total !== a.total) return b.total - a.total;
-        return a.name.localeCompare(b.name);
-      })
-      .slice(0, 5);
-    const recentDayCounts = new Map<string, number>();
-
-    for (let i = 0; i < 30; i++) {
-      const dayMs = startOfDayMs(now - i * 24 * 60 * 60 * 1000);
-      recentDayCounts.set(dayKey(dayMs), 0);
-    }
-
-    for (const l of monthLogs) {
-      const k = dayKey(l.createdAt);
-
-      if (recentDayCounts.has(k)) {
-        recentDayCounts.set(k, (recentDayCounts.get(k) ?? 0) + 1);
-      }
-    }
-
-    let activeDays30 = 0;
-
-    for (const v of recentDayCounts.values()) {
-      if (v > 0) activeDays30 += 1;
-    }
+    const now = new Date();
+    const rangeStart =
+      selectedRange?.days == null
+        ? null
+        : startOfDayMs(
+            new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              now.getDate() - (selectedRange.days - 1),
+            ).getTime(),
+          );
+    const rangeLogs = filteredLogs.filter(
+      (log) => rangeStart == null || log.createdAt >= rangeStart,
+    );
+    const resisted = rangeLogs.filter((log) => log.didResist === 1);
+    const gaveIn = rangeLogs.filter((log) => log.didResist !== 1);
+    const withIntensity = rangeLogs.filter(
+      (log) => typeof log.intensity === "number",
+    );
+    const resistedWithIntensity = resisted.filter(
+      (log) => typeof log.intensity === "number",
+    );
+    const gaveInWithIntensity = gaveIn.filter(
+      (log) => typeof log.intensity === "number",
+    );
+    const averageIntensity = (entries: LogEntry[]) =>
+      entries.length === 0
+        ? null
+        : entries.reduce((sum, log) => sum + (log.intensity ?? 0), 0) /
+          entries.length;
 
     return {
-      weeklyTotal,
-      weeklyResisted,
-      weeklyGaveIn,
-      weeklyResistRate,
-      allResisted,
-      allGiveIn,
-      overallResistRate,
-      avgIntensity,
-      avgResistedIntensity,
-      avgGaveInIntensity,
-      weeklyTrend,
-      weeklyTrendMax,
-      habitBreakdown,
-      activeDays30,
+      total: rangeLogs.length,
+      activeDays: new Set(rangeLogs.map((log) => dayKey(log.createdAt))).size,
+      resisted: resisted.length,
+      gaveIn: gaveIn.length,
+      resistRate: percent(resisted.length, rangeLogs.length),
+      gaveInRate: percent(gaveIn.length, rangeLogs.length),
+      intensityRatedCount: withIntensity.length,
+      avgIntensity: averageIntensity(withIntensity),
+      avgResistedIntensity: averageIntensity(resistedWithIntensity),
+      avgGaveInIntensity: averageIntensity(gaveInWithIntensity),
     };
-  }, [filteredLogs, activeTab]);
+  }, [filteredLogs, insightRange]);
+
+  const averageLogsPerActiveDay =
+    activitySummary.activeDays === 0
+      ? null
+      : activitySummary.total / activitySummary.activeDays;
 
   const patternTitle = "Habit activity patterns";
 
@@ -1268,7 +1185,7 @@ export default function AnalyticsScreen() {
                       selected ? "text-white" : "text-black"
                     }`}
                   >
-                    {option.key}
+                    {option.label}
                   </Text>
                 </Pressable>
               );
@@ -1290,43 +1207,52 @@ export default function AnalyticsScreen() {
               </Text>
             </View>
           ) : (
-            <>
-              <ListBlock
+            <View className="mt-1">
+              <PatternSummaryRow
                 accentColor={activeHabitColor}
-                title="Most common cues"
-                items={data.topCues}
-                empty="No cues were recorded with your habit activity."
-                icon="alert-circle"
-              />
-
-              <ListBlock
-                accentColor={activeHabitColor}
-                title="Most common locations"
-                items={data.topLocations}
-                empty="No locations were recorded with your habit activity."
-                icon="location"
-              />
-
-              <ListBlock
-                accentColor={activeHabitColor}
-                title="Most common times"
+                label="When"
                 items={data.topTimes}
-                empty="No times were recorded with your habit activity."
                 icon="time"
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setPatternDetailKey("when");
+                }}
               />
-            </>
+
+              <PatternSummaryRow
+                accentColor={activeHabitColor}
+                label="Where"
+                items={data.topLocations}
+                icon="location"
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setPatternDetailKey("where");
+                }}
+              />
+
+              <PatternSummaryRow
+                accentColor={activeHabitColor}
+                label="Why"
+                items={data.topCues}
+                icon="alert-circle"
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setPatternDetailKey("why");
+                }}
+              />
+            </View>
           )}
         </View>
 
         <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
           <View className="flex-row items-center justify-between">
-            <View>
+            <View className="flex-1 pr-3">
               <Text className="text-xl font-black text-black">
-                More insights
+                Activity Summary
               </Text>
 
               <Text className="mt-1 text-sm font-semibold text-gray-500">
-                Small numbers still reveal useful patterns.
+                Your activity, outcomes, and intensity.
               </Text>
             </View>
 
@@ -1338,118 +1264,337 @@ export default function AnalyticsScreen() {
             </View>
           </View>
 
-          <View className="mt-5 flex-row gap-3">
-            <StatCard
+          <View className="mt-3 flex-row gap-2">
+            {PATTERN_RANGE_OPTIONS.map((option) => {
+              const selected = insightRange === option.key;
+
+              return (
+                <Pressable
+                  key={option.key}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setInsightRange(option.key);
+                  }}
+                  className="flex-1 rounded-full border px-2 py-1.5"
+                  style={{
+                    borderColor: selected
+                      ? activeHabitColor
+                      : ICON_BUBBLE_BORDER,
+                    backgroundColor: selected ? activeHabitColor : "#FFFFFF",
+                  }}
+                >
+                  <Text
+                    className={`text-center text-xs font-black ${
+                      selected ? "text-white" : "text-black"
+                    }`}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View className="mt-1">
+            <ActivitySummaryRow
               accentColor={activeHabitColor}
-              label="Logs this week"
-              value={`${extraAnalytics.weeklyTotal}`}
+              label="Activity"
+              summary={`${activitySummary.total} ${activitySummary.total === 1 ? "log" : "logs"}`}
               icon="create"
+              disabled={activitySummary.total === 0}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setActivityDetailKey("activity");
+              }}
             />
 
-            <StatCard
+            <ActivitySummaryRow
               accentColor={activeHabitColor}
-              label="Resist rate"
-              value={`${extraAnalytics.weeklyResistRate}%`}
-              sub="This week"
+              label="Outcomes"
+              summary={`${activitySummary.resistRate}% resisted`}
               icon="shield-checkmark"
+              disabled={activitySummary.total === 0}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setActivityDetailKey("outcomes");
+              }}
             />
-          </View>
 
-          <View className="mt-3 flex-row gap-3">
-            <StatCard
+            <ActivitySummaryRow
               accentColor={activeHabitColor}
-              label="Habit activity"
-              value={`${extraAnalytics.weeklyGaveIn}`}
-              sub="This week"
-              icon="trending-down"
+              label="Intensity"
+              summary={`${formatAvg(activitySummary.avgIntensity)} average`}
+              icon="pulse"
+              disabled={activitySummary.intensityRatedCount === 0}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setActivityDetailKey("intensity");
+              }}
             />
-
-            <StatCard
-              accentColor={activeHabitColor}
-              label="Active days"
-              value={`${extraAnalytics.activeDays30}`}
-              sub="Last 30 days"
-              icon="flame"
-            />
-          </View>
-
-          <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-            <View className="flex-row items-center">
-              <View
-                className="h-11 w-11 items-center justify-center rounded-2xl border bg-white"
-                style={{ borderColor: ICON_BUBBLE_BORDER }}
-              >
-                <Ionicons name="pie-chart" size={23} color={activeHabitColor} />
-              </View>
-
-              <Text className="ml-3 flex-1 text-base font-black text-black">
-                Outcome breakdown
-              </Text>
-            </View>
-
-            <View className="mt-4 flex-row gap-3">
-              <MiniStat
-                accentColor={activeHabitColor}
-                label="Resisted"
-                value={`${extraAnalytics.allResisted}`}
-                icon="shield-checkmark"
-              />
-
-              <MiniStat
-                accentColor={activeHabitColor}
-                label="Habit activity"
-                value={`${extraAnalytics.allGiveIn}`}
-                icon="close-circle"
-              />
-
-              <MiniStat
-                accentColor={activeHabitColor}
-                label="Rate"
-                value={`${extraAnalytics.overallResistRate}%`}
-                icon="pulse"
-              />
-            </View>
-          </View>
-
-          <View className="mt-5 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-            <View className="flex-row items-center">
-              <View
-                className="h-11 w-11 items-center justify-center rounded-2xl border bg-white"
-                style={{ borderColor: ICON_BUBBLE_BORDER }}
-              >
-                <Ionicons name="pulse" size={23} color={activeHabitColor} />
-              </View>
-
-              <Text className="ml-3 flex-1 text-base font-black text-black">
-                Intensity trends
-              </Text>
-            </View>
-
-            <View className="mt-4 flex-row gap-3">
-              <MiniStat
-                accentColor={activeHabitColor}
-                label="Average"
-                value={formatAvg(extraAnalytics.avgIntensity)}
-                icon="analytics"
-              />
-
-              <MiniStat
-                accentColor={activeHabitColor}
-                label="Resisted"
-                value={formatAvg(extraAnalytics.avgResistedIntensity)}
-                icon="shield-checkmark"
-              />
-
-              <MiniStat
-                accentColor={activeHabitColor}
-                label="Habit activity"
-                value={formatAvg(extraAnalytics.avgGaveInIntensity)}
-                icon="alert"
-              />
-            </View>
           </View>
         </View>
       </Screen>
+
+      <Modal
+        visible={activePatternDetail != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPatternDetailKey(null)}
+      >
+        <View className="flex-1 justify-center bg-black/40 px-5">
+          <View className="max-h-[75%] rounded-[32px] bg-white p-5 shadow-lg">
+            <View className="flex-row items-center">
+              <View
+                className="h-12 w-12 items-center justify-center rounded-2xl border bg-white"
+                style={{ borderColor: ICON_BUBBLE_BORDER }}
+              >
+                <Ionicons
+                  name={activePatternDetail?.icon ?? "analytics"}
+                  size={24}
+                  color={activeHabitColor}
+                />
+              </View>
+
+              <View className="ml-3 flex-1">
+                <Text className="text-xl font-black text-black">
+                  {activePatternDetail?.title}
+                </Text>
+                <Text className="mt-1 text-sm font-semibold text-gray-500">
+                  Based on {activePatternDetail?.total ?? 0}{" "}
+                  {(activePatternDetail?.total ?? 0) === 1
+                    ? "give-in"
+                    : "give-ins"}{" "}
+                  · {rangeLabel(patternRange)} view
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => setPatternDetailKey(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Close pattern details"
+                className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-gray-50"
+              >
+                <Ionicons name="close" size={22} color="#000000" />
+              </Pressable>
+            </View>
+
+            <ScrollView className="mt-4" showsVerticalScrollIndicator={false}>
+              {activePatternDetail?.items.map((item, index) => {
+                const total = Math.max(activePatternDetail.total, 1);
+                const percentage = Math.min(
+                  100,
+                  Math.round((item.count / total) * 100),
+                );
+
+                return (
+                  <View
+                    key={`${item.name}-${index}`}
+                    className="mb-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3"
+                  >
+                    <View className="flex-row items-center">
+                      <Text className="flex-1 pr-3 text-sm font-bold text-black">
+                        {item.name}
+                      </Text>
+                      <Text
+                        className="text-xs font-black"
+                        style={{ color: activeHabitColor }}
+                      >
+                        {item.count} {item.count === 1 ? "time" : "times"} ·{" "}
+                        {percentage}%
+                      </Text>
+                    </View>
+
+                    <View className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
+                      <View
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${percentage}%`,
+                          backgroundColor: activeHabitColor,
+                        }}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            <Pressable
+              onPress={() => setPatternDetailKey(null)}
+              className="mt-3 rounded-3xl bg-green-600 py-4 active:bg-green-700"
+            >
+              <Text className="text-center text-base font-black text-white">
+                Done
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={activityDetailKey != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActivityDetailKey(null)}
+      >
+        <View className="flex-1 justify-center bg-black/40 px-5">
+          <View className="rounded-[32px] bg-white p-5 shadow-lg">
+            <View className="flex-row items-center">
+              <View
+                className="h-12 w-12 items-center justify-center rounded-2xl border bg-white"
+                style={{ borderColor: ICON_BUBBLE_BORDER }}
+              >
+                <Ionicons
+                  name={
+                    activityDetailKey === "activity"
+                      ? "create"
+                      : activityDetailKey === "outcomes"
+                        ? "shield-checkmark"
+                        : "pulse"
+                  }
+                  size={24}
+                  color={activeHabitColor}
+                />
+              </View>
+
+              <View className="ml-3 flex-1">
+                <Text className="text-xl font-black text-black">
+                  {activityDetailKey === "activity"
+                    ? "Activity"
+                    : activityDetailKey === "outcomes"
+                      ? "Outcomes"
+                      : "Intensity"}
+                </Text>
+                <Text className="mt-1 text-sm font-semibold text-gray-500">
+                  {rangeLabel(insightRange)} view
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => setActivityDetailKey(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Close activity details"
+                className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-gray-50"
+              >
+                <Ionicons name="close" size={22} color="#000000" />
+              </Pressable>
+            </View>
+
+            {activityDetailKey === "activity" ? (
+              <View className="mt-4 gap-2">
+                <View className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                  <Text className="text-sm font-bold text-gray-500">
+                    Total logs
+                  </Text>
+                  <Text className="mt-1 text-xl font-black text-black">
+                    {activitySummary.total}
+                  </Text>
+                </View>
+                <View className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                  <Text className="text-sm font-bold text-gray-500">
+                    Active days
+                  </Text>
+                  <Text className="mt-1 text-xl font-black text-black">
+                    {activitySummary.activeDays}
+                  </Text>
+                </View>
+                <View className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                  <Text className="text-sm font-bold text-gray-500">
+                    Average per active day
+                  </Text>
+                  <Text className="mt-1 text-xl font-black text-black">
+                    {formatAvg(averageLogsPerActiveDay)}
+                  </Text>
+                </View>
+              </View>
+            ) : activityDetailKey === "outcomes" ? (
+              <View className="mt-4 gap-2">
+                {[
+                  {
+                    label: "Resisted",
+                    count: activitySummary.resisted,
+                    percentage: activitySummary.resistRate,
+                  },
+                  {
+                    label: "Gave in",
+                    count: activitySummary.gaveIn,
+                    percentage: activitySummary.gaveInRate,
+                  },
+                ].map((item) => (
+                  <View
+                    key={item.label}
+                    className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3"
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-sm font-bold text-black">
+                        {item.label}
+                      </Text>
+                      <Text
+                        className="text-sm font-black"
+                        style={{ color: activeHabitColor }}
+                      >
+                        {item.count} · {item.percentage}%
+                      </Text>
+                    </View>
+                    <View className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
+                      <View
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${item.percentage}%`,
+                          backgroundColor: activeHabitColor,
+                        }}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View className="mt-4 gap-2">
+                <Text className="text-sm font-semibold text-gray-500">
+                  Based on {activitySummary.intensityRatedCount}{" "}
+                  {activitySummary.intensityRatedCount === 1 ? "log" : "logs"}{" "}
+                  with an intensity rating.
+                </Text>
+                {[
+                  { label: "Overall", value: activitySummary.avgIntensity },
+                  {
+                    label: "When resisted",
+                    value: activitySummary.avgResistedIntensity,
+                  },
+                  {
+                    label: "When gave in",
+                    value: activitySummary.avgGaveInIntensity,
+                  },
+                ].map((item) => (
+                  <View
+                    key={item.label}
+                    className="flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3"
+                  >
+                    <Text className="text-sm font-bold text-black">
+                      {item.label}
+                    </Text>
+                    <Text
+                      className="text-xl font-black"
+                      style={{ color: activeHabitColor }}
+                    >
+                      {formatAvg(item.value)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <Pressable
+              onPress={() => setActivityDetailKey(null)}
+              className="mt-4 rounded-3xl py-4"
+              style={{ backgroundColor: activeHabitColor }}
+            >
+              <Text className="text-center text-base font-black text-white">
+                Done
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       <DayLogsModal
         visible={dayModalOpen}

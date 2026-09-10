@@ -18,6 +18,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import type { LogEntry } from "../../data/DataContext";
+import { INPUT_LIMITS } from "../../data/inputLimits";
 
 type ChipItem = {
   key: string;
@@ -1223,6 +1224,7 @@ export function EditLogModal({
                   ref={notesInputRef}
                   value={notesText}
                   onChangeText={setNotesText}
+                  maxLength={INPUT_LIMITS.logNotes}
                   blurOnSubmit
                   returnKeyType="done"
                   onSubmitEditing={() => Keyboard.dismiss()}

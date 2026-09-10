@@ -40,6 +40,7 @@ import type {
   WeeklyReviewLogRequest,
 } from "../App";
 import { Screen } from "../components/Screen";
+import { INPUT_LIMITS, managedItemInputLimit } from "../data/inputLimits";
 import {
   useData,
   type SelectedHabit,
@@ -1153,6 +1154,7 @@ function QuickAddLogItemModal({
               autoFocus
               value={value}
               onChangeText={onChange}
+              maxLength={managedItemInputLimit(type)}
               placeholder={`Enter a ${singular}`}
               placeholderTextColor="#9CA3AF"
               returnKeyType="done"
@@ -2185,6 +2187,7 @@ export default function LogScreen({
                   ref={notesInputRef}
                   value={notes}
                   onChangeText={setNotes}
+                  maxLength={INPUT_LIMITS.logNotes}
                   placeholder="Anything useful to remember..."
                   placeholderTextColor="#9CA3AF"
                   className="mt-2 min-h-[38px] w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm text-black"

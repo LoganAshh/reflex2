@@ -1036,8 +1036,24 @@ export function DataProvider({ children }: DataProviderProps) {
   const setSelectedHabits: DataContextType["setSelectedHabits"] = async (
     habitIds,
   ) => {
-    await replaceSelectedHabits(habitIds);
-    setSelectedHabitsState(await loadSelectedHabits());
+    const uniqueIds = Array.from(new Set(habitIds)).filter((habitId) =>
+      Number.isFinite(habitId),
+    );
+    const habitsById = new Map(habits.map((habit) => [habit.id, habit]));
+    const previousSelectedHabits = selectedHabits;
+    const nextSelectedHabits = uniqueIds.flatMap((habitId) => {
+      const habit = habitsById.get(habitId);
+      return habit ? [habit] : [];
+    });
+
+    setSelectedHabitsState(nextSelectedHabits);
+
+    try {
+      await replaceSelectedHabits(uniqueIds);
+    } catch (error) {
+      setSelectedHabitsState(previousSelectedHabits);
+      throw error;
+    }
   };
 
   const setSelectedCues: DataContextType["setSelectedCues"] = async (

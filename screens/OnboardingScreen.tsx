@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { DEFAULT_HABIT_ICON, type HabitIconName } from "../data/habitIcons";
 import { HabitIconPicker } from "../components/HabitIconPicker";
 import { Screen } from "../components/Screen";
+import { managedItemInputLimit } from "../data/inputLimits";
 import {
   useData,
   type Habit,
@@ -449,6 +450,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
             ref={customInputRef}
             value={value}
             onChangeText={onChangeText}
+            maxLength={managedItemInputLimit(type)}
             placeholder={placeholder}
             placeholderTextColor="#9CA3AF"
             className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-black"
