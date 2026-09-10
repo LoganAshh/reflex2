@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Alert, View, Text, Pressable, ScrollView } from "react-native";
+import { Alert, Modal, View, Text, Pressable, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import {
@@ -14,9 +14,19 @@ import {
   usePreventRemove,
 } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
-import type { RootStackParamList, RootTabParamList } from "../App";
-import { useData, type ReplacementAction } from "../data/DataContext";
+import type {
+  FocusedHelpLogRequest,
+  RootStackParamList,
+  RootTabParamList,
+} from "../App";
+import {
+  useData,
+  type ReplacementAction,
+  type SelectedPlace,
+} from "../data/DataContext";
 import { Screen } from "../components/Screen";
+import { useHelpExitGuard } from "../components/HelpExitGuard";
+import LogScreen from "./LogScreen";
 
 const QUICK_ACTION_TITLES = [
   "Go for a 5-min walk",
@@ -76,9 +86,9 @@ const helpSteps: Step[] = [
   },
   {
     kind: "info",
-    title: "Pause for 2 Minutes",
-    body: "Look at a clock or set a timer for 2 minutes.",
-    tip: "Urges behave a lot like ocean waves: they build up, reach a peak intensity, and then naturally crash and fade away.",
+    title: "Pause and Breathe",
+    body: "Breathe in slowly through your nose, then breathe out even more slowly through your mouth. Continue for 10 breaths and wait before deciding what to do.",
+    tip: "Slow breathing can calm your body and gives the urge time to weaken. Urges are like ocean waves: they build, reach a peak, and then naturally fade.",
     icon: "pause-circle",
   },
   {
@@ -89,16 +99,10 @@ const helpSteps: Step[] = [
     icon: "walk",
   },
   {
-    kind: "info",
-    title: "Take 10 Slow Breaths",
-    body: "Breathe in through your nose. Breathe out slower than you breathed in.",
-    tip: "Breathing deeply activates the parasympathetic nervous system, which helps calm you down.",
-    icon: "leaf",
-  },
-  {
     kind: "action",
     title: "Do a Replacement Action",
     body: "Pick one action that is easy and enjoyable.",
+    tip: "Replacement actions give your brain another response to choose when an urge appears. Repeating the new response helps weaken the automatic connection between the urge and the old habit.",
     icon: "flash",
   },
   {
@@ -124,8 +128,8 @@ function ProgressBar({
   if (!visible) return null;
 
   return (
-    <View className="pt-10">
-      <View className="mb-3 flex-row items-center justify-between">
+    <View className="pt-7">
+      <View className="mb-2 flex-row items-center justify-between">
         <Text className="text-sm font-black uppercase tracking-wide text-green-600">
           Guided help
         </Text>
@@ -137,10 +141,10 @@ function ProgressBar({
         </View>
       </View>
 
-      <View className="h-5 w-full overflow-hidden rounded-full bg-gray-200">
+      <View className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
         <View
           style={{ width: `${progressPct}%` }}
-          className="h-5 rounded-full bg-green-600"
+          className="h-3 rounded-full bg-green-600"
         />
       </View>
     </View>
@@ -154,9 +158,64 @@ function getQuickActionIcon(title: string): keyof typeof Ionicons.glyphMap {
   return "flash";
 }
 
+function HelpTipModal({
+  visible,
+  body,
+  onClose,
+}: {
+  visible: boolean;
+  body: string;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 items-center justify-center bg-black/40 px-5">
+        <View className="w-full rounded-[28px] bg-white p-5">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row flex-1 items-center pr-3">
+              <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                <Ionicons name="bulb" size={22} color="#000000" />
+              </View>
+              <Text className="ml-3 flex-1 text-xl font-black text-black">
+                Why this helps
+              </Text>
+            </View>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
+            >
+              <Ionicons name="close" size={20} color="#000000" />
+            </Pressable>
+          </View>
+
+          <Text className="mt-4 text-base font-semibold leading-6 text-gray-600">
+            {body}
+          </Text>
+
+          <Pressable
+            onPress={onClose}
+            className="mt-5 rounded-2xl bg-green-600 px-5 py-3"
+          >
+            <Text className="text-center text-sm font-black text-white">
+              Done
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function UrgeHelpScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<HelpRoute>();
+  const helpExitGuardRef = useHelpExitGuard();
   const logId = route.name === "UrgeHelp" ? route.params.logId : null;
   const isHelpFirst = logId == null;
 
@@ -164,26 +223,47 @@ export default function UrgeHelpScreen() {
     actions,
     selectedActionIds,
     updateLogSelectedAction,
+    updateLogMovedToLocation,
     toggleSelectedAction,
+    locations,
+    selectedLocations,
     logs,
   } = useData();
 
   const [mode, setMode] = useState<HelpMode>(isHelpFirst ? "menu" : "decision");
   const [stepIndex, setStepIndex] = useState(0);
   const [selectedActionId, setSelectedActionId] = useState<number | null>(null);
+  const [selectedMovedToLocationId, setSelectedMovedToLocationId] = useState<
+    number | null
+  >(null);
   const [savingAction, setSavingAction] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
   const [keepQuickActionFallbackOpen, setKeepQuickActionFallbackOpen] =
     useState(false);
   const [pendingQuickActionId, setPendingQuickActionId] = useState<
     number | null
   >(null);
+  const [helpTipOpen, setHelpTipOpen] = useState(false);
   const [triedStepIndexes, setTriedStepIndexes] = useState<number[]>([]);
+  const [focusedHelpLog, setFocusedHelpLog] =
+    useState<FocusedHelpLogRequest | null>(null);
   const [selectedActionsContentHeight, setSelectedActionsContentHeight] =
     useState(0);
+  const [environmentContentHeight, setEnvironmentContentHeight] = useState(0);
   const allowExitRef = useRef(false);
   const hasReceivedHelpRef = useRef(false);
   const suppressExitPromptRef = useRef(false);
+  const mainScrollViewRef = useRef<ScrollView | null>(null);
   const previousSelectedActionIdsRef = useRef<number[]>(selectedActionIds);
+  const previousSelectedLocationIdsRef = useRef<number[]>(
+    selectedLocations.map((location) => location.id),
+  );
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      mainScrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    });
+  }, [mode, stepIndex]);
 
   const quickActions = useMemo(() => {
     const normalize = (value: string) =>
@@ -276,9 +356,44 @@ export default function UrgeHelpScreen() {
     );
   }, [actions, currentLog?.selectedActionTitle, selectedActionId]);
 
+  const environmentLocations = useMemo(() => {
+    const options: SelectedPlace[] = [...selectedLocations];
+    if (
+      selectedMovedToLocationId != null &&
+      !options.some((location) => location.id === selectedMovedToLocationId)
+    ) {
+      const selectedLocation = locations.find(
+        (location) => location.id === selectedMovedToLocationId,
+      );
+      if (selectedLocation) options.push(selectedLocation);
+    }
+    if (
+      currentLog?.movedToLocationId != null &&
+      currentLog.movedToLocationName &&
+      !options.some((location) => location.id === currentLog.movedToLocationId)
+    ) {
+      options.push({
+        id: currentLog.movedToLocationId,
+        name: currentLog.movedToLocationName,
+        isCustom: 1,
+        hidden: 1,
+      });
+    }
+    return options;
+  }, [
+    currentLog?.movedToLocationId,
+    currentLog?.movedToLocationName,
+    locations,
+    selectedMovedToLocationId,
+    selectedLocations,
+  ]);
+
   const hasSelectedActionsOverflow =
     selectedActionsContentHeight > SELECTED_ACTION_BOX_MAX_HEIGHT + 4;
   const selectedActionsScrollRef = useRef<ScrollView | null>(null);
+  const environmentScrollRef = useRef<ScrollView | null>(null);
+  const hasEnvironmentOverflow =
+    environmentContentHeight > SELECTED_ACTION_BOX_MAX_HEIGHT + 4;
   const shouldResetSelectedActionsScrollRef = useRef(false);
 
   useEffect(() => {
@@ -309,6 +424,10 @@ export default function UrgeHelpScreen() {
       setSelectedActionId(nextSelectedActionId);
     }
 
+    if (!savingLocation) {
+      setSelectedMovedToLocationId(currentLog?.movedToLocationId ?? null);
+    }
+
     if (nextSelectedActionId == null && !savingAction) {
       setPendingQuickActionId(null);
       return;
@@ -328,7 +447,9 @@ export default function UrgeHelpScreen() {
     keepQuickActionFallbackOpen,
     pendingQuickActionId,
     savingAction,
+    savingLocation,
     isHelpFirst,
+    currentLog?.movedToLocationId,
   ]);
 
   useLayoutEffect(() => {
@@ -395,6 +516,7 @@ export default function UrgeHelpScreen() {
     setMode("menu");
     setStepIndex(0);
     setSelectedActionId(null);
+    setSelectedMovedToLocationId(null);
     setPendingQuickActionId(null);
     setKeepQuickActionFallbackOpen(false);
     setTriedStepIndexes([]);
@@ -429,17 +551,25 @@ export default function UrgeHelpScreen() {
       };
     }
 
-    const doneStep: Step = {
-      kind: "done",
-      title: "Great work!",
-      body: "You practiced resisting that urge. This is how you build your self-control muscle.",
-      tip: "Every time you resist an urge, you're physically rewiring your brain to make the old habit weaker and the new habit stronger.",
-      icon: "star",
-    };
+    const completedAnyStep = triedStepIndexes.length > 0;
+    const doneStep: Step = completedAnyStep
+      ? {
+          kind: "done",
+          title: "Great work!",
+          body: "You practiced responding to that urge with intention.",
+          tip: "Each time you practice a different response, you make it easier to choose again in the future.",
+          icon: "star",
+        }
+      : {
+          kind: "done",
+          title: "Walkthrough complete",
+          body: "You looked through the options. Choose any step whenever you feel ready.",
+          icon: "list",
+        };
 
     if (stepIndex < helpSteps.length) return helpSteps[stepIndex];
     return doneStep;
-  }, [mode, recentLog?.habitName, recentLogTime, stepIndex]);
+  }, [mode, recentLog?.habitName, recentLogTime, stepIndex, triedStepIndexes]);
 
   const totalSteps = helpSteps.length + 1;
   const currentStepNumber = stepIndex + 1;
@@ -450,29 +580,60 @@ export default function UrgeHelpScreen() {
 
   const isReplacementActionStep =
     currentStep.title === "Do a Replacement Action";
+  const isEnvironmentStep = currentStep.title === "Change your Environment";
+  const choiceRequired = isEnvironmentStep || isReplacementActionStep;
+  const hasRequiredChoice = isEnvironmentStep
+    ? selectedMovedToLocationId != null
+    : isReplacementActionStep
+      ? selectedActionId != null
+      : true;
+  const usesHelpTipBubble = isEnvironmentStep || isReplacementActionStep;
+  const usesCompactStepLayout = isEnvironmentStep || isReplacementActionStep;
+  const isGuidedMode = mode === "guided";
+  const usesGuidedSpacing = mode === "guided" && usesCompactStepLayout;
 
   const shouldShowQuickActionFallback =
     !hasSelectedActions &&
     (quickActionIds.length > 0 || keepQuickActionFallbackOpen);
 
-  const titleClassName = isReplacementActionStep
-    ? "mt-5 text-center text-[25px] font-black leading-[30px] text-black"
-    : "mt-8 text-center text-4xl font-black leading-[44px] text-black";
+  const titleClassName = usesGuidedSpacing
+    ? "mt-4 text-center text-[28px] font-black leading-8 text-black"
+    : isGuidedMode
+      ? "mt-5 text-center text-[32px] font-black leading-9 text-black"
+      : usesCompactStepLayout
+        ? "mt-5 text-center text-[25px] font-black leading-[30px] text-black"
+        : "mt-8 text-center text-4xl font-black leading-[44px] text-black";
 
-  const bodyClassName = isReplacementActionStep
+  const bodyClassName = usesGuidedSpacing
     ? "mt-2 text-center text-base font-semibold leading-6 text-gray-500"
-    : "mt-5 text-center text-lg font-semibold leading-7 text-gray-500";
+    : isGuidedMode
+      ? "mt-3 text-center text-base font-semibold leading-6 text-gray-500"
+      : usesCompactStepLayout
+        ? "mt-2 text-center text-base font-semibold leading-6 text-gray-500"
+        : "mt-5 text-center text-lg font-semibold leading-7 text-gray-500";
 
-  const iconWrapClassName = isReplacementActionStep
+  const iconWrapClassName = usesGuidedSpacing
     ? "rounded-full border-4 border-green-600 bg-white p-4 shadow-sm"
-    : "rounded-full border-4 border-green-600 bg-white p-5 shadow-sm";
+    : isGuidedMode
+      ? "rounded-full border-4 border-green-600 bg-white p-4 shadow-sm"
+      : usesCompactStepLayout
+        ? "rounded-full border-4 border-green-600 bg-white p-4 shadow-sm"
+        : "rounded-full border-4 border-green-600 bg-white p-5 shadow-sm";
 
-  const iconSize = isReplacementActionStep ? 44 : 54;
+  const iconSize = usesGuidedSpacing
+    ? 44
+    : isGuidedMode
+      ? 48
+      : usesCompactStepLayout
+        ? 44
+        : 54;
 
   const onChooseAction = async (actionId: number | null) => {
     const previousActionId = selectedActionId;
+    const nextActionId =
+      actionId != null && selectedActionId === actionId ? null : actionId;
 
-    setSelectedActionId(actionId);
+    setSelectedActionId(nextActionId);
     setPendingQuickActionId(null);
     setKeepQuickActionFallbackOpen(false);
     setSavingAction(true);
@@ -485,11 +646,35 @@ export default function UrgeHelpScreen() {
     }
 
     try {
-      await updateLogSelectedAction(logId as number, actionId);
+      await updateLogSelectedAction(logId as number, nextActionId);
     } catch {
       setSelectedActionId(previousActionId);
     } finally {
       setSavingAction(false);
+    }
+  };
+
+  const onChooseMovedToLocation = async (locationId: number | null) => {
+    const previousLocationId = selectedMovedToLocationId;
+    const nextLocationId =
+      locationId != null && selectedMovedToLocationId === locationId
+        ? null
+        : locationId;
+    setSelectedMovedToLocationId(nextLocationId);
+    setSavingLocation(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+
+    if (isHelpFirst) {
+      setSavingLocation(false);
+      return;
+    }
+
+    try {
+      await updateLogMovedToLocation(logId as number, nextLocationId);
+    } catch {
+      setSelectedMovedToLocationId(previousLocationId);
+    } finally {
+      setSavingLocation(false);
     }
   };
 
@@ -509,6 +694,21 @@ export default function UrgeHelpScreen() {
 
     onChooseAction(mostRecentAddedActionId);
   }, [selectedActionIds, currentStep.kind, selectedActionId]);
+
+  useEffect(() => {
+    const currentIds = selectedLocations.map((location) => location.id);
+    const previousIds = previousSelectedLocationIdsRef.current;
+    const addedIds = currentIds.filter((id) => !previousIds.includes(id));
+    previousSelectedLocationIdsRef.current = currentIds;
+
+    if (addedIds.length === 0 || !isEnvironmentStep) return;
+    const newestLocationId = addedIds[addedIds.length - 1];
+    if (selectedMovedToLocationId === newestLocationId) return;
+    void onChooseMovedToLocation(newestLocationId);
+    requestAnimationFrame(() => {
+      environmentScrollRef.current?.scrollToEnd({ animated: true });
+    });
+  }, [isEnvironmentStep, selectedLocations, selectedMovedToLocationId]);
 
   const onChooseQuickAction = async (actionId: number | null) => {
     if (actionId == null) return;
@@ -568,21 +768,41 @@ export default function UrgeHelpScreen() {
     stackNavigation?.navigate("ShopPicker", { showDoneButton: true });
   };
 
+  const goToLocations = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    previousSelectedLocationIdsRef.current = selectedLocations.map(
+      (location) => location.id,
+    );
+    suppressExitPromptRef.current = true;
+
+    const stackNavigation = isHelpFirst ? navigation.getParent() : navigation;
+    stackNavigation?.navigate("ManageList", {
+      type: "locations",
+      returnToHelp: true,
+      openToAdd: true,
+    });
+  };
+
+  const openHelpTip = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setHelpTipOpen(true);
+  };
+
   const startGuided = () => {
     allowExitRef.current = false;
-    hasReceivedHelpRef.current = true;
+    setTriedStepIndexes([]);
     setMode("guided");
     setStepIndex(0);
   };
 
   const startSingleStep = (index: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    hasReceivedHelpRef.current = true;
     setStepIndex(index);
     setMode("single");
   };
 
   const markCurrentStepTried = () => {
+    hasReceivedHelpRef.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
       () => {},
     );
@@ -604,23 +824,76 @@ export default function UrgeHelpScreen() {
   const openFullLog = async () => {
     await savePendingAction();
 
-    const actionIdForLog = selectedActionId;
+    suppressExitPromptRef.current = true;
+    setFocusedHelpLog({
+      token: Date.now(),
+      createdAt: Date.now(),
+      selectedActionId,
+      movedToLocationId: selectedMovedToLocationId,
+    });
+  };
+
+  const closeFocusedHelpLog = (saved: boolean) => {
+    setFocusedHelpLog(null);
+    suppressExitPromptRef.current = false;
+
+    if (!saved) return;
 
     suppressExitPromptRef.current = true;
     hasReceivedHelpRef.current = false;
     setMode("menu");
     setStepIndex(0);
     setSelectedActionId(null);
+    setSelectedMovedToLocationId(null);
     setPendingQuickActionId(null);
     setKeepQuickActionFallbackOpen(false);
     setTriedStepIndexes([]);
-
-    navigation.navigate("Log", {
-      resetToken: Date.now(),
-      fromHelp: true,
-      helpSelectedActionId: actionIdForLog,
-    });
+    navigation.navigate("Home");
   };
+
+  useEffect(() => {
+    if (!isHelpFirst || !helpExitGuardRef) return;
+
+    const guard = (proceed: () => void) => {
+      if (!hasReceivedHelpRef.current || focusedHelpLog != null) return false;
+
+      Alert.alert(
+        "Log this urge before you go?",
+        "Logging it helps keep your progress accurate.",
+        [
+          {
+            text: "Not now",
+            style: "cancel",
+            onPress: () => {
+              hasReceivedHelpRef.current = false;
+              setMode("menu");
+              setStepIndex(0);
+              setSelectedActionId(null);
+              setSelectedMovedToLocationId(null);
+              setPendingQuickActionId(null);
+              setKeepQuickActionFallbackOpen(false);
+              setTriedStepIndexes([]);
+              proceed();
+            },
+          },
+          {
+            text: "Log urge",
+            onPress: () => {
+              void openFullLog();
+            },
+          },
+        ],
+      );
+      return true;
+    };
+
+    helpExitGuardRef.current = guard;
+    return () => {
+      if (helpExitGuardRef.current === guard) {
+        helpExitGuardRef.current = null;
+      }
+    };
+  });
 
   const updateRecentLogAndExit = async () => {
     if (!recentLog) {
@@ -636,6 +909,9 @@ export default function UrgeHelpScreen() {
       if (selectedActionId != null) {
         await updateLogSelectedAction(recentLog.id, selectedActionId);
       }
+      if (selectedMovedToLocationId != null) {
+        await updateLogMovedToLocation(recentLog.id, selectedMovedToLocationId);
+      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
         () => {},
@@ -645,6 +921,7 @@ export default function UrgeHelpScreen() {
       setMode("menu");
       setStepIndex(0);
       setSelectedActionId(null);
+      setSelectedMovedToLocationId(null);
       setPendingQuickActionId(null);
       setKeepQuickActionFallbackOpen(false);
       setTriedStepIndexes([]);
@@ -674,56 +951,36 @@ export default function UrgeHelpScreen() {
   };
 
   const onPrimary = async () => {
-    if (currentStep.kind === "action") {
-      setStepIndex((v) => v + 1);
-      return;
-    }
-
     if (currentStep.kind === "done") {
       await finishHelp();
       return;
     }
 
+    hasReceivedHelpRef.current = true;
+    setTriedStepIndexes((current) =>
+      current.includes(stepIndex) ? current : [...current, stepIndex],
+    );
     setStepIndex((v) => v + 1);
+  };
+
+  const skipCurrentStep = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setStepIndex((value) => value + 1);
+  };
+
+  const completeGuidedHelp = () => {
+    hasReceivedHelpRef.current = true;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+      () => {},
+    );
+    setMode("menu");
+    setStepIndex(0);
   };
 
   const onBack = () => {
     if (!canGoBack) return;
     setStepIndex((v) => Math.max(0, v - 1));
   };
-
-  useEffect(() => {
-    if (!isHelpFirst) return;
-
-    return navigation.addListener("blur", () => {
-      if (!hasReceivedHelpRef.current || suppressExitPromptRef.current) {
-        return;
-      }
-
-      Alert.alert(
-        "Log this urge before you go?",
-        "Logging it helps keep your progress accurate.",
-        [
-          {
-            text: "Not now",
-            style: "cancel",
-            onPress: () => {
-              hasReceivedHelpRef.current = false;
-              setMode("menu");
-              setStepIndex(0);
-              setTriedStepIndexes([]);
-            },
-          },
-          {
-            text: "Log urge",
-            onPress: () => {
-              openFullLog();
-            },
-          },
-        ],
-      );
-    });
-  }, [isHelpFirst, mode, navigation, selectedActionId]);
 
   const renderHelpMenu = () => {
     if (currentStep.kind !== "menu") return null;
@@ -735,12 +992,6 @@ export default function UrgeHelpScreen() {
       onPress: () => void;
     }> = [
       {
-        title: "Pause for 2 minutes",
-        detail: "Give the urge time to pass.",
-        icon: "pause-circle",
-        onPress: () => startSingleStep(1),
-      },
-      {
         title: "Change my environment",
         detail: "Move away from what triggered it.",
         icon: "walk",
@@ -750,7 +1001,13 @@ export default function UrgeHelpScreen() {
         title: "Choose a replacement action",
         detail: "Do something easier and enjoyable.",
         icon: "flash",
-        onPress: () => startSingleStep(4),
+        onPress: () => startSingleStep(3),
+      },
+      {
+        title: "Pause and breathe",
+        detail: "Slow down while the urge passes.",
+        icon: "pause-circle",
+        onPress: () => startSingleStep(1),
       },
       {
         title: "Full guided help",
@@ -802,7 +1059,9 @@ export default function UrgeHelpScreen() {
     if (currentStep.kind !== "action") return null;
 
     return (
-      <View className="mt-4 w-full rounded-[26px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
+      <View
+        className={`${usesGuidedSpacing ? "mt-3 p-3" : "mt-4 p-4"} w-[96%] rounded-[26px] border border-gray-200 bg-gray-50 shadow-sm`}
+      >
         <View className="flex-row items-center">
           <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
             <Ionicons name="flash" size={21} color="#000000" />
@@ -812,11 +1071,16 @@ export default function UrgeHelpScreen() {
             <Text className="text-sm font-black text-black">
               Selected replacement actions
             </Text>
-
-            <Text className="mt-0.5 text-xs leading-4 text-gray-500">
-              Choose the action you used, or add a new one.
-            </Text>
           </View>
+          <Pressable
+            onPress={openHelpTip}
+            accessibilityRole="button"
+            accessibilityLabel="Why this helps"
+            hitSlop={8}
+            className="ml-2 h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white"
+          >
+            <Ionicons name="bulb-outline" size={18} color="#000000" />
+          </Pressable>
         </View>
 
         {shouldShowQuickActionFallback ? (
@@ -918,24 +1182,6 @@ export default function UrgeHelpScreen() {
               }}
             >
               <View className="flex-row flex-wrap gap-2 pb-1">
-                <Pressable
-                  onPress={() => onChooseAction(null)}
-                  disabled={savingAction}
-                  className={`rounded-full border px-3 py-2 ${
-                    selectedActionId == null
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <Text
-                    className={`text-xs font-black ${
-                      selectedActionId == null ? "text-white" : "text-black"
-                    }`}
-                  >
-                    None
-                  </Text>
-                </Pressable>
-
                 {selectedActions.map((action) => {
                   const isSelected = selectedActionId === action.id;
 
@@ -994,17 +1240,146 @@ export default function UrgeHelpScreen() {
     );
   };
 
+  const renderEnvironmentPicker = () => {
+    if (!isEnvironmentStep) return null;
+
+    const selectedLocationName =
+      environmentLocations.find(
+        (location) => location.id === selectedMovedToLocationId,
+      )?.name ?? null;
+
+    return (
+      <View
+        className={`${usesGuidedSpacing ? "mt-3 p-3" : "mt-4 p-4"} w-[96%] rounded-[26px] border border-gray-200 bg-gray-50 shadow-sm`}
+      >
+        <View className="flex-row items-center">
+          <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+            <Ionicons name="navigate" size={21} color="#000000" />
+          </View>
+          <View className="ml-3 flex-1">
+            <Text className="text-sm font-black text-black">
+              Where did you move to?
+            </Text>
+          </View>
+          <Pressable
+            onPress={openHelpTip}
+            accessibilityRole="button"
+            accessibilityLabel="Why this helps"
+            hitSlop={8}
+            className="ml-2 h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white"
+          >
+            <Ionicons name="bulb-outline" size={18} color="#000000" />
+          </Pressable>
+        </View>
+
+        <ScrollView
+          ref={environmentScrollRef}
+          className="mt-3"
+          style={{ maxHeight: SELECTED_ACTION_BOX_MAX_HEIGHT }}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator={hasEnvironmentOverflow}
+          onContentSizeChange={(_, height) => {
+            setEnvironmentContentHeight(height);
+          }}
+        >
+          <View className="flex-row flex-wrap gap-2 pb-1">
+            {environmentLocations.map((location) => {
+              const selected = selectedMovedToLocationId === location.id;
+              return (
+                <Pressable
+                  key={location.id}
+                  onPress={() => void onChooseMovedToLocation(location.id)}
+                  disabled={savingLocation}
+                  className={`rounded-full border px-3 py-2 ${
+                    selected
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-black ${
+                      selected ? "text-white" : "text-black"
+                    }`}
+                  >
+                    {location.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+
+            <Pressable
+              onPress={goToLocations}
+              disabled={savingLocation}
+              className="rounded-full border border-gray-200 bg-white px-3 py-2"
+            >
+              <Text className="text-xs font-black text-black">+ Add</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+
+        {hasEnvironmentOverflow ? (
+          <View className="mt-2 flex-row items-center justify-center">
+            <Ionicons name="chevron-down" size={14} color="#6B7280" />
+            <Text className="ml-1 text-xs font-bold text-gray-500">
+              Scroll inside the box to see more options
+            </Text>
+          </View>
+        ) : null}
+
+        <View className="mt-3 rounded-[20px] border border-gray-200 bg-white p-3">
+          <Text className="text-[10px] font-black uppercase tracking-wide text-gray-500">
+            {isHelpFirst ? "Ready for your log" : "Saved to this log"}
+          </Text>
+          <Text className="mt-0.5 text-sm font-black text-black">
+            {selectedLocationName ?? "No new location selected"}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   const primaryLabel =
     currentStep.kind === "done"
       ? isHelpFirst
-        ? "Continue to Check-In"
+        ? "Done"
         : "Complete Log"
-      : currentStep.kind === "action"
-        ? "Continue"
-        : "Next";
+      : choiceRequired
+        ? hasRequiredChoice
+          ? "Continue"
+          : isEnvironmentStep
+            ? "Choose a location"
+            : "Choose an action"
+        : "Done";
+  const showGuidedSkip =
+    mode === "guided" &&
+    currentStep.kind !== "done" &&
+    (!choiceRequired || !hasRequiredChoice);
+  const showGuidedLogOption =
+    mode === "guided" && currentStep.kind === "done" && isHelpFirst;
 
   return (
     <Screen className="px-5">
+      <Modal
+        visible={focusedHelpLog != null}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        allowSwipeDismissal={false}
+        onRequestClose={() => {}}
+      >
+        {focusedHelpLog ? (
+          <LogScreen
+            focusedHelpLogOverride={focusedHelpLog}
+            onFocusedHelpLogReturn={closeFocusedHelpLog}
+          />
+        ) : null}
+      </Modal>
+
+      <HelpTipModal
+        visible={helpTipOpen}
+        body={"tip" in currentStep ? (currentStep.tip ?? "") : ""}
+        onClose={() => setHelpTipOpen(false)}
+      />
+
       <ProgressBar
         visible={mode === "guided"}
         progressPct={progressPct}
@@ -1013,12 +1388,19 @@ export default function UrgeHelpScreen() {
       />
 
       <ScrollView
+        ref={mainScrollViewRef}
         className="flex-1"
         contentContainerStyle={{
           flexGrow: 1,
           justifyContent: "center",
-          paddingTop: isReplacementActionStep ? 6 : mode === "guided" ? 20 : 42,
-          paddingBottom: isReplacementActionStep ? 4 : 12,
+          paddingTop: usesGuidedSpacing
+            ? 8
+            : usesCompactStepLayout
+              ? 6
+              : mode === "guided"
+                ? 12
+                : 42,
+          paddingBottom: isGuidedMode ? 6 : usesCompactStepLayout ? 4 : 12,
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -1029,8 +1411,8 @@ export default function UrgeHelpScreen() {
 
           <Text
             className={titleClassName}
-            numberOfLines={isReplacementActionStep ? 1 : undefined}
-            adjustsFontSizeToFit={isReplacementActionStep}
+            numberOfLines={usesCompactStepLayout ? 1 : undefined}
+            adjustsFontSizeToFit={usesCompactStepLayout}
             minimumFontScale={0.8}
           >
             {currentStep.title}
@@ -1038,15 +1420,25 @@ export default function UrgeHelpScreen() {
 
           <Text className={bodyClassName}>{currentStep.body}</Text>
 
-          {"tip" in currentStep && currentStep.tip ? (
-            <View className="mt-8 w-[96%] rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm">
+          {"tip" in currentStep && currentStep.tip && !usesHelpTipBubble ? (
+            <View
+              className={`${isGuidedMode ? "mt-5 p-4" : "mt-8 p-5"} w-[96%] rounded-[28px] border border-gray-200 bg-gray-50 shadow-sm`}
+            >
               <View className="flex-row items-center">
-                <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                  <Ionicons name="bulb" size={24} color="#000000" />
+                <View
+                  className={`${isGuidedMode ? "h-10 w-10" : "h-12 w-12"} items-center justify-center rounded-2xl border border-gray-200 bg-white`}
+                >
+                  <Ionicons
+                    name="bulb"
+                    size={isGuidedMode ? 20 : 24}
+                    color="#000000"
+                  />
                 </View>
 
                 <View className="ml-3 flex-1">
-                  <Text className="text-base font-black text-black">
+                  <Text
+                    className={`${isGuidedMode ? "text-sm" : "text-base"} font-black text-black`}
+                  >
                     Why this helps
                   </Text>
 
@@ -1059,12 +1451,13 @@ export default function UrgeHelpScreen() {
           ) : null}
 
           {renderHelpMenu()}
+          {renderEnvironmentPicker()}
           {renderActionPicker()}
         </View>
       </ScrollView>
 
       {mode === "decision" ? (
-        <View className="pb-8 pt-4">
+        <View className="pb-4 pt-2">
           <Pressable
             onPress={() => {
               Haptics.notificationAsync(
@@ -1119,7 +1512,15 @@ export default function UrgeHelpScreen() {
         <View className="pb-8 pt-4">
           <Pressable
             onPress={markCurrentStepTried}
-            className="w-full rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+            disabled={choiceRequired && !hasRequiredChoice}
+            accessibilityState={{
+              disabled: choiceRequired && !hasRequiredChoice,
+            }}
+            className={`w-full rounded-3xl px-5 py-4 shadow-sm ${
+              choiceRequired && !hasRequiredChoice
+                ? "bg-gray-300"
+                : "bg-green-600"
+            }`}
             style={({ pressed }) => ({
               shadowColor: "#000",
               shadowOffset: { width: 0, height: pressed ? 2 : 6 },
@@ -1130,7 +1531,11 @@ export default function UrgeHelpScreen() {
             })}
           >
             <Text className="text-center text-lg font-black text-white">
-              Complete step
+              {choiceRequired && !hasRequiredChoice
+                ? isEnvironmentStep
+                  ? "Choose a location"
+                  : "Choose an action"
+                : "Complete step"}
             </Text>
           </Pressable>
 
@@ -1187,72 +1592,20 @@ export default function UrgeHelpScreen() {
           </Pressable>
         </View>
       ) : (
-        <View className="pb-8 pt-4">
+        <View className="pb-4 pt-2">
           {isFirstGuidedStep ? (
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onPrimary();
-              }}
-              className="w-full rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
-              style={({ pressed }) => ({
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: pressed ? 2 : 6 },
-                shadowOpacity: 0.25,
-                shadowRadius: pressed ? 3 : 6,
-                elevation: pressed ? 3 : 8,
-                transform: [{ translateY: pressed ? 2 : 0 }],
-              })}
-            >
-              <View className="flex-row items-center justify-center">
-                <Ionicons
-                  name="arrow-forward-circle"
-                  size={22}
-                  color="#FFFFFF"
-                />
-                <Text className="ml-2 text-center text-lg font-black text-white">
-                  {primaryLabel}
-                </Text>
-              </View>
-            </Pressable>
-          ) : (
-            <View className="flex-row items-center gap-3">
-              {canGoBack ? (
-                <Pressable
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onBack();
-                  }}
-                  className="flex-1 rounded-3xl border border-gray-200 bg-white px-5 py-4 shadow-sm"
-                  style={({ pressed }) => ({
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: pressed ? 1 : 4 },
-                    shadowOpacity: 0.12,
-                    shadowRadius: pressed ? 2 : 4,
-                    elevation: pressed ? 2 : 5,
-                    transform: [{ translateY: pressed ? 1 : 0 }],
-                  })}
-                >
-                  <Text className="text-center text-lg font-black text-black">
-                    Back
-                  </Text>
-                </Pressable>
-              ) : (
-                <View className="flex-1" />
-              )}
-
+            <>
               <Pressable
                 onPress={() => {
-                  if (currentStep.kind === "done") {
-                    Haptics.notificationAsync(
-                      Haptics.NotificationFeedbackType.Success,
-                    );
-                  } else {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onPrimary();
                 }}
-                className="flex-1 rounded-3xl bg-green-600 px-5 py-4 shadow-sm"
+                disabled={choiceRequired && !hasRequiredChoice}
+                className={`w-full rounded-3xl px-4 py-3.5 shadow-sm ${
+                  choiceRequired && !hasRequiredChoice
+                    ? "bg-gray-300"
+                    : "bg-green-600"
+                }`}
                 style={({ pressed }) => ({
                   shadowColor: "#000",
                   shadowOffset: { width: 0, height: pressed ? 2 : 6 },
@@ -1262,11 +1615,134 @@ export default function UrgeHelpScreen() {
                   transform: [{ translateY: pressed ? 2 : 0 }],
                 })}
               >
-                <Text className="text-center text-lg font-black text-white">
-                  {primaryLabel}
-                </Text>
+                <View className="flex-row items-center justify-center">
+                  <Ionicons
+                    name="arrow-forward-circle"
+                    size={21}
+                    color="#FFFFFF"
+                  />
+                  <Text className="ml-2 text-center text-[17px] font-black text-white">
+                    {primaryLabel}
+                  </Text>
+                </View>
               </Pressable>
-            </View>
+
+              {showGuidedSkip ? (
+                <Pressable
+                  key="first-guided-skip"
+                  onPress={skipCurrentStep}
+                  className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-4 py-2"
+                  style={({ pressed }) => ({
+                    transform: [{ translateY: pressed ? 1 : 0 }],
+                  })}
+                >
+                  <Text className="text-center text-sm font-black text-gray-700">
+                    Skip for now
+                  </Text>
+                </Pressable>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <View className="flex-row items-center gap-2">
+                {canGoBack ? (
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      onBack();
+                    }}
+                    className="flex-1 rounded-3xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm"
+                    style={({ pressed }) => ({
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: pressed ? 1 : 4 },
+                      shadowOpacity: 0.12,
+                      shadowRadius: pressed ? 2 : 4,
+                      elevation: pressed ? 2 : 5,
+                      transform: [{ translateY: pressed ? 1 : 0 }],
+                    })}
+                  >
+                    <Text className="text-center text-[17px] font-black text-black">
+                      Back
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <View className="flex-1" />
+                )}
+
+                <Pressable
+                  onPress={() => {
+                    if (showGuidedLogOption) {
+                      completeGuidedHelp();
+                      return;
+                    }
+                    if (currentStep.kind === "done") {
+                      Haptics.notificationAsync(
+                        Haptics.NotificationFeedbackType.Success,
+                      );
+                    } else {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                    onPrimary();
+                  }}
+                  disabled={choiceRequired && !hasRequiredChoice}
+                  className={`flex-1 rounded-3xl px-4 py-3.5 shadow-sm ${
+                    choiceRequired && !hasRequiredChoice
+                      ? "bg-gray-300"
+                      : "bg-green-600"
+                  }`}
+                  style={({ pressed }) => ({
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: pressed ? 2 : 6 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: pressed ? 3 : 6,
+                    elevation: pressed ? 3 : 8,
+                    transform: [{ translateY: pressed ? 2 : 0 }],
+                  })}
+                >
+                  <Text
+                    className="text-center text-[17px] font-black text-white"
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                  >
+                    {primaryLabel}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {showGuidedSkip ? (
+                <Pressable
+                  key={`guided-skip-${stepIndex}`}
+                  onPress={skipCurrentStep}
+                  className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-4 py-2"
+                  style={({ pressed }) => ({
+                    transform: [{ translateY: pressed ? 1 : 0 }],
+                  })}
+                >
+                  <Text className="text-center text-sm font-black text-gray-700">
+                    Skip for now
+                  </Text>
+                </Pressable>
+              ) : showGuidedLogOption ? (
+                <Pressable
+                  key="guided-log-option"
+                  onPress={finishHelp}
+                  className="mt-2 w-full rounded-3xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm"
+                  style={({ pressed }) => ({
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: pressed ? 1 : 4 },
+                    shadowOpacity: 0.12,
+                    shadowRadius: pressed ? 2 : 4,
+                    elevation: pressed ? 2 : 5,
+                    transform: [{ translateY: pressed ? 1 : 0 }],
+                  })}
+                >
+                  <Text className="text-center text-[17px] font-black text-black">
+                    Log this urge
+                  </Text>
+                </Pressable>
+              ) : null}
+            </>
           )}
         </View>
       )}

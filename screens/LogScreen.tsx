@@ -34,6 +34,7 @@ import type { RouteProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type {
+  FocusedHelpLogRequest,
   RootStackParamList,
   RootTabParamList,
   WeeklyReviewLogRequest,
@@ -1201,11 +1202,15 @@ function QuickAddLogItemModal({
 type LogScreenProps = {
   weeklyReviewLogOverride?: WeeklyReviewLogRequest;
   onWeeklyReviewReturn?: () => void;
+  focusedHelpLogOverride?: FocusedHelpLogRequest;
+  onFocusedHelpLogReturn?: (saved: boolean) => void;
 };
 
 export default function LogScreen({
   weeklyReviewLogOverride,
   onWeeklyReviewReturn,
+  focusedHelpLogOverride,
+  onFocusedHelpLogReturn,
 }: LogScreenProps = {}) {
   const navigation = useNavigation<Nav>();
   const route = useRoute<LogRoute>();
@@ -1264,6 +1269,7 @@ export default function LogScreen({
   const handledManageListTokenRef = useRef<number | null>(null);
   const handledResetTokenRef = useRef<number | null>(null);
   const handledWeeklyReviewLogTokenRef = useRef<number | null>(null);
+  const handledFocusedHelpLogTokenRef = useRef<number | null>(null);
   const saveInProgressRef = useRef(false);
 
   useFocusEffect(
@@ -1324,6 +1330,7 @@ export default function LogScreen({
   );
   const countUnit = activeHabit?.unit?.trim() || "times";
   const weeklyReviewLog = weeklyReviewLogOverride;
+  const focusedHelpLog = focusedHelpLogOverride;
   const visibleHabitOptions = weeklyReviewLog
     ? orderedHabits.filter((habit) => habit.id === weeklyReviewLog.habitId)
     : orderedHabits;
@@ -1337,6 +1344,16 @@ export default function LogScreen({
       intensity != null ||
       count !== 1 ||
       logDate.getTime() !== weeklyReviewLog.createdAt);
+  const focusedHelpDraftChanged =
+    focusedHelpLog != null &&
+    (habitId !== (orderedHabits[0]?.id ?? null) ||
+      cueIds.length > 0 ||
+      locationId != null ||
+      notes.trim().length > 0 ||
+      didResist ||
+      intensity != null ||
+      count !== 1 ||
+      logDate.getTime() !== focusedHelpLog.createdAt);
 
   const orderedCues = useMemo(
     () => applyFrequencyOrdering(selectedCues, cueAssociationCounts),
@@ -1532,6 +1549,16 @@ export default function LogScreen({
   }, [orderedHabits, selectedHabits, weeklyReviewLog]);
 
   useEffect(() => {
+    const request = focusedHelpLog;
+    if (!request) return;
+    if (handledFocusedHelpLogTokenRef.current === request.token) return;
+
+    handledFocusedHelpLogTokenRef.current = request.token;
+    resetToDefaults();
+    setLogDate(new Date(request.createdAt));
+  }, [focusedHelpLog, orderedHabits]);
+
+  useEffect(() => {
     const showEvent =
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent =
@@ -1628,6 +1655,24 @@ export default function LogScreen({
     ]);
   };
 
+  const attemptReturnToHelp = () => {
+    if (!focusedHelpLog || !onFocusedHelpLogReturn) return;
+
+    if (!focusedHelpDraftChanged) {
+      onFocusedHelpLogReturn(false);
+      return;
+    }
+
+    Alert.alert("Discard this log?", "Your changes have not been saved.", [
+      { text: "Keep editing", style: "cancel" },
+      {
+        text: "Discard and return",
+        style: "destructive",
+        onPress: () => onFocusedHelpLogReturn(false),
+      },
+    ]);
+  };
+
   const onSave = async () => {
     if (saveInProgressRef.current) return;
 
@@ -1652,9 +1697,17 @@ export default function LogScreen({
     const submittedCount = submittedDidResist ? 0 : Math.max(1, count);
     const submittedNotes = notes.trim() || undefined;
     const submittedCreatedAt = logDate.getTime();
-    const submittedFromHelp = route.params?.fromHelp === true;
+    const submittedFromHelp =
+      focusedHelpLog != null || route.params?.fromHelp === true;
     const submittedSelectedActionId = submittedFromHelp
-      ? (route.params?.helpSelectedActionId ?? null)
+      ? (focusedHelpLog?.selectedActionId ??
+        route.params?.helpSelectedActionId ??
+        null)
+      : null;
+    const submittedMovedToLocationId = submittedFromHelp
+      ? (focusedHelpLog?.movedToLocationId ??
+        route.params?.helpMovedToLocationId ??
+        null)
       : null;
     const submittedWeeklyReviewLog = weeklyReviewLog;
 
@@ -1664,6 +1717,7 @@ export default function LogScreen({
         createdAt: submittedCreatedAt,
         cueIds: submittedCueIds,
         locationId: submittedLocationId,
+        movedToLocationId: submittedMovedToLocationId,
         intensity: submittedIntensity,
         count: submittedCount,
         didResist: submittedDidResist,
@@ -1676,6 +1730,7 @@ export default function LogScreen({
           habitId: submittedHabitId,
           cueIds: submittedCueIds,
           locationId: submittedLocationId,
+          movedToLocationId: submittedMovedToLocationId,
           intensity: submittedIntensity,
           count: submittedCount,
           didResist: submittedDidResist,
@@ -1695,12 +1750,20 @@ export default function LogScreen({
         return;
       }
 
+      if (focusedHelpLog) {
+        resetToDefaults(getDefaultHabitIdAfterLog(submittedHabitId));
+        unlockSave();
+        onFocusedHelpLogReturn?.(true);
+        return;
+      }
+
       resetToDefaults(getDefaultHabitIdAfterLog(submittedHabitId));
 
       if (submittedFromHelp) {
         navigation.setParams({
           fromHelp: undefined,
           helpSelectedActionId: undefined,
+          helpMovedToLocationId: undefined,
         });
         navigation.navigate("Home");
         return;
@@ -1959,9 +2022,13 @@ export default function LogScreen({
               setErrorMsg(null);
             }}
             onAdd={
-              weeklyReviewLog
+              weeklyReviewLog || focusedHelpLog
                 ? undefined
-                : () => navigation.navigate("ManageList", { type: "habits" })
+                : () =>
+                    navigation.navigate("ManageList", {
+                      type: "habits",
+                      openToAdd: true,
+                    })
             }
             listRef={habitListRef}
             locked={weeklyReviewLog != null}
@@ -1993,11 +2060,14 @@ export default function LogScreen({
             }}
             allowNone
             onAdd={() => {
-              if (weeklyReviewLog) {
+              if (weeklyReviewLog || focusedHelpLog) {
                 setQuickAddType("cues");
                 return;
               }
-              navigation.navigate("ManageList", { type: "cues" });
+              navigation.navigate("ManageList", {
+                type: "cues",
+                openToAdd: true,
+              });
             }}
             listRef={cueListRef}
           />
@@ -2017,11 +2087,14 @@ export default function LogScreen({
             onSelect={setLocationId}
             allowNone
             onAdd={() => {
-              if (weeklyReviewLog) {
+              if (weeklyReviewLog || focusedHelpLog) {
                 setQuickAddType("locations");
                 return;
               }
-              navigation.navigate("ManageList", { type: "locations" });
+              navigation.navigate("ManageList", {
+                type: "locations",
+                openToAdd: true,
+              });
             }}
             listRef={locationListRef}
           />
@@ -2149,15 +2222,23 @@ export default function LogScreen({
             </View>
           </Pressable>
 
-          {weeklyReviewLog ? (
+          {weeklyReviewLog || focusedHelpLog ? (
             <Pressable
               onPress={async () => {
                 await lightHaptic();
                 Keyboard.dismiss();
-                attemptReturnToWeeklyReview();
+                if (weeklyReviewLog) {
+                  attemptReturnToWeeklyReview();
+                } else {
+                  attemptReturnToHelp();
+                }
               }}
               accessibilityRole="button"
-              accessibilityLabel="Cancel and return to weekly review"
+              accessibilityLabel={
+                weeklyReviewLog
+                  ? "Cancel and return to weekly review"
+                  : "Cancel and return to urge help"
+              }
               className="mt-2 w-full rounded-3xl border border-gray-300 bg-white px-5 py-3"
             >
               <Text className="text-center text-base font-black text-black">

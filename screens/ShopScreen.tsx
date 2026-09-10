@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -124,14 +124,6 @@ export default function ShopScreen() {
   const actionListRef = useRef<FlatList<ReplacementAction> | null>(null);
   const filterScrollRef = useRef<ScrollView | null>(null);
   const filterScrollOffsetRef = useRef(0);
-  const didSetInitialFilter = useRef(false);
-
-  useEffect(() => {
-    if (didSetInitialFilter.current) return;
-
-    didSetInitialFilter.current = true;
-    setFilter(selectedActionIds.length > 0 ? SELECTED : ALL);
-  }, [selectedActionIds.length]);
 
   const selectedActions = useMemo(() => {
     if (selectedActionIds.length === 0) return [];
@@ -519,12 +511,11 @@ export default function ShopScreen() {
             filterScrollOffsetRef.current = event.nativeEvent.contentOffset.x;
           }}
         >
-          {renderFilterPill("Selected", SELECTED)}
           {renderFilterPill("All", ALL)}
+          {renderFilterPill("Custom", CUSTOM)}
+          {renderFilterPill("Selected", SELECTED)}
 
           {PRESET_CATEGORIES.map((cat) => renderFilterPill(cat, cat))}
-
-          {renderFilterPill("Custom", CUSTOM)}
         </ScrollView>
       </View>
 

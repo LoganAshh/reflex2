@@ -188,6 +188,7 @@ function getSectionIcon(title: string): keyof typeof Ionicons.glyphMap {
   if (title === "Habit") return "radio-button-on";
   if (title === "Cue" || title === "Cues") return "alert-circle";
   if (title === "Location") return "location";
+  if (title === "Moved to") return "navigate";
   if (title === "Replacement action") return "flash";
   return "ellipse";
 }
@@ -369,6 +370,13 @@ export function DayLogsModal({
             </Text>
           ) : null}
 
+          {item.movedToLocationName ? (
+            <Text className="mt-1 text-sm text-gray-500">
+              <Text className="font-black text-black">Moved to:</Text>{" "}
+              {item.movedToLocationName}
+            </Text>
+          ) : null}
+
           {item.selectedActionTitle ? (
             <Text className="mt-1 text-sm text-gray-500">
               <Text className="font-black text-black">Replacement Action:</Text>{" "}
@@ -471,6 +479,7 @@ export function EditLogModal({
   habitId,
   cueIds,
   locationId,
+  movedToLocationId,
   selectedActionId,
   didResist,
   intensity,
@@ -488,6 +497,7 @@ export function EditLogModal({
   setHabitId,
   setCueIds,
   setLocationId,
+  setMovedToLocationId,
   setSelectedActionId,
   setDidResist,
   setIntensity,
@@ -513,6 +523,7 @@ export function EditLogModal({
   habitId: number | null;
   cueIds: number[];
   locationId: number | null;
+  movedToLocationId: number | null;
   selectedActionId: number | null;
   didResist: 0 | 1;
   intensity: number | null;
@@ -530,6 +541,7 @@ export function EditLogModal({
   setHabitId: (id: number | null) => void;
   setCueIds: (ids: number[]) => void;
   setLocationId: (id: number | null) => void;
+  setMovedToLocationId: (id: number | null) => void;
   setSelectedActionId: (id: number | null) => void;
   setDidResist: (value: 0 | 1) => void;
   setIntensity: (value: number | null) => void;
@@ -550,6 +562,7 @@ export function EditLogModal({
   const habitListRef = useRef<FlatList<ChipItem> | null>(null);
   const cueListRef = useRef<FlatList<ChipItem> | null>(null);
   const locationListRef = useRef<FlatList<ChipItem> | null>(null);
+  const movedToLocationListRef = useRef<FlatList<ChipItem> | null>(null);
   const replacementActionListRef = useRef<FlatList<ChipItem> | null>(null);
   const editScrollViewRef = useRef<ScrollView | null>(null);
   const editScrollViewportHeightRef = useRef(0);
@@ -792,6 +805,14 @@ export function EditLogModal({
               selectedId={locationId}
               onSelect={setLocationId}
               listRef={locationListRef}
+            />
+
+            <ChipRow
+              title="Moved to"
+              items={locationOptions}
+              selectedId={movedToLocationId}
+              onSelect={setMovedToLocationId}
+              listRef={movedToLocationListRef}
             />
 
             <View className="mt-2 w-full rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">

@@ -30,6 +30,10 @@ import ManageListScreen from "./screens/ManageListScreen";
 import ProfileSetupScreen from "./screens/ProfileSetupScreen";
 import UrgeHelpScreen from "./screens/UrgeHelpScreen";
 import { Screen } from "./components/Screen";
+import {
+  HelpExitGuardContext,
+  type HelpExitGuard,
+} from "./components/HelpExitGuard";
 
 import { DataProvider, useData } from "./data/DataContext";
 
@@ -60,6 +64,13 @@ export type WeeklyReviewLogRequest = {
   createdAt: number;
 };
 
+export type FocusedHelpLogRequest = {
+  token: number;
+  createdAt: number;
+  selectedActionId: number | null;
+  movedToLocationId: number | null;
+};
+
 export type RootTabParamList = {
   Home: TabResetParams | undefined;
   Analytics: TabResetParams | undefined;
@@ -69,6 +80,7 @@ export type RootTabParamList = {
         manageListSelection?: ManageListSelection;
         fromHelp?: boolean;
         helpSelectedActionId?: number | null;
+        helpMovedToLocationId?: number | null;
       })
     | undefined;
   Settings: TabResetParams | undefined;
@@ -83,6 +95,8 @@ export type RootStackParamList = {
     habitId?: number;
     openGoal?: boolean;
     setupMissingPlans?: boolean;
+    returnToHelp?: boolean;
+    openToAdd?: boolean;
   };
   ProfileSetup: undefined;
   Settings: undefined;
@@ -263,12 +277,29 @@ function AppLockGate({ children }: { children: React.ReactNode }) {
 }
 
 function Tabs() {
+  const helpExitGuardRef = useRef<HelpExitGuard | null>(null);
+
   const tabHaptic = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const onTabPress = (navigation: any) => {
+  const onTabPress = (
+    navigation: any,
+    destination: keyof RootTabParamList,
+    event: { preventDefault: () => void },
+  ) => {
     tabHaptic();
+
+    const state = navigation.getState();
+    const activeRoute = state.routes[state.index];
+    if (
+      activeRoute?.name === "Help" &&
+      destination !== "Help" &&
+      helpExitGuardRef.current?.(() => navigation.navigate(destination))
+    ) {
+      event.preventDefault();
+      return;
+    }
 
     if (navigation.isFocused()) {
       navigation.setParams({ resetToken: Date.now() });
@@ -276,92 +307,94 @@ function Tabs() {
   };
 
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: true,
-        tabBarShowLabel: false,
-        tabBarInactiveTintColor: "#9CA3AF",
-        tabBarStyle: TAB_BAR_STYLE,
-        tabBarIconStyle: { marginTop: 2 },
-        tabBarIcon: ({ focused, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap;
+    <HelpExitGuardContext.Provider value={helpExitGuardRef}>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          headerShown: true,
+          tabBarShowLabel: false,
+          tabBarInactiveTintColor: "#9CA3AF",
+          tabBarStyle: TAB_BAR_STYLE,
+          tabBarIconStyle: { marginTop: 2 },
+          tabBarIcon: ({ focused, size }) => {
+            let iconName: keyof typeof Ionicons.glyphMap;
 
-          switch (route.name) {
-            case "Home":
-              iconName = focused ? "home" : "home-outline";
-              break;
-            case "Help":
-              iconName = focused ? "shield-checkmark" : "shield-outline";
-              break;
-            case "Log":
-              iconName = focused ? "add-circle" : "add-circle-outline";
-              break;
-            case "Analytics":
-              iconName = focused ? "bar-chart" : "bar-chart-outline";
-              break;
-            case "Settings":
-              iconName = focused ? "settings" : "settings-outline";
-              break;
-            default:
-              iconName = "ellipse";
-          }
+            switch (route.name) {
+              case "Home":
+                iconName = focused ? "home" : "home-outline";
+                break;
+              case "Help":
+                iconName = focused ? "shield-checkmark" : "shield-outline";
+                break;
+              case "Log":
+                iconName = focused ? "add-circle" : "add-circle-outline";
+                break;
+              case "Analytics":
+                iconName = focused ? "bar-chart" : "bar-chart-outline";
+                break;
+              case "Settings":
+                iconName = focused ? "settings" : "settings-outline";
+                break;
+              default:
+                iconName = "ellipse";
+            }
 
-          const color =
-            route.name === "Log"
-              ? focused
-                ? "#16A34A"
-                : "#9CA3AF"
-              : focused
-                ? "#1F2937"
-                : "#9CA3AF";
+            const color =
+              route.name === "Log"
+                ? focused
+                  ? "#16A34A"
+                  : "#9CA3AF"
+                : focused
+                  ? "#1F2937"
+                  : "#9CA3AF";
 
-          const iconSize = route.name === "Log" ? size + 4 : size;
+            const iconSize = route.name === "Log" ? size + 4 : size;
 
-          return <Ionicons name={iconName} size={iconSize} color={color} />;
-        },
-      })}
-    >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        listeners={({ navigation }) => ({
-          tabPress: () => onTabPress(navigation),
+            return <Ionicons name={iconName} size={iconSize} color={color} />;
+          },
         })}
-      />
+      >
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          listeners={({ navigation }) => ({
+            tabPress: (event) => onTabPress(navigation, "Home", event),
+          })}
+        />
 
-      <Tab.Screen
-        name="Analytics"
-        component={AnalyticsScreen}
-        listeners={({ navigation }) => ({
-          tabPress: () => onTabPress(navigation),
-        })}
-      />
+        <Tab.Screen
+          name="Analytics"
+          component={AnalyticsScreen}
+          listeners={({ navigation }) => ({
+            tabPress: (event) => onTabPress(navigation, "Analytics", event),
+          })}
+        />
 
-      <Tab.Screen
-        name="Log"
-        component={LogScreen}
-        listeners={({ navigation }) => ({
-          tabPress: () => onTabPress(navigation),
-        })}
-      />
+        <Tab.Screen
+          name="Log"
+          component={LogScreen}
+          listeners={({ navigation }) => ({
+            tabPress: (event) => onTabPress(navigation, "Log", event),
+          })}
+        />
 
-      <Tab.Screen
-        name="Help"
-        component={UrgeHelpScreen}
-        options={{ title: "Urge help" }}
-        listeners={({ navigation }) => ({
-          tabPress: () => onTabPress(navigation),
-        })}
-      />
+        <Tab.Screen
+          name="Help"
+          component={UrgeHelpScreen}
+          options={{ title: "Urge help" }}
+          listeners={({ navigation }) => ({
+            tabPress: (event) => onTabPress(navigation, "Help", event),
+          })}
+        />
 
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
-        listeners={({ navigation }) => ({
-          tabPress: () => onTabPress(navigation),
-        })}
-      />
-    </Tab.Navigator>
+        <Tab.Screen
+          name="Settings"
+          component={SettingsScreen}
+          listeners={({ navigation }) => ({
+            tabPress: (event) => onTabPress(navigation, "Settings", event),
+          })}
+        />
+      </Tab.Navigator>
+    </HelpExitGuardContext.Provider>
   );
 }
 

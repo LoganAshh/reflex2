@@ -452,11 +452,13 @@ export function ProgressTrendChart({
   cycles,
   logs,
   accentColor,
+  embedded = false,
 }: {
   habit: Habit | null;
   cycles: CycleHistoryEntry[];
   logs: LogEntry[];
   accentColor: string;
+  embedded?: boolean;
 }) {
   const [range, setRange] = useState<RangeKey>("4W");
   const [width, setWidth] = useState(0);
@@ -597,7 +599,13 @@ export function ProgressTrendChart({
   const includeYearOnXAxis = maxTime - minTime > 365 * 24 * 60 * 60 * 1000;
 
   return (
-    <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
+    <View
+      className={
+        embedded
+          ? ""
+          : "mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm"
+      }
+    >
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-3">
           <Text className="text-base font-black text-black">

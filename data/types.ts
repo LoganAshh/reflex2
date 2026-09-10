@@ -138,6 +138,8 @@ export type LogEntry = {
   cueNames: string[];
   locationId: number | null;
   locationName: string | null;
+  movedToLocationId: number | null;
+  movedToLocationName: string | null;
   intensity: number | null;
   count: number;
   didResist: 0 | 1;
@@ -161,6 +163,7 @@ export type AddLogInput = {
   cueId?: number | null;
   cueIds?: number[];
   locationId?: number | null;
+  movedToLocationId?: number | null;
   intensity?: number | null;
   count?: number;
   didResist?: boolean;
@@ -173,6 +176,7 @@ export type UpdateLogInput = {
   cueId?: number | null;
   cueIds?: number[];
   locationId?: number | null;
+  movedToLocationId?: number | null;
   intensity?: number | null;
   count?: number;
   didResist?: boolean;
@@ -290,6 +294,10 @@ export type DataContextType = {
   updateLogSelectedAction: (
     logId: number,
     selectedActionId: number | null,
+  ) => Promise<void>;
+  updateLogMovedToLocation: (
+    logId: number,
+    movedToLocationId: number | null,
   ) => Promise<void>;
 
   actions: ReplacementAction[];

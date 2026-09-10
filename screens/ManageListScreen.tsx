@@ -272,7 +272,9 @@ export default function ManageListScreen() {
   } = useData();
 
   const [text, setText] = useState("");
-  const [filter, setFilter] = useState<Filter>("selected");
+  const [filter, setFilter] = useState<Filter>(
+    route.params.openToAdd === true ? "preset" : "selected",
+  );
   const [editingItem, setEditingItem] = useState<ManageItem | null>(null);
   const [editText, setEditText] = useState("");
   const [editColor, setEditColor] = useState("#16A34A");
@@ -380,13 +382,18 @@ export default function ManageListScreen() {
 
     didSetInitialFilter.current = true;
 
+    if (route.params.openToAdd === true) {
+      setFilter("preset");
+      return;
+    }
+
     if (type !== "habits" && selectedIds.size === 0) {
       setFilter("preset");
       return;
     }
 
     setFilter("selected");
-  }, [type, selectedIds.size]);
+  }, [route.params.openToAdd, type, selectedIds.size]);
 
   useEffect(() => {
     const habitId = route.params.habitId;
@@ -812,7 +819,7 @@ export default function ManageListScreen() {
       }
     }
 
-    if (returnSelection) {
+    if (returnSelection && route.params.returnToHelp !== true) {
       setLogReturnSelectionParam(returnSelection);
     }
 
@@ -872,9 +879,9 @@ export default function ManageListScreen() {
       </View>
 
       <View className="mt-5 flex-row">
-        {renderFilterChip("Selected", "selected")}
         {renderFilterChip("Preset", "preset")}
         {renderFilterChip("Custom", "custom")}
+        {renderFilterChip("Selected", "selected")}
       </View>
 
       {filter === "custom" ? (
@@ -951,6 +958,7 @@ export default function ManageListScreen() {
         <Modal visible={!!editingItem} transparent animationType="fade">
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
+            enabled={type === "habits"}
             className="flex-1 justify-center bg-black/40 px-6"
           >
             <View className="max-h-[90%] rounded-[32px] bg-white p-5">
@@ -1281,8 +1289,11 @@ export default function ManageListScreen() {
                 </Pressable>
 
                 {editingItem?.isCustom ? (
-                  <Pressable onPress={onDelete} className="mt-3 py-2">
-                    <Text className="text-center text-sm font-black text-red-600">
+                  <Pressable
+                    onPress={onDelete}
+                    className="mt-3 rounded-3xl border border-red-200 bg-red-50 py-4 active:bg-red-100"
+                  >
+                    <Text className="text-center text-base font-black text-red-600">
                       Delete Custom Item
                     </Text>
                   </Pressable>

@@ -758,7 +758,6 @@ export default function SettingsScreen() {
         <Row
           title="Version"
           subtitle={version}
-          disabled
           icon="phone-portrait"
           right={
             <View className="rounded-full border border-gray-200 bg-white px-3 py-1.5">

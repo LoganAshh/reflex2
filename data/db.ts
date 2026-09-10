@@ -169,6 +169,7 @@ const CREATE_DATA_TABLES_SQL = `
     habitId INTEGER NOT NULL,
     cueId INTEGER,
     locationId INTEGER,
+    movedToLocationId INTEGER,
     intensity INTEGER,
     count INTEGER NOT NULL DEFAULT 1,
     didResist INTEGER NOT NULL DEFAULT 0,
@@ -180,10 +181,12 @@ const CREATE_DATA_TABLES_SQL = `
     cueIdsJson TEXT,
     cueNamesJson TEXT,
     locationName TEXT,
+    movedToLocationName TEXT,
     selectedActionTitle TEXT,
     FOREIGN KEY (habitId) REFERENCES habits(id) ON DELETE CASCADE,
     FOREIGN KEY (cueId) REFERENCES cues(id) ON DELETE SET NULL,
     FOREIGN KEY (locationId) REFERENCES locations(id) ON DELETE SET NULL,
+    FOREIGN KEY (movedToLocationId) REFERENCES locations(id) ON DELETE SET NULL,
     FOREIGN KEY (selectedActionId) REFERENCES actions(id) ON DELETE SET NULL
   );
 
@@ -303,6 +306,12 @@ export async function ensureLocalSchemaColumns() {
   await ensureColumn("logs", "cueIdsJson", "cueIdsJson TEXT");
   await ensureColumn("logs", "cueNamesJson", "cueNamesJson TEXT");
   await ensureColumn("logs", "locationName", "locationName TEXT");
+  await ensureColumn(
+    "logs",
+    "movedToLocationId",
+    "movedToLocationId INTEGER REFERENCES locations(id) ON DELETE SET NULL",
+  );
+  await ensureColumn("logs", "movedToLocationName", "movedToLocationName TEXT");
   await ensureColumn("logs", "selectedActionTitle", "selectedActionTitle TEXT");
 
   await db.execAsync(`
@@ -317,6 +326,10 @@ export async function ensureLocalSchemaColumns() {
     UPDATE logs
     SET locationName = (SELECT name FROM locations WHERE locations.id = logs.locationId)
     WHERE locationName IS NULL AND locationId IS NOT NULL;
+
+    UPDATE logs
+    SET movedToLocationName = (SELECT name FROM locations WHERE locations.id = logs.movedToLocationId)
+    WHERE movedToLocationName IS NULL AND movedToLocationId IS NOT NULL;
 
     UPDATE logs
     SET selectedActionTitle = (SELECT title FROM actions WHERE actions.id = logs.selectedActionId)
@@ -690,6 +703,8 @@ export async function loadLogs(): Promise<LogEntry[]> {
       l.cueNamesJson,
       l.locationId,
       COALESCE(l.locationName, loc.name) AS locationName,
+      l.movedToLocationId,
+      COALESCE(l.movedToLocationName, movedLoc.name) AS movedToLocationName,
       l.intensity,
       l.count,
       l.didResist,
@@ -701,6 +716,7 @@ export async function loadLogs(): Promise<LogEntry[]> {
     JOIN habits h ON h.id = l.habitId
     LEFT JOIN cues c ON c.id = l.cueId
     LEFT JOIN locations loc ON loc.id = l.locationId
+    LEFT JOIN locations movedLoc ON movedLoc.id = l.movedToLocationId
     LEFT JOIN actions a ON a.id = l.selectedActionId
     ORDER BY l.createdAt DESC;
   `);
@@ -830,6 +846,7 @@ export async function insertLog(params: {
   cueId: number | null;
   cueIds: number[];
   locationId: number | null;
+  movedToLocationId: number | null;
   intensity: number | null;
   count: number;
   didResist: 0 | 1;
@@ -839,6 +856,7 @@ export async function insertLog(params: {
   cueName: string | null;
   cueNames: string[];
   locationName: string | null;
+  movedToLocationName: string | null;
   selectedActionTitle: string | null;
 }) {
   const result = await db.runAsync(
@@ -847,6 +865,7 @@ export async function insertLog(params: {
       habitId,
       cueId,
       locationId,
+      movedToLocationId,
       intensity,
       count,
       didResist,
@@ -858,14 +877,16 @@ export async function insertLog(params: {
       cueIdsJson,
       cueNamesJson,
       locationName,
+      movedToLocationName,
       selectedActionTitle
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `,
     [
       params.habitId,
       params.cueId,
       params.locationId,
+      params.movedToLocationId,
       params.intensity,
       params.count,
       params.didResist,
@@ -877,6 +898,7 @@ export async function insertLog(params: {
       JSON.stringify(params.cueIds),
       JSON.stringify(params.cueNames),
       params.locationName,
+      params.movedToLocationName,
       params.selectedActionTitle,
     ],
   );
@@ -890,6 +912,7 @@ export async function updateLogInDb(params: {
   cueId: number | null;
   cueIds: number[];
   locationId: number | null;
+  movedToLocationId: number | null;
   intensity: number | null;
   count: number;
   didResist: 0 | 1;
@@ -900,6 +923,7 @@ export async function updateLogInDb(params: {
   cueName: string | null;
   cueNames: string[];
   locationName: string | null;
+  movedToLocationName: string | null;
   selectedActionTitle: string | null;
 }) {
   await db.runAsync(
@@ -909,6 +933,7 @@ export async function updateLogInDb(params: {
       habitId = ?,
       cueId = ?,
       locationId = ?,
+      movedToLocationId = ?,
       intensity = ?,
       count = ?,
       didResist = ?,
@@ -920,6 +945,7 @@ export async function updateLogInDb(params: {
       cueIdsJson = ?,
       cueNamesJson = ?,
       locationName = ?,
+      movedToLocationName = ?,
       selectedActionTitle = ?
     WHERE id = ?;
     `,
@@ -927,6 +953,7 @@ export async function updateLogInDb(params: {
       params.habitId,
       params.cueId,
       params.locationId,
+      params.movedToLocationId,
       params.intensity,
       params.count,
       params.didResist,
@@ -938,6 +965,7 @@ export async function updateLogInDb(params: {
       JSON.stringify(params.cueIds),
       JSON.stringify(params.cueNames),
       params.locationName,
+      params.movedToLocationName,
       params.selectedActionTitle,
       params.logId,
     ],
@@ -956,6 +984,17 @@ export async function updateLogSelectedActionInDb(
   await db.runAsync(
     `UPDATE logs SET selectedActionId = ?, selectedActionTitle = ? WHERE id = ?;`,
     [selectedActionId, selectedActionTitle, logId],
+  );
+}
+
+export async function updateLogMovedToLocationInDb(
+  logId: number,
+  movedToLocationId: number | null,
+  movedToLocationName: string | null,
+) {
+  await db.runAsync(
+    `UPDATE logs SET movedToLocationId = ?, movedToLocationName = ? WHERE id = ?;`,
+    [movedToLocationId, movedToLocationName, logId],
   );
 }
 
@@ -1192,7 +1231,9 @@ export async function deleteOrHideCustomCueInDb(
 export async function deleteOrHideCustomLocationInDb(
   id: number,
 ): Promise<"deleted" | "hidden"> {
-  const usedCount = await countLogsForColumn("locationId", id);
+  const usedCount =
+    (await countLogsForColumn("locationId", id)) +
+    (await countLogsForColumn("movedToLocationId", id));
   await db.runAsync(`DELETE FROM user_locations WHERE locationId = ?;`, [id]);
   if (usedCount > 0) {
     await db.runAsync(

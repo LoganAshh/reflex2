@@ -323,6 +323,9 @@ export default function AnalyticsScreen() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("Overall");
   const [monthOffset, setMonthOffset] = useState(0);
+  const [progressView, setProgressView] = useState<"calendar" | "progress">(
+    "calendar",
+  );
   const [patternRange, setPatternRange] = useState<PatternRangeKey>("4W");
   const [dayModalOpen, setDayModalOpen] = useState(false);
   const [selectedDayMs, setSelectedDayMs] = useState<number | null>(null);
@@ -331,6 +334,9 @@ export default function AnalyticsScreen() {
   const [habitId, setHabitId] = useState<number | null>(null);
   const [cueIds, setCueIds] = useState<number[]>([]);
   const [locationId, setLocationId] = useState<number | null>(null);
+  const [movedToLocationId, setMovedToLocationId] = useState<number | null>(
+    null,
+  );
   const [selectedActionId, setSelectedActionId] = useState<number | null>(null);
   const [didResist, setDidResist] = useState<0 | 1>(0);
   const [intensity, setIntensity] = useState<number | null>(null);
@@ -426,10 +432,41 @@ export default function AnalyticsScreen() {
     if (editingLog?.locationId != null) {
       visibleIds.add(editingLog.locationId);
     }
-    return locations
+    if (editingLog?.movedToLocationId != null) {
+      visibleIds.add(editingLog.movedToLocationId);
+    }
+    const options = locations
       .filter((location) => visibleIds.has(location.id))
       .map((location) => ({ id: location.id, name: location.name }));
-  }, [editingLog?.locationId, locations, selectedLocations]);
+    if (
+      editingLog?.locationId != null &&
+      editingLog.locationName &&
+      !options.some((location) => location.id === editingLog.locationId)
+    ) {
+      options.push({
+        id: editingLog.locationId,
+        name: editingLog.locationName,
+      });
+    }
+    if (
+      editingLog?.movedToLocationId != null &&
+      editingLog.movedToLocationName &&
+      !options.some((location) => location.id === editingLog.movedToLocationId)
+    ) {
+      options.push({
+        id: editingLog.movedToLocationId,
+        name: editingLog.movedToLocationName,
+      });
+    }
+    return options;
+  }, [
+    editingLog?.locationId,
+    editingLog?.locationName,
+    editingLog?.movedToLocationId,
+    editingLog?.movedToLocationName,
+    locations,
+    selectedLocations,
+  ]);
 
   const replacementActionOptions = useMemo(() => {
     const visibleIds = new Set(selectedActionIds);
@@ -608,6 +645,7 @@ export default function AnalyticsScreen() {
       setHabitId(log.habitId);
       setCueIds(log.cueIds);
       setLocationId(log.locationId ?? null);
+      setMovedToLocationId(log.movedToLocationId ?? null);
       setSelectedActionId(log.selectedActionId ?? null);
       setDidResist(log.didResist);
       setIntensity(log.intensity ?? null);
@@ -653,6 +691,7 @@ export default function AnalyticsScreen() {
       habitId,
       cueIds,
       locationId,
+      movedToLocationId,
       intensity,
       count: didResist === 1 ? 0 : Math.max(1, count),
       didResist: didResist === 1,
@@ -1086,47 +1125,95 @@ export default function AnalyticsScreen() {
           ))}
         </ScrollView>
 
-        <ProgressTrendChart
-          habit={activeHabit}
-          cycles={cycleHistory}
-          logs={logs}
-          accentColor={activeHabitColor}
-        />
-
         <View className="mt-3 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
-          <View className="mb-2 flex-row items-center justify-between">
-            <View className="flex-1 pr-3">
-              <Text className="text-base font-black text-black">
-                Habit activity calendar
-              </Text>
+          <View className="mb-3 flex-row rounded-full border border-gray-200 bg-white p-1">
+            {(
+              [
+                { key: "calendar", label: "Calendar" },
+                { key: "progress", label: "Progress" },
+              ] as const
+            ).map((option) => {
+              const selected = progressView === option.key;
 
-              <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-500">
-                Tap a day to view or edit logs for that day.
-              </Text>
-            </View>
-
-            <View
-              className="h-9 w-9 items-center justify-center rounded-2xl border bg-white"
-              style={{ borderColor: ICON_BUBBLE_BORDER }}
-            >
-              <Ionicons name="calendar" size={19} color={activeHabitColor} />
-            </View>
+              return (
+                <Pressable
+                  key={option.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setProgressView(option.key);
+                  }}
+                  className="flex-1 rounded-full px-3 py-2"
+                  style={{
+                    backgroundColor: selected
+                      ? activeHabitColor
+                      : "transparent",
+                  }}
+                >
+                  <Text
+                    className={`text-center text-sm font-black ${
+                      selected ? "text-white" : "text-gray-600"
+                    }`}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
 
-          <AnalyticsCalendar
-            monthLabel={calendar.monthLabel}
-            weeks={calendar.weeks}
-            onPreviousMonth={async () => {
-              await lightHaptic();
-              setMonthOffset((v) => v - 1);
-            }}
-            onNextMonth={async () => {
-              await lightHaptic();
-              setMonthOffset((v) => v + 1);
-            }}
-            onOpenDay={openDayModal}
-            accentColor={activeHabitColor}
-          />
+          <View style={{ minHeight: 430 }}>
+            {progressView === "calendar" ? (
+              <>
+                <View className="mb-2 flex-row items-center justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-base font-black text-black">
+                      Habit activity calendar
+                    </Text>
+
+                    <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-500">
+                      Tap a day to view or edit logs for that day.
+                    </Text>
+                  </View>
+
+                  <View
+                    className="h-9 w-9 items-center justify-center rounded-2xl border bg-white"
+                    style={{ borderColor: ICON_BUBBLE_BORDER }}
+                  >
+                    <Ionicons
+                      name="calendar"
+                      size={19}
+                      color={activeHabitColor}
+                    />
+                  </View>
+                </View>
+
+                <AnalyticsCalendar
+                  monthLabel={calendar.monthLabel}
+                  weeks={calendar.weeks}
+                  onPreviousMonth={async () => {
+                    await lightHaptic();
+                    setMonthOffset((v) => v - 1);
+                  }}
+                  onNextMonth={async () => {
+                    await lightHaptic();
+                    setMonthOffset((v) => v + 1);
+                  }}
+                  onOpenDay={openDayModal}
+                  accentColor={activeHabitColor}
+                />
+              </>
+            ) : (
+              <ProgressTrendChart
+                habit={activeHabit}
+                cycles={cycleHistory}
+                logs={logs}
+                accentColor={activeHabitColor}
+                embedded
+              />
+            )}
+          </View>
         </View>
 
         <TrackingReviewLauncher
@@ -1381,6 +1468,7 @@ export default function AnalyticsScreen() {
         habitId={habitId}
         cueIds={cueIds}
         locationId={locationId}
+        movedToLocationId={movedToLocationId}
         selectedActionId={selectedActionId}
         didResist={didResist}
         intensity={intensity}
@@ -1398,6 +1486,7 @@ export default function AnalyticsScreen() {
         setHabitId={setHabitId}
         setCueIds={setCueIds}
         setLocationId={setLocationId}
+        setMovedToLocationId={setMovedToLocationId}
         setSelectedActionId={setSelectedActionId}
         setDidResist={setDidResist}
         setIntensity={setIntensity}

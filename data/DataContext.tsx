@@ -63,6 +63,7 @@ import {
   updateLogInDb,
   deleteLogInDb,
   updateLogSelectedActionInDb,
+  updateLogMovedToLocationInDb,
   insertAction,
   getHabitById,
   getCueById,
@@ -198,6 +199,7 @@ type BackupLog = {
   cueId: number | null;
   cueIds: number[];
   locationId: number | null;
+  movedToLocationId: number | null;
   intensity: number | null;
   count: number;
   didResist: 0 | 1;
@@ -208,6 +210,7 @@ type BackupLog = {
   cueName: string | null;
   cueNames: string[];
   locationName: string | null;
+  movedToLocationName: string | null;
   selectedActionTitle: string | null;
 };
 
@@ -480,6 +483,7 @@ function sanitizeLogs(items: unknown[]): BackupLog[] {
       cueIds:
         cueIds.length > 0 ? cueIds : legacyCueId == null ? [] : [legacyCueId],
       locationId: cleanOptionalInt(item.locationId),
+      movedToLocationId: cleanOptionalInt(item.movedToLocationId),
       intensity:
         intensity == null ? null : Math.min(10, Math.max(1, intensity)),
       count: Math.min(999999, Math.max(0, cleanInt(item.count, 1))),
@@ -496,6 +500,7 @@ function sanitizeLogs(items: unknown[]): BackupLog[] {
             ? []
             : [legacyCueName],
       locationName: cleanNullableString(item.locationName),
+      movedToLocationName: cleanNullableString(item.movedToLocationName),
       selectedActionTitle: cleanNullableString(item.selectedActionTitle),
     });
   }
@@ -1480,6 +1485,7 @@ export function DataProvider({ children }: DataProviderProps) {
     cueId?: number | null;
     cueIds?: number[];
     locationId?: number | null;
+    movedToLocationId?: number | null;
     selectedActionId?: number | null;
   }) => {
     const cueIds = Array.from(
@@ -1489,12 +1495,15 @@ export function DataProvider({ children }: DataProviderProps) {
         ),
       ),
     );
-    const [habit, cues, location, action] = await Promise.all([
+    const [habit, cues, location, movedToLocation, action] = await Promise.all([
       getHabitById(input.habitId),
       Promise.all(cueIds.map((cueId) => getCueById(cueId))),
       input.locationId == null
         ? Promise.resolve(null)
         : getLocationById(input.locationId),
+      input.movedToLocationId == null
+        ? Promise.resolve(null)
+        : getLocationById(input.movedToLocationId),
       input.selectedActionId == null
         ? Promise.resolve(null)
         : getActionById(input.selectedActionId),
@@ -1510,6 +1519,7 @@ export function DataProvider({ children }: DataProviderProps) {
       cueNames: cues.flatMap((cue) => (cue ? [cue.name] : [])),
       cueName: cues[0]?.name ?? null,
       locationName: location?.name ?? null,
+      movedToLocationName: movedToLocation?.name ?? null,
       selectedActionTitle: action?.title ?? null,
     };
   };
@@ -1572,6 +1582,7 @@ export function DataProvider({ children }: DataProviderProps) {
       cueId: input.cueId ?? null,
       cueIds: input.cueIds,
       locationId: input.locationId ?? null,
+      movedToLocationId: input.movedToLocationId ?? null,
       selectedActionId,
     });
 
@@ -1581,6 +1592,7 @@ export function DataProvider({ children }: DataProviderProps) {
       cueId: names.cueIds[0] ?? null,
       cueIds: names.cueIds,
       locationId: input.locationId ?? null,
+      movedToLocationId: input.movedToLocationId ?? null,
       intensity,
       count,
       didResist,
@@ -1590,6 +1602,7 @@ export function DataProvider({ children }: DataProviderProps) {
       cueName: names.cueName,
       cueNames: names.cueNames,
       locationName: names.locationName,
+      movedToLocationName: names.movedToLocationName,
       selectedActionTitle: names.selectedActionTitle,
     });
 
@@ -1621,6 +1634,7 @@ export function DataProvider({ children }: DataProviderProps) {
       cueId: input.cueId ?? null,
       cueIds: input.cueIds,
       locationId: input.locationId ?? null,
+      movedToLocationId: input.movedToLocationId ?? null,
       selectedActionId,
     });
 
@@ -1634,6 +1648,7 @@ export function DataProvider({ children }: DataProviderProps) {
       cueId: names.cueIds[0] ?? null,
       cueIds: names.cueIds,
       locationId: input.locationId ?? null,
+      movedToLocationId: input.movedToLocationId ?? null,
       intensity,
       count,
       didResist: input.didResist ? 1 : 0,
@@ -1644,6 +1659,7 @@ export function DataProvider({ children }: DataProviderProps) {
       cueName: names.cueName,
       cueNames: names.cueNames,
       locationName: names.locationName,
+      movedToLocationName: names.movedToLocationName,
       selectedActionTitle: names.selectedActionTitle,
     });
 
@@ -1692,6 +1708,25 @@ export function DataProvider({ children }: DataProviderProps) {
         logId,
         cleanSelectedActionId,
         action?.title ?? null,
+      );
+      setLogs(await loadLogs());
+    };
+
+  const updateLogMovedToLocation: DataContextType["updateLogMovedToLocation"] =
+    async (logId, movedToLocationId) => {
+      if (!Number.isFinite(logId)) return;
+
+      const cleanLocationId =
+        movedToLocationId == null || !Number.isFinite(movedToLocationId)
+          ? null
+          : movedToLocationId;
+      const location =
+        cleanLocationId == null ? null : await getLocationById(cleanLocationId);
+
+      await updateLogMovedToLocationInDb(
+        logId,
+        cleanLocationId,
+        location?.name ?? null,
       );
       setLogs(await loadLogs());
     };
@@ -2056,6 +2091,7 @@ export function DataProvider({ children }: DataProviderProps) {
           habitId,
           cueId,
           locationId,
+          movedToLocationId,
           intensity,
           count,
           didResist,
@@ -2067,9 +2103,10 @@ export function DataProvider({ children }: DataProviderProps) {
           cueIdsJson,
           cueNamesJson,
           locationName,
+          movedToLocationName,
           selectedActionTitle
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         `,
           [
             log.id,
@@ -2077,6 +2114,10 @@ export function DataProvider({ children }: DataProviderProps) {
             log.cueId != null && cueIds.has(log.cueId) ? log.cueId : null,
             log.locationId != null && locationIds.has(log.locationId)
               ? log.locationId
+              : null,
+            log.movedToLocationId != null &&
+            locationIds.has(log.movedToLocationId)
+              ? log.movedToLocationId
               : null,
             log.intensity,
             log.count,
@@ -2089,6 +2130,7 @@ export function DataProvider({ children }: DataProviderProps) {
             JSON.stringify(log.cueIds.filter((id) => cueIds.has(id))),
             JSON.stringify(log.cueNames),
             log.locationName,
+            log.movedToLocationName,
             log.selectedActionTitle,
           ],
         );
@@ -2265,6 +2307,7 @@ export function DataProvider({ children }: DataProviderProps) {
       updateLog,
       deleteLog,
       updateLogSelectedAction,
+      updateLogMovedToLocation,
       actions,
       addAction,
       renameCustomAction,
