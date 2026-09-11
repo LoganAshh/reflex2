@@ -1544,10 +1544,6 @@ export default function LogScreen({
     handledWeeklyReviewLogTokenRef.current = request.token;
     resetToDefaults(request.habitId);
     setLogDate(new Date(request.createdAt));
-
-    setTimeout(() => {
-      scrollChipToId(habitListRef, orderedHabits, request.habitId);
-    }, 120);
   }, [orderedHabits, selectedHabits, weeklyReviewLog]);
 
   useEffect(() => {
