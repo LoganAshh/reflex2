@@ -1710,6 +1710,15 @@ export default function LogScreen({
     const submittedWeeklyReviewLog = weeklyReviewLog;
 
     try {
+      if (submittedWeeklyReviewLog?.previewOnly) {
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success,
+        );
+        unlockSave();
+        returnToWeeklyReview();
+        return;
+      }
+
       const newLogId = await addLog({
         habitId: submittedHabitId,
         createdAt: submittedCreatedAt,
@@ -2057,16 +2066,20 @@ export default function LogScreen({
               );
             }}
             allowNone
-            onAdd={() => {
-              if (weeklyReviewLog || focusedHelpLog) {
-                setQuickAddType("cues");
-                return;
-              }
-              navigation.navigate("ManageList", {
-                type: "cues",
-                openToAdd: true,
-              });
-            }}
+            onAdd={
+              weeklyReviewLog?.previewOnly
+                ? undefined
+                : () => {
+                    if (weeklyReviewLog || focusedHelpLog) {
+                      setQuickAddType("cues");
+                      return;
+                    }
+                    navigation.navigate("ManageList", {
+                      type: "cues",
+                      openToAdd: true,
+                    });
+                  }
+            }
             listRef={cueListRef}
           />
 
@@ -2084,16 +2097,20 @@ export default function LogScreen({
             selectedId={locationId}
             onSelect={setLocationId}
             allowNone
-            onAdd={() => {
-              if (weeklyReviewLog || focusedHelpLog) {
-                setQuickAddType("locations");
-                return;
-              }
-              navigation.navigate("ManageList", {
-                type: "locations",
-                openToAdd: true,
-              });
-            }}
+            onAdd={
+              weeklyReviewLog?.previewOnly
+                ? undefined
+                : () => {
+                    if (weeklyReviewLog || focusedHelpLog) {
+                      setQuickAddType("locations");
+                      return;
+                    }
+                    navigation.navigate("ManageList", {
+                      type: "locations",
+                      openToAdd: true,
+                    });
+                  }
+            }
             listRef={locationListRef}
           />
 

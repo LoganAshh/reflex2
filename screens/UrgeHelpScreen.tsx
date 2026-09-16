@@ -1457,7 +1457,7 @@ export default function UrgeHelpScreen() {
       </ScrollView>
 
       {mode === "decision" ? (
-        <View className="pb-4 pt-2">
+        <View className="pb-8 pt-4">
           <Pressable
             onPress={() => {
               Haptics.notificationAsync(

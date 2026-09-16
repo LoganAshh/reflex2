@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Switch,
   ActivityIndicator,
   Image,
+  ScrollView,
 } from "react-native";
 import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
@@ -15,14 +16,18 @@ import * as DocumentPicker from "expo-document-picker";
 import * as Notifications from "expo-notifications";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import type { RouteProp } from "@react-navigation/native";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../App";
+import type { RootStackParamList, RootTabParamList } from "../App";
 import { useData } from "../data/DataContext";
 import type { DailyReminderOption } from "../data/types";
 import { Screen } from "../components/Screen";
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Nav = NativeStackNavigationProp<RootStackParamList> &
+  BottomTabNavigationProp<RootTabParamList, "Settings">;
+type SettingsRoute = RouteProp<RootTabParamList, "Settings">;
 
 // Temporarily hide App Lock in Settings while Face ID issues are investigated.
 // Change this to true to show the existing section again.
@@ -34,6 +39,7 @@ type RowProps = {
   right?: React.ReactNode;
   onPress?: () => void;
   tone?: "default" | "danger";
+  surface?: "default" | "muted";
   disabled?: boolean;
   icon: keyof typeof Ionicons.glyphMap;
 };
@@ -44,10 +50,12 @@ function Row({
   right,
   onPress,
   tone = "default",
+  surface = "default",
   disabled,
   icon,
 }: RowProps) {
   const danger = tone === "danger";
+  const muted = surface === "muted";
   const clickable = !!onPress && !disabled;
 
   return (
@@ -60,7 +68,11 @@ function Row({
       disabled={!clickable}
       className={[
         "rounded-[28px] border px-4 py-3 shadow-sm",
-        danger ? "border-red-200 bg-red-50" : "border-gray-200 bg-white",
+        danger
+          ? "border-red-200 bg-red-50"
+          : muted
+            ? "border-gray-200 bg-gray-50"
+            : "border-gray-200 bg-white",
         disabled ? "opacity-50" : "",
       ].join(" ")}
     >
@@ -175,6 +187,9 @@ function getBiometricName(types: LocalAuthentication.AuthenticationType[]) {
 
 export default function SettingsScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<SettingsRoute>();
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const handledResetTokenRef = useRef<number | null>(null);
   const {
     exportData,
     importData,
@@ -186,6 +201,7 @@ export default function SettingsScreen() {
     setAppLockEnabled,
     dailyReminder,
     setDailyReminder,
+    selectedHabits,
   } = useData();
 
   const version = useMemo(() => {
@@ -206,6 +222,15 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState<
     null | "export" | "import" | "reset" | "profile" | "lock" | "reminder"
   >(null);
+
+  useEffect(() => {
+    const resetToken = route.params?.resetToken;
+    if (!resetToken) return;
+    if (handledResetTokenRef.current === resetToken) return;
+
+    handledResetTokenRef.current = resetToken;
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+  }, [route.params?.resetToken]);
 
   async function onImport() {
     try {
@@ -481,6 +506,7 @@ export default function SettingsScreen() {
   return (
     <Screen
       scroll
+      scrollViewRef={scrollViewRef}
       scrollViewProps={{
         showsVerticalScrollIndicator: false,
         contentContainerStyle: {
@@ -555,7 +581,7 @@ export default function SettingsScreen() {
 
       <SectionTitle title="Reminders" icon="notifications" />
 
-      <View className="rounded-[32px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
+      <View className="rounded-[32px] border border-gray-200 bg-white p-4 shadow-sm">
         <View className="flex-row items-start justify-between">
           <View className="flex-row flex-1 items-start pr-4">
             <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
@@ -759,6 +785,7 @@ export default function SettingsScreen() {
           title="Version"
           subtitle={version}
           icon="phone-portrait"
+          surface="muted"
           right={
             <View className="rounded-full border border-gray-200 bg-white px-3 py-1.5">
               <Text className="font-black text-black">{version}</Text>
@@ -785,6 +812,29 @@ export default function SettingsScreen() {
           </View>
         </View>
       </View>
+
+      {__DEV__ ? (
+        <>
+          <SectionTitle title="Developer" icon="construct" />
+          <Row
+            title="Preview dashboard banners"
+            subtitle="Show every banner using safe preview data. Press Home again to exit."
+            icon="albums"
+            onPress={() => {
+              if (selectedHabits.length === 0) {
+                Alert.alert(
+                  "Add a habit first",
+                  "Banner previews need one selected habit to display realistic content.",
+                );
+                return;
+              }
+              navigation.navigate("Home", {
+                bannerPreviewToken: Date.now(),
+              });
+            }}
+          />
+        </>
+      ) : null}
     </Screen>
   );
 }

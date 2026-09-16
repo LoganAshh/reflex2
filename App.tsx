@@ -62,6 +62,7 @@ export type WeeklyReviewLogRequest = {
   token: number;
   habitId: number;
   createdAt: number;
+  previewOnly?: boolean;
 };
 
 export type FocusedHelpLogRequest = {
@@ -72,7 +73,11 @@ export type FocusedHelpLogRequest = {
 };
 
 export type RootTabParamList = {
-  Home: TabResetParams | undefined;
+  Home:
+    | (TabResetParams & {
+        bannerPreviewToken?: number;
+      })
+    | undefined;
   Analytics: TabResetParams | undefined;
   Help: TabResetParams | undefined;
   Log:
@@ -97,6 +102,8 @@ export type RootStackParamList = {
     setupMissingPlans?: boolean;
     returnToHelp?: boolean;
     openToAdd?: boolean;
+    previewOnly?: boolean;
+    previewGoalKind?: "recovery" | "next";
   };
   ProfileSetup: undefined;
   Settings: undefined;

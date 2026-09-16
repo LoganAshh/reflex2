@@ -41,14 +41,20 @@ export function TrackingReviewCard({
   onAddMissingLog,
   onDone,
   initialHabitId = null,
+  previewOnly = false,
 }: {
   habits: Habit[];
   onAddMissingLog?: (habitId: number, dayStart: number) => void;
   onDone?: () => void;
   initialHabitId?: number | null;
+  previewOnly?: boolean;
 }) {
-  const { logs, trackingConfirmations, setTrackingConfirmationsBatch } =
-    useData();
+  const {
+    logs,
+    selectedHabits,
+    trackingConfirmations,
+    setTrackingConfirmationsBatch,
+  } = useData();
   const [habitId, setHabitId] = useState<number | null>(
     initialHabitId ?? habits[0]?.id ?? null,
   );
@@ -78,6 +84,19 @@ export function TrackingReviewCard({
   );
 
   const previousWeek = getPreviousCycleBounds("week");
+  const selectedHabitIds = useMemo(
+    () => new Set(selectedHabits.map((item) => item.id)),
+    [selectedHabits],
+  );
+  const weekHasAnySelectedActivity = logs.some(
+    (log) =>
+      selectedHabitIds.has(log.habitId) &&
+      log.createdAt >= previousWeek.startAt &&
+      log.createdAt < previousWeek.endAtExclusive,
+  );
+  const defaultEmptyStatus: TrackingStatus = weekHasAnySelectedActivity
+    ? "nothing_happened"
+    : "not_yet";
   const weekDays = useMemo(() => {
     if (!habit) return [];
     return Array.from({ length: 7 }, (_, index) => {
@@ -112,8 +131,9 @@ export function TrackingReviewCard({
       ].filter((value): value is number => value != null)
     : [];
   const canReviewPreviousWeek =
-    trackingStarts.length > 0 &&
-    startOfLocalDay(Math.min(...trackingStarts)) <= previousWeek.startAt;
+    previewOnly ||
+    (trackingStarts.length > 0 &&
+      startOfLocalDay(Math.min(...trackingStarts)) <= previousWeek.startAt);
   const weeklyConfirmation = habit
     ? trackingConfirmations.find(
         (item) =>
@@ -128,6 +148,7 @@ export function TrackingReviewCard({
 
   const isHabitReviewed = (id: number) => {
     if (reviewedThisSession.includes(id)) return true;
+    if (previewOnly) return false;
     const confirmation = trackingConfirmations.find(
       (item) =>
         item.habitId === id &&
@@ -164,6 +185,11 @@ export function TrackingReviewCard({
     if (saving) return;
     setSaving(true);
     try {
+      if (previewOnly) {
+        setReviewingGaps(false);
+        await finishHabitReview();
+        return;
+      }
       const hasAnyLogs = weekDays.some((day) => day.logs.length > 0);
       await setTrackingConfirmationsBatch([
         ...weekDays.map((day) => ({
@@ -192,27 +218,37 @@ export function TrackingReviewCard({
     if (saving) return;
     setSaving(true);
     try {
+      if (previewOnly) {
+        setReviewingGaps(false);
+        await finishHabitReview();
+        return;
+      }
       const daily = weekDays.map((day) => ({
         habitId: habit.id,
         period: "day" as const,
         periodStart: day.startAt,
-        status: (day.logs.length > 0
-          ? "everything_logged"
-          : (gapChoices[day.startAt] ??
-            (day.confirmation?.status === "nothing_happened"
-              ? "nothing_happened"
-              : day.confirmation?.status === "not_yet"
-                ? "not_yet"
-                : "nothing_happened"))) as TrackingStatus,
+          status: (day.logs.length > 0
+            ? "everything_logged"
+            : (gapChoices[day.startAt] ??
+              (day.confirmation?.status === "nothing_happened"
+                ? "nothing_happened"
+                : day.confirmation?.status === "not_yet"
+                  ? "not_yet"
+                  : defaultEmptyStatus))) as TrackingStatus,
       }));
       const hasAnyLogs = weekDays.some((day) => day.logs.length > 0);
+      const hasUnknownDays = daily.some((day) => day.status === "not_yet");
       await setTrackingConfirmationsBatch([
         ...daily,
         {
           habitId: habit.id,
           period: "week",
           periodStart: previousWeek.startAt,
-          status: hasAnyLogs ? "everything_logged" : "nothing_happened",
+          status: hasUnknownDays
+            ? "not_yet"
+            : hasAnyLogs
+              ? "everything_logged"
+              : "nothing_happened",
         },
       ]);
       setReviewingGaps(false);
@@ -234,6 +270,11 @@ export function TrackingReviewCard({
             {reviewedCount} of {habits.length} reviewed
           </Text>
         </View>
+        {previewOnly ? (
+          <View className="rounded-full bg-purple-100 px-3 py-1.5">
+            <Text className="text-xs font-black text-purple-700">Preview</Text>
+          </View>
+        ) : null}
       </View>
 
       <ScrollView
@@ -328,7 +369,7 @@ export function TrackingReviewCard({
                   ? "nothing_happened"
                   : day.confirmation?.status === "not_yet"
                     ? "not_yet"
-                    : "nothing_happened");
+                    : defaultEmptyStatus);
               return (
                 <View
                   key={day.startAt}
@@ -533,9 +574,15 @@ function WeeklyReviewLogOverlay({
 export function TrackingReviewLauncher({
   placement,
   habitId = null,
+  previewOnly = false,
+  hideLauncher = false,
+  openToken,
 }: {
   placement: "home" | "analytics";
   habitId?: number | null;
+  previewOnly?: boolean;
+  hideLauncher?: boolean;
+  openToken?: number;
 }) {
   const { selectedHabits, logs, trackingConfirmations } = useData();
   const [open, setOpen] = useState(false);
@@ -545,6 +592,7 @@ export function TrackingReviewLauncher({
   const [modalInitialHabitId, setModalInitialHabitId] = useState<number | null>(
     null,
   );
+  const handledOpenTokenRef = useRef<number | null>(null);
   const previousWeek = getPreviousCycleBounds("week");
   const scopedHabits =
     habitId != null
@@ -582,7 +630,11 @@ export function TrackingReviewLauncher({
     return !complete;
   });
   const hasDueReview = dueHabits.length > 0;
-  const visibleHabits = placement === "home" ? dueHabits : reviewableHabits;
+  const visibleHabits = previewOnly
+    ? scopedHabits
+    : placement === "home"
+      ? dueHabits
+      : reviewableHabits;
   const modalHabits = useMemo(
     () =>
       modalHabitIds
@@ -598,6 +650,13 @@ export function TrackingReviewLauncher({
     setOpen(true);
   };
 
+  useEffect(() => {
+    if (!openToken || handledOpenTokenRef.current === openToken) return;
+    if (visibleHabits.length === 0) return;
+    handledOpenTokenRef.current = openToken;
+    openReview();
+  }, [openToken, visibleHabits]);
+
   const addMissingLog = (missingHabitId: number, dayStart: number) => {
     const now = new Date();
     const selectedDay = new Date(dayStart);
@@ -607,6 +666,7 @@ export function TrackingReviewLauncher({
       token,
       habitId: missingHabitId,
       createdAt: selectedDay.getTime(),
+      previewOnly,
     });
   };
 
@@ -616,14 +676,15 @@ export function TrackingReviewLauncher({
     }
   }, [modalHabitIds.length, modalHabits.length, open]);
 
-  if (placement === "home" && !hasDueReview && !open) return null;
+  if (placement === "home" && !previewOnly && !hasDueReview && !open)
+    return null;
   if (placement === "analytics" && reviewableHabits.length === 0 && !open) {
     return null;
   }
 
   return (
     <>
-      {placement === "home" ? (
+      {!hideLauncher && placement === "home" ? (
         <Pressable
           onPress={() => {
             Haptics.selectionAsync();
@@ -636,9 +697,11 @@ export function TrackingReviewLauncher({
           </View>
           <View className="ml-3 flex-1">
             <Text className="text-sm font-black text-black">
-              {dueHabits.length === 1
+              {previewOnly
                 ? "Last week is ready to review"
-                : `${dueHabits.length} weekly reviews are ready`}
+                : dueHabits.length === 1
+                  ? "Last week is ready to review"
+                  : `${dueHabits.length} weekly reviews are ready`}
             </Text>
             <Text className="mt-0.5 text-xs font-semibold text-gray-500">
               About 1 minute
@@ -646,7 +709,7 @@ export function TrackingReviewLauncher({
           </View>
           <Ionicons name="chevron-forward" size={20} color="#0F766E" />
         </Pressable>
-      ) : (
+      ) : !hideLauncher ? (
         <Pressable
           onPress={() => {
             Haptics.selectionAsync();
@@ -669,7 +732,7 @@ export function TrackingReviewLauncher({
           </View>
           <Ionicons name="chevron-forward" size={20} color="#6B7280" />
         </Pressable>
-      )}
+      ) : null}
 
       {open ? (
         <Modal
@@ -713,6 +776,7 @@ export function TrackingReviewLauncher({
                 onAddMissingLog={addMissingLog}
                 initialHabitId={modalInitialHabitId}
                 onDone={() => setOpen(false)}
+                previewOnly={previewOnly}
               />
             </ScrollView>
 

@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   View,
   Text,
@@ -193,6 +199,15 @@ export default function HomeScreen() {
   const habitChipsScrollRef = useRef<ScrollView | null>(null);
   const handledResetTokenRef = useRef<number | null>(null);
   const [calculatedNoticeOpen, setCalculatedNoticeOpen] = useState(false);
+  const [updatesOpen, setUpdatesOpen] = useState(false);
+  const [weeklyReviewOpenToken, setWeeklyReviewOpenToken] = useState<
+    number | undefined
+  >(undefined);
+  const [calculatedNoticeSnapshot, setCalculatedNoticeSnapshot] = useState<
+    Habit[]
+  >([]);
+  const bannerPreviewActive =
+    __DEV__ && route.params?.bannerPreviewToken != null;
 
   const displayName = useMemo(() => getFirstName(profileName), [profileName]);
   const hasCompletedTrackingDay = selectedHabits.some(
@@ -315,17 +330,115 @@ export default function HomeScreen() {
     [newlyCalculatedHabits, selectedHabitId],
   );
   const calculatedNoticeHabits = relevantCalculatedHabits;
-  const calculatedNoticeCount = calculatedNoticeHabits.length || 1;
   const calculatedNoticeHabitName =
     calculatedNoticeHabits[0]?.name ?? "your habit";
-  const showCalculatedNotice = relevantCalculatedHabits.length > 0;
+  const previewHabit = activeHabit ?? selectedHabits[0] ?? null;
+  const displayedCalculatedNoticeHabits =
+    calculatedNoticeHabits.length > 0
+      ? calculatedNoticeHabits
+      : bannerPreviewActive && previewHabit
+        ? [previewHabit]
+        : [];
+  const displayedCalculatedNoticeCount =
+    displayedCalculatedNoticeHabits.length || 1;
+  const displayedCalculatedNoticeHabitName =
+    displayedCalculatedNoticeHabits[0]?.name ?? calculatedNoticeHabitName;
+  const showCalculatedNotice =
+    relevantCalculatedHabits.length > 0 ||
+    (bannerPreviewActive && previewHabit != null);
   const relevantMissingPlanHabits =
     selectedHabitId == null
       ? missingPlanHabits
       : missingPlanHabits.filter((habit) => habit.id === selectedHabitId);
-  const showMissingPlanBanner = relevantMissingPlanHabits.length > 0;
-  const showNextGoalBanner = nextGoalHabit != null;
-  const showRecoveryGoalBanner = recoveryGoalHabit != null;
+  const displayedMissingPlanHabits =
+    relevantMissingPlanHabits.length > 0
+      ? relevantMissingPlanHabits
+      : bannerPreviewActive && previewHabit
+        ? [previewHabit]
+        : [];
+  const displayedNextGoalHabit =
+    nextGoalHabit ?? (bannerPreviewActive ? previewHabit : null);
+  const displayedRecoveryGoalHabit =
+    recoveryGoalHabit ??
+    (bannerPreviewActive && previewHabit
+      ? { habit: previewHabit, goalHistoryId: -1 }
+      : null);
+  const showMissingPlanBanner = displayedMissingPlanHabits.length > 0;
+  const showNextGoalBanner = displayedNextGoalHabit != null;
+  const showRecoveryGoalBanner = displayedRecoveryGoalHabit != null;
+  const previousWeekForUpdates = getPreviousCycleBounds("week");
+  const weeklyReviewHabits = (
+    selectedHabitId == null
+      ? selectedHabits
+      : selectedHabits.filter((habit) => habit.id === selectedHabitId)
+  ).filter((habit) => {
+    if (bannerPreviewActive) return true;
+    const starts = [
+      habit.calibrationStartedAt,
+      ...logs
+        .filter((log) => log.habitId === habit.id)
+        .map((log) => log.createdAt),
+      ...trackingConfirmations
+        .filter(
+          (confirmation) =>
+            confirmation.habitId === habit.id &&
+            confirmation.status !== "not_yet",
+        )
+        .map((confirmation) => confirmation.periodStart),
+    ].filter((value): value is number => value != null);
+    const hasFullWeek =
+      starts.length > 0 &&
+      startOfDayMs(new Date(Math.min(...starts))) <=
+        previousWeekForUpdates.startAt;
+    const confirmation = trackingConfirmations.find(
+      (item) =>
+        item.habitId === habit.id &&
+        item.period === "week" &&
+        item.periodStart === previousWeekForUpdates.startAt,
+    );
+    const complete =
+      confirmation?.status === "everything_logged" ||
+      confirmation?.status === "nothing_happened";
+    return hasFullWeek && !complete;
+  });
+  const showWeeklyReviewUpdate = weeklyReviewHabits.length > 0;
+  const updatesCount =
+    Number(showMissingPlanBanner) +
+    Number(showRecoveryGoalBanner) +
+    Number(showWeeklyReviewUpdate) +
+    Number(showNextGoalBanner) +
+    Number(showCalculatedNotice);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={() => {
+            Haptics.selectionAsync();
+            setUpdatesOpen(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`Updates${updatesCount > 0 ? `, ${updatesCount} available` : ""}`}
+          className="mr-3 h-10 w-10 items-center justify-center rounded-full"
+          hitSlop={8}
+        >
+          <Ionicons
+            name={updatesCount > 0 ? "notifications" : "notifications-outline"}
+            size={24}
+            color="#111827"
+          />
+          {updatesCount > 0 ? (
+            <View className="absolute right-0 top-0 min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 py-0.5">
+              <Text className="text-[9px] font-black text-white">
+                {updatesCount > 9 ? "9+" : updatesCount}
+              </Text>
+            </View>
+          ) : null}
+        </Pressable>
+      ),
+    });
+  }, [navigation, updatesCount]);
+
   const currentProgress = useMemo(() => {
     if (!activeHabit) return null;
 
@@ -457,12 +570,17 @@ export default function HomeScreen() {
 
     handledResetTokenRef.current = resetToken;
     setSelectedHabitId(null);
+    setUpdatesOpen(false);
+    setCalculatedNoticeOpen(false);
+    if (route.params?.bannerPreviewToken != null) {
+      navigation.setParams({ bannerPreviewToken: undefined });
+    }
 
     requestAnimationFrame(() => {
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       habitChipsScrollRef.current?.scrollTo({ x: 0, animated: true });
     });
-  }, [route.params?.resetToken]);
+  }, [navigation, route.params?.bannerPreviewToken, route.params?.resetToken]);
 
   const habitOptions = selectedHabits;
 
@@ -760,7 +878,6 @@ export default function HomeScreen() {
     icon,
     sub,
     labelAtBottom = false,
-    compactValue = false,
     percentIncrease,
     accentColor = "#16A34A",
   }: {
@@ -769,11 +886,13 @@ export default function HomeScreen() {
     icon: keyof typeof Ionicons.glyphMap;
     sub?: string;
     labelAtBottom?: boolean;
-    compactValue?: boolean;
     percentIncrease?: number | null;
     accentColor?: string;
   }) => (
-    <View className="flex-1 rounded-3xl border border-gray-200 bg-white p-3 shadow-sm">
+    <View
+      className="flex-1 rounded-3xl border border-gray-200 bg-white p-3 shadow-sm"
+      style={{ height: 112 }}
+    >
       <View className="flex-row items-start justify-between">
         <View className="h-9 w-9 items-center justify-center rounded-3xl border border-gray-200 bg-white">
           <Ionicons name={icon} size={19} color="#000000" />
@@ -781,42 +900,80 @@ export default function HomeScreen() {
 
         {percentIncrease != null ? (
           <View
-            className="rounded-full px-2 py-0.5"
+            className={
+              labelAtBottom
+                ? "min-w-[50px] items-center rounded-full px-2 py-0.5"
+                : "rounded-full px-2 py-0.5"
+            }
             style={{ backgroundColor: accentColor }}
           >
             <Text className="text-[11px] font-black text-white">
               ↑ {percentIncrease}%
             </Text>
           </View>
+        ) : labelAtBottom ? (
+          <View
+            className="min-w-[50px] rounded-full px-2 py-0.5"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <Text className="text-[11px] font-black text-transparent">
+              ↑ 100%
+            </Text>
+          </View>
         ) : null}
       </View>
 
       <Text
-        className={`mt-3 font-black text-black ${compactValue ? "text-lg" : "text-2xl"}`}
+        className="mt-1 text-center text-3xl font-black leading-9 text-black"
+        style={{
+          transform: [{ translateY: labelAtBottom ? -14 : -8 }],
+        }}
         numberOfLines={1}
-        adjustsFontSizeToFit={compactValue}
-        minimumFontScale={0.8}
+        adjustsFontSizeToFit
+        minimumFontScale={0.65}
       >
         {value}
       </Text>
+
       {labelAtBottom ? (
-        <>
+        <View style={{ transform: [{ translateY: -8 }] }}>
           {sub ? (
-            <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
+            <Text
+              className="mt-1 text-center text-[11px] font-semibold text-gray-500"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {sub}
             </Text>
           ) : null}
-          <Text className="mt-auto pt-2 text-[11px] font-black uppercase tracking-wide text-gray-500">
+          <Text
+            className="mt-0.5 text-center text-[11px] font-black uppercase tracking-wide text-gray-500"
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
             {label}
           </Text>
-        </>
+        </View>
       ) : (
         <>
-          <Text className="mt-0.5 text-[11px] font-black uppercase tracking-wide text-gray-500">
+          <Text
+            className="mt-1 text-center text-[11px] font-black uppercase tracking-wide text-gray-500"
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
             {label}
           </Text>
           {sub ? (
-            <Text className="mt-0.5 text-[11px] font-semibold text-gray-500">
+            <Text
+              className="mt-0.5 text-center text-[11px] font-semibold text-gray-500"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {sub}
             </Text>
           ) : null}
@@ -856,9 +1013,9 @@ export default function HomeScreen() {
 
   const dismissCalculatedNotice = async () => {
     setCalculatedNoticeOpen(false);
-    if (relevantCalculatedHabits.length > 0) {
+    if (!bannerPreviewActive && calculatedNoticeSnapshot.length > 0) {
       await acknowledgeCalculatedHabits(
-        relevantCalculatedHabits.map((habit) => habit.id),
+        calculatedNoticeSnapshot.map((habit) => habit.id),
       );
     }
   };
@@ -885,7 +1042,7 @@ export default function HomeScreen() {
 
           <Text
             className="mt-1 text-3xl font-black leading-9 text-black"
-            numberOfLines={2}
+            numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.72}
           >
@@ -895,19 +1052,21 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {profilePhotoUri ? (
-          <View className="rounded-full border-4 border-green-600 bg-white shadow-sm">
-            <Image
-              source={{ uri: profilePhotoUri }}
-              className="h-16 w-16 rounded-full"
-              resizeMode="cover"
-            />
-          </View>
-        ) : (
-          <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
-            <Ionicons name="person" size={27} color="#000000" />
-          </View>
-        )}
+        <View>
+          {profilePhotoUri ? (
+            <View className="rounded-full border-4 border-green-600 bg-white shadow-sm">
+              <Image
+                source={{ uri: profilePhotoUri }}
+                className="h-16 w-16 rounded-full"
+                resizeMode="cover"
+              />
+            </View>
+          ) : (
+            <View className="h-16 w-16 items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
+              <Ionicons name="person" size={27} color="#000000" />
+            </View>
+          )}
+        </View>
       </View>
 
       {isBrandNew ? (
@@ -1069,176 +1228,9 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {showMissingPlanBanner ? (
-              <Pressable
-                onPress={async () => {
-                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  const habit = relevantMissingPlanHabits[0];
-                  if (!habit) return;
-                  navigation.navigate("ManageList", {
-                    type: "habits",
-                    habitId: habit.id,
-                    setupMissingPlans: true,
-                  });
-                }}
-                className="mt-3 flex-row items-center rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3"
-              >
-                <View className="h-9 w-9 items-center justify-center rounded-xl bg-white">
-                  <Ionicons name="options" size={19} color="#B45309" />
-                </View>
-                <View className="ml-3 flex-1">
-                  <Text className="text-sm font-black text-gray-950">
-                    Finish setting up your goals
-                  </Text>
-                  <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-600">
-                    {relevantMissingPlanHabits.length === 1
-                      ? `Add amounts for ${relevantMissingPlanHabits[0].name}`
-                      : `Add amounts for ${relevantMissingPlanHabits.length} habits`}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#B45309" />
-              </Pressable>
-            ) : null}
-
-            {showRecoveryGoalBanner ? (
-              <Pressable
-                onPress={async () => {
-                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  if (!recoveryGoalHabit) return;
-                  await acknowledgeRecoveryGoal(
-                    recoveryGoalHabit.goalHistoryId,
-                  );
-                  navigation.navigate("ManageList", {
-                    type: "habits",
-                    habitId: recoveryGoalHabit.habit.id,
-                    openGoal: true,
-                  });
-                }}
-                className="mt-3 flex-row items-center rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3"
-              >
-                <View className="h-9 w-9 items-center justify-center rounded-xl bg-white">
-                  <Ionicons name="heart" size={19} color="#2563EB" />
-                </View>
-                <View className="ml-3 flex-1">
-                  <Text className="text-sm font-black text-gray-950">
-                    Your current goal was updated
-                  </Text>
-                  <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-600">
-                    {`We adjusted ${recoveryGoalHabit?.habit.name ?? "this habit"}’s next step based on recent progress.`}
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Dismiss goal update"
-                  hitSlop={8}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    if (!recoveryGoalHabit) return;
-                    void acknowledgeRecoveryGoal(
-                      recoveryGoalHabit.goalHistoryId,
-                    );
-                  }}
-                  className="ml-2 h-9 w-9 items-center justify-center rounded-full"
-                >
-                  <Ionicons name="close" size={22} color="#2563EB" />
-                </Pressable>
-              </Pressable>
-            ) : null}
-
-            <TrackingReviewLauncher
-              placement="home"
-              habitId={selectedHabitId}
-            />
-
-            {showNextGoalBanner ? (
-              <Pressable
-                onPress={async () => {
-                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  if (!nextGoalHabit) return;
-                  await proposeNextGoal(nextGoalHabit.id);
-                  navigation.navigate("ManageList", {
-                    type: "habits",
-                    habitId: nextGoalHabit.id,
-                    openGoal: true,
-                  });
-                }}
-                className="mt-3 flex-row items-center rounded-2xl border border-green-200 bg-green-50 px-4 py-3"
-              >
-                <View className="h-9 w-9 items-center justify-center rounded-xl bg-white">
-                  <Ionicons name="flag" size={19} color="#16A34A" />
-                </View>
-                <View className="ml-3 flex-1">
-                  <Text className="text-sm font-black text-gray-950">
-                    Your next goal is ready
-                  </Text>
-                  <Text className="mt-0.5 text-xs font-semibold text-gray-600">
-                    Review the next step for{" "}
-                    {nextGoalHabit?.name ?? "this habit"}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#16A34A" />
-              </Pressable>
-            ) : null}
-
-            {showCalculatedNotice ? (
-              <Pressable
-                onPress={async () => {
-                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setCalculatedNoticeOpen(true);
-                }}
-                className="mt-3 flex-row items-center rounded-2xl border border-purple-200 bg-purple-50 px-4 py-3"
-              >
-                <View className="h-9 w-9 items-center justify-center rounded-xl bg-white">
-                  <Ionicons name="calculator" size={19} color="#7C3AED" />
-                </View>
-                <View className="ml-3 flex-1">
-                  <Text
-                    className="text-sm font-black text-black"
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.82}
-                  >
-                    {calculatedNoticeCount === 1
-                      ? "Your calculated average is ready"
-                      : `${calculatedNoticeCount} calculated averages are ready`}
-                  </Text>
-                  <Text className="mt-0.5 text-xs font-semibold text-gray-500">
-                    {calculatedNoticeCount === 1
-                      ? `See what changed for ${calculatedNoticeHabitName}`
-                      : "See how your estimates compare"}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#7C3AED" />
-              </Pressable>
-            ) : null}
-
             {selectedHabitId === null ? (
               <>
                 <View className="mt-4 flex-row gap-3">
-                  <StatTile
-                    accentColor={activeHabitColor}
-                    label="Resists today"
-                    value={`${stats.todayResists}`}
-                    icon="shield-checkmark"
-                    percentIncrease={getPercentIncrease(
-                      stats.todayResists,
-                      stats.averageResists,
-                    )}
-                  />
-
-                  <StatTile
-                    accentColor={activeHabitColor}
-                    label="Logs today"
-                    value={`${stats.todayLogs}`}
-                    icon="create"
-                    percentIncrease={getPercentIncrease(
-                      stats.todayLogs,
-                      stats.averageLogs,
-                    )}
-                  />
-                </View>
-
-                <View className="mt-3 flex-row gap-3">
                   <StatTile
                     accentColor={activeHabitColor}
                     label="Resists this week"
@@ -1261,10 +1253,8 @@ export default function HomeScreen() {
                     )}
                   />
                 </View>
-              </>
-            ) : (
-              <>
-                <View className="mt-4 flex-row gap-3">
+
+                <View className="mt-3 flex-row gap-3">
                   <StatTile
                     accentColor={activeHabitColor}
                     label="Resists today"
@@ -1287,9 +1277,11 @@ export default function HomeScreen() {
                     )}
                   />
                 </View>
-
+              </>
+            ) : (
+              <>
                 {activePlanReady ? (
-                  <View className="mt-3 flex-row gap-3">
+                  <View className="mt-4 flex-row gap-3">
                     <StatTile
                       accentColor={activeHabitColor}
                       label="Current progress"
@@ -1317,18 +1309,313 @@ export default function HomeScreen() {
                     onPress={() =>
                       navigation.navigate("ManageList", { type: "habits" })
                     }
-                    className="mt-3 rounded-3xl border border-green-200 bg-green-50 px-4 py-4"
+                    className="mt-4 rounded-3xl border border-green-200 bg-green-50 px-4 py-4"
                   >
                     <Text className="text-center text-sm font-black text-green-700">
                       Finish habit setup
                     </Text>
                   </Pressable>
                 )}
+
+                <View className="mt-3 flex-row gap-3">
+                  <StatTile
+                    accentColor={activeHabitColor}
+                    label="Resists today"
+                    value={`${stats.todayResists}`}
+                    icon="shield-checkmark"
+                    percentIncrease={getPercentIncrease(
+                      stats.todayResists,
+                      stats.averageResists,
+                    )}
+                  />
+
+                  <StatTile
+                    accentColor={activeHabitColor}
+                    label="Logs today"
+                    value={`${stats.todayLogs}`}
+                    icon="create"
+                    percentIncrease={getPercentIncrease(
+                      stats.todayLogs,
+                      stats.averageLogs,
+                    )}
+                  />
+                </View>
               </>
             )}
           </View>
         </>
       )}
+
+      <TrackingReviewLauncher
+        placement="home"
+        habitId={
+          bannerPreviewActive ? (previewHabit?.id ?? null) : selectedHabitId
+        }
+        previewOnly={bannerPreviewActive}
+        hideLauncher
+        openToken={weeklyReviewOpenToken}
+      />
+
+      <Modal
+        visible={updatesOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setUpdatesOpen(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+          <View className="flex-row items-center justify-between border-b border-gray-200 px-5 py-4">
+            <View className="flex-1 pr-4">
+              <Text className="text-xs font-black uppercase tracking-widest text-green-600">
+                Reflex
+              </Text>
+              <Text className="mt-1 text-2xl font-black text-black">
+                Updates
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setUpdatesOpen(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Close updates"
+              className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
+            >
+              <Ionicons name="close" size={20} color="#000000" />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingTop: 20,
+              paddingBottom: 32,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            {bannerPreviewActive ? (
+              <View className="mb-3 flex-row items-center rounded-2xl border border-purple-200 bg-purple-50 px-4 py-3">
+                <Ionicons name="construct" size={19} color="#7C3AED" />
+                <Text className="ml-3 flex-1 text-xs font-bold leading-4 text-purple-800">
+                  Preview mode uses safe sample updates and will not save
+                  changes.
+                </Text>
+              </View>
+            ) : null}
+
+            {updatesCount === 0 ? (
+              <View className="items-center rounded-[28px] border border-gray-200 bg-gray-50 p-6">
+                <View className="h-14 w-14 items-center justify-center rounded-full bg-white">
+                  <Ionicons name="checkmark-circle" size={29} color="#16A34A" />
+                </View>
+                <Text className="mt-3 text-lg font-black text-black">
+                  You’re all caught up
+                </Text>
+                <Text className="mt-1 text-center text-sm font-semibold leading-5 text-gray-500">
+                  New reviews and progress updates will appear here.
+                </Text>
+              </View>
+            ) : null}
+
+            {showMissingPlanBanner ? (
+              <Pressable
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const habit = displayedMissingPlanHabits[0];
+                  if (!habit) return;
+                  setUpdatesOpen(false);
+                  setTimeout(() => {
+                    navigation.navigate("ManageList", {
+                      type: "habits",
+                      habitId: habit.id,
+                      setupMissingPlans: true,
+                      previewOnly: bannerPreviewActive,
+                    });
+                  }, 250);
+                }}
+                className="mb-3 flex-row items-center rounded-3xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <View className="h-10 w-10 items-center justify-center rounded-2xl bg-amber-50">
+                  <Ionicons name="options" size={19} color="#B45309" />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-black text-gray-950">
+                    Finish setting up your goals
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-600">
+                    {displayedMissingPlanHabits.length === 1
+                      ? `Add amounts for ${displayedMissingPlanHabits[0].name}`
+                      : `Add amounts for ${displayedMissingPlanHabits.length} habits`}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#B45309" />
+              </Pressable>
+            ) : null}
+
+            {showRecoveryGoalBanner ? (
+              <Pressable
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  if (!displayedRecoveryGoalHabit) return;
+                  if (!bannerPreviewActive) {
+                    await acknowledgeRecoveryGoal(
+                      displayedRecoveryGoalHabit.goalHistoryId,
+                    );
+                  }
+                  setUpdatesOpen(false);
+                  setTimeout(() => {
+                    navigation.navigate("ManageList", {
+                      type: "habits",
+                      habitId: displayedRecoveryGoalHabit.habit.id,
+                      openGoal: true,
+                      previewOnly: bannerPreviewActive,
+                      previewGoalKind: bannerPreviewActive
+                        ? "recovery"
+                        : undefined,
+                    });
+                  }, 250);
+                }}
+                className="mb-3 flex-row items-center rounded-3xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <View className="h-10 w-10 items-center justify-center rounded-2xl bg-blue-50">
+                  <Ionicons name="heart" size={19} color="#2563EB" />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-black text-gray-950">
+                    Your current goal was updated
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-600">
+                    {`We adjusted ${displayedRecoveryGoalHabit.habit.name}’s next step based on recent progress.`}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss goal update"
+                  hitSlop={8}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    if (!bannerPreviewActive) {
+                      void acknowledgeRecoveryGoal(
+                        displayedRecoveryGoalHabit.goalHistoryId,
+                      );
+                    }
+                  }}
+                  className="ml-2 h-9 w-9 items-center justify-center rounded-full"
+                >
+                  <Ionicons name="close" size={22} color="#2563EB" />
+                </Pressable>
+              </Pressable>
+            ) : null}
+
+            {showWeeklyReviewUpdate ? (
+              <Pressable
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setUpdatesOpen(false);
+                  setTimeout(() => setWeeklyReviewOpenToken(Date.now()), 250);
+                }}
+                className="mb-3 flex-row items-center rounded-3xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <View className="h-10 w-10 items-center justify-center rounded-2xl bg-teal-50">
+                  <Ionicons name="calendar-outline" size={19} color="#0F766E" />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-black text-black">
+                    {weeklyReviewHabits.length === 1
+                      ? "Last week is ready to review"
+                      : `${weeklyReviewHabits.length} weekly reviews are ready`}
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold text-gray-500">
+                    About 1 minute
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#0F766E" />
+              </Pressable>
+            ) : null}
+
+            {showNextGoalBanner ? (
+              <Pressable
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  if (!displayedNextGoalHabit) return;
+                  if (!bannerPreviewActive) {
+                    await proposeNextGoal(displayedNextGoalHabit.id);
+                  }
+                  setUpdatesOpen(false);
+                  setTimeout(() => {
+                    navigation.navigate("ManageList", {
+                      type: "habits",
+                      habitId: displayedNextGoalHabit.id,
+                      openGoal: true,
+                      previewOnly: bannerPreviewActive,
+                      previewGoalKind: bannerPreviewActive ? "next" : undefined,
+                    });
+                  }, 250);
+                }}
+                className="mb-3 flex-row items-center rounded-3xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <View className="h-10 w-10 items-center justify-center rounded-2xl bg-green-50">
+                  <Ionicons name="flag" size={19} color="#16A34A" />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text className="text-sm font-black text-gray-950">
+                    Your next goal is ready
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold text-gray-600">
+                    Review the next step for {displayedNextGoalHabit.name}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#16A34A" />
+              </Pressable>
+            ) : null}
+
+            {showCalculatedNotice ? (
+              <Pressable
+                onPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  const snapshot = displayedCalculatedNoticeHabits.map(
+                    (habit) => {
+                      if (!bannerPreviewActive) return habit;
+                      const estimated = habit.estimatedBaseline ?? 10;
+                      return {
+                        ...habit,
+                        estimatedBaseline: estimated,
+                        calibratedBaseline:
+                          habit.calibratedBaseline ??
+                          Math.max(0, Math.round(estimated * 0.8)),
+                      };
+                    },
+                  );
+                  setCalculatedNoticeSnapshot(snapshot);
+                  setUpdatesOpen(false);
+                  setTimeout(() => setCalculatedNoticeOpen(true), 250);
+                }}
+                className="mb-3 flex-row items-center rounded-3xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <View className="h-10 w-10 items-center justify-center rounded-2xl bg-purple-50">
+                  <Ionicons name="calculator" size={19} color="#7C3AED" />
+                </View>
+                <View className="ml-3 flex-1">
+                  <Text
+                    className="text-sm font-black text-black"
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.82}
+                  >
+                    {displayedCalculatedNoticeCount === 1
+                      ? "Your calculated average is ready"
+                      : `${displayedCalculatedNoticeCount} calculated averages are ready`}
+                  </Text>
+                  <Text className="mt-0.5 text-xs font-semibold text-gray-500">
+                    {displayedCalculatedNoticeCount === 1
+                      ? `See what changed for ${displayedCalculatedNoticeHabitName}`
+                      : "See how your estimates compare"}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#7C3AED" />
+              </Pressable>
+            ) : null}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
 
       <Modal
         visible={calculatedNoticeOpen}
@@ -1336,7 +1623,7 @@ export default function HomeScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => void dismissCalculatedNotice()}
       >
-        <SafeAreaView className="flex-1 bg-white">
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
           <View className="flex-row items-center justify-between border-b border-gray-200 px-5 py-4">
             <View className="flex-1 pr-4">
               <Text className="text-xs font-black uppercase tracking-widest text-purple-600">
@@ -1357,8 +1644,12 @@ export default function HomeScreen() {
           </View>
 
           <ScrollView
-            className="flex-1 px-5"
-            contentContainerStyle={{ paddingTop: 20, paddingBottom: 32 }}
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingTop: 20,
+              paddingBottom: 32,
+            }}
             showsVerticalScrollIndicator={false}
           >
             <Text className="text-base font-bold leading-6 text-gray-600">
@@ -1366,9 +1657,9 @@ export default function HomeScreen() {
               with your calculated average.
             </Text>
 
-            {calculatedNoticeHabits.length > 0 ? (
+            {calculatedNoticeSnapshot.length > 0 ? (
               <View className="mt-5 gap-3">
-                {calculatedNoticeHabits.map((habit) => {
+                {calculatedNoticeSnapshot.map((habit) => {
                   const estimatedAmount = habit.estimatedBaseline;
                   const calculatedAmount =
                     habit.calibratedBaseline ??

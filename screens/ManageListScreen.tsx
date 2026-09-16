@@ -36,7 +36,7 @@ import {
 import { DEFAULT_HABIT_ICON, type HabitIconName } from "../data/habitIcons";
 import { HabitIconPicker } from "../components/HabitIconPicker";
 import { Screen } from "../components/Screen";
-import { normalizeGoalAmount } from "../data/goals";
+import { calculateNextReductionGoal, normalizeGoalAmount } from "../data/goals";
 import { managedItemInputLimit } from "../data/inputLimits";
 import DraggableFlatList from "react-native-draggable-flatlist";
 
@@ -243,6 +243,7 @@ export default function ManageListScreen() {
   const route = useRoute<ManageRoute>();
   const navigation = useNavigation<Nav>();
   const type = route.params.type;
+  const previewOnly = __DEV__ && route.params.previewOnly === true;
 
   const {
     habits,
@@ -368,7 +369,9 @@ export default function ManageListScreen() {
   const latestEditingGoalChange = editingHabit
     ? goalHistory.find((entry) => entry.habitId === editingHabit.id)
     : null;
-  const recoveryGoalActive = latestEditingGoalChange?.reason === "recovery";
+  const recoveryGoalActive =
+    latestEditingGoalChange?.reason === "recovery" ||
+    (previewOnly && route.params.previewGoalKind === "recovery");
   const finalGoalInCurrentPeriod =
     editingHabit?.finalTarget == null || editingHabit.currentGoal == null
       ? null
@@ -377,6 +380,22 @@ export default function ManageListScreen() {
           editingHabit.goalPeriod,
           editingHabit.currentGoalPeriod,
         );
+  const previewPendingGoal =
+    previewOnly &&
+    route.params.previewGoalKind === "next" &&
+    editingHabit?.currentGoal != null &&
+    finalGoalInCurrentPeriod != null
+      ? calculateNextReductionGoal(
+          editingHabit.currentGoal,
+          finalGoalInCurrentPeriod,
+          editingHabit.measurementType,
+        )
+      : null;
+  const displayedPendingGoal = editingHabit?.pendingGoal ?? previewPendingGoal;
+  const displayedPendingGoalPeriod =
+    editingHabit?.pendingGoalPeriod ??
+    editingHabit?.currentGoalPeriod ??
+    "week";
 
   useEffect(() => {
     if (didSetInitialFilter.current) return;
@@ -628,6 +647,10 @@ export default function ManageListScreen() {
 
   const closeEdit = () => {
     Keyboard.dismiss();
+    if (previewOnly && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
     setEditingItem(null);
     setEditText("");
     setEditColor("#16A34A");
@@ -644,6 +667,13 @@ export default function ManageListScreen() {
 
   const onSaveEdit = async () => {
     if (!editingItem) return;
+    if (previewOnly) {
+      Alert.alert(
+        "Preview only",
+        "No habit changes are saved in banner preview mode.",
+      );
+      return;
+    }
 
     const name = editingPresetHabit ? editingItem.name : editText.trim();
     if (!name) return;
@@ -747,6 +777,13 @@ export default function ManageListScreen() {
 
   const onDelete = () => {
     if (!editingItem || !editingItem.isCustom) return;
+    if (previewOnly) {
+      Alert.alert(
+        "Preview only",
+        "Nothing can be deleted in banner preview mode.",
+      );
+      return;
+    }
 
     Alert.alert(
       `Delete ${singularTitle}?`,
@@ -800,6 +837,13 @@ export default function ManageListScreen() {
 
   const onAdjustCurrentGoal = (direction: "easier" | "harder") => {
     if (!editingHabit) return;
+    if (previewOnly) {
+      Alert.alert(
+        "Preview only",
+        "Goal changes are disabled in banner preview mode.",
+      );
+      return;
+    }
     const easier = direction === "easier";
     Alert.alert(
       easier ? "Make this step easier?" : "Make this step harder?",
@@ -819,6 +863,14 @@ export default function ManageListScreen() {
         },
       ],
     );
+  };
+
+  const closeGoalAdjustments = () => {
+    if (previewOnly && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    setGoalAdjustmentsOpen(false);
   };
 
   const onDone = async () => {
@@ -1403,7 +1455,7 @@ export default function ManageListScreen() {
                       Current step goal
                     </Text>
                     <Pressable
-                      onPress={() => setGoalAdjustmentsOpen(false)}
+                      onPress={closeGoalAdjustments}
                       accessibilityRole="button"
                       accessibilityLabel="Close current goal adjustments"
                       className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-gray-50"
@@ -1438,22 +1490,23 @@ export default function ManageListScreen() {
                       </View>
                     ) : null}
 
-                    {editingHabit.pendingGoal != null ? (
+                    {displayedPendingGoal != null ? (
                       <View className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
                         <Text className="text-sm font-black text-black">
                           Suggested next step
                         </Text>
                         <Text className="mt-1 text-base font-black text-black">
                           {formatLevelWithPeriod(
-                            editingHabit.pendingGoal,
+                            displayedPendingGoal,
                             measurementUnitLabel,
-                            editingHabit.pendingGoalPeriod,
+                            displayedPendingGoalPeriod,
                           )}
                         </Text>
                         <Text className="mt-2 text-xs font-semibold leading-4 text-gray-600">
-                          {editingHabit.pendingGoalReason}
+                          {editingHabit.pendingGoalReason ??
+                            "A smaller next step based on your current goal."}
                         </Text>
-                        {!canAdvanceCurrentGoal ? (
+                        {!canAdvanceCurrentGoal && !previewOnly ? (
                           <Text className="mt-2 text-xs font-bold leading-4 text-gray-600">
                             Complete the tracking review on Home before
                             approving this change.
@@ -1461,15 +1514,16 @@ export default function ManageListScreen() {
                         ) : null}
                         <View className="mt-3 flex-row gap-2">
                           <Pressable
+                            disabled={previewOnly}
                             onPress={() => dismissProposedGoal(editingHabit.id)}
-                            className="flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2.5"
+                            className={`flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2.5 ${previewOnly ? "opacity-40" : ""}`}
                           >
                             <Text className="text-center text-xs font-black text-black">
                               Not Now
                             </Text>
                           </Pressable>
                           <Pressable
-                            disabled={!canAdvanceCurrentGoal}
+                            disabled={!canAdvanceCurrentGoal || previewOnly}
                             onPress={async () => {
                               await approveProposedGoal(editingHabit.id);
                               await Haptics.notificationAsync(
@@ -1477,7 +1531,9 @@ export default function ManageListScreen() {
                               );
                             }}
                             className={`flex-1 rounded-xl bg-green-600 px-3 py-2.5 ${
-                              canAdvanceCurrentGoal ? "" : "opacity-40"
+                              canAdvanceCurrentGoal && !previewOnly
+                                ? ""
+                                : "opacity-40"
                             }`}
                           >
                             <Text className="text-center text-xs font-black text-white">
@@ -1490,8 +1546,9 @@ export default function ManageListScreen() {
                       finalGoalInCurrentPeriod != null &&
                       editingHabit.currentGoal > finalGoalInCurrentPeriod ? (
                       <Pressable
+                        disabled={previewOnly}
                         onPress={() => proposeNextGoal(editingHabit.id)}
-                        className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3"
+                        className={`mt-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 ${previewOnly ? "opacity-40" : ""}`}
                       >
                         <Text className="text-center text-sm font-black text-blue-700">
                           Preview Next Step
@@ -1526,7 +1583,7 @@ export default function ManageListScreen() {
                   </ScrollView>
 
                   <Pressable
-                    onPress={() => setGoalAdjustmentsOpen(false)}
+                    onPress={closeGoalAdjustments}
                     accessibilityRole="button"
                     accessibilityLabel="Done reviewing current goal"
                     className="mt-4 rounded-2xl bg-green-600 px-4 py-3"
