@@ -65,6 +65,22 @@ export function TrackingReviewCard({
   const [gapChoices, setGapChoices] = useState<
     Record<number, "nothing_happened" | "not_yet">
   >({});
+  const habitChipScrollRef = useRef<ScrollView | null>(null);
+  const habitChipViewportWidthRef = useRef(0);
+  const habitChipLayoutsRef = useRef<
+    Record<number, { x: number; width: number }>
+  >({});
+
+  const scrollHabitChipIntoView = (id: number, animated = true) => {
+    const layout = habitChipLayoutsRef.current[id];
+    const viewportWidth = habitChipViewportWidthRef.current;
+    if (!layout || viewportWidth <= 0) return;
+
+    habitChipScrollRef.current?.scrollTo({
+      x: Math.max(0, layout.x - (viewportWidth - layout.width) / 2),
+      animated,
+    });
+  };
 
   useEffect(() => {
     if (habitId != null && habits.some((habit) => habit.id === habitId)) {
@@ -76,6 +92,14 @@ export function TrackingReviewCard({
   useEffect(() => {
     setReviewingGaps(false);
     setGapChoices({});
+  }, [habitId]);
+
+  useEffect(() => {
+    if (habitId == null) return;
+    const frame = requestAnimationFrame(() => {
+      scrollHabitChipIntoView(habitId);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [habitId]);
 
   const habit = useMemo(
@@ -227,14 +251,14 @@ export function TrackingReviewCard({
         habitId: habit.id,
         period: "day" as const,
         periodStart: day.startAt,
-          status: (day.logs.length > 0
-            ? "everything_logged"
-            : (gapChoices[day.startAt] ??
-              (day.confirmation?.status === "nothing_happened"
-                ? "nothing_happened"
-                : day.confirmation?.status === "not_yet"
-                  ? "not_yet"
-                  : defaultEmptyStatus))) as TrackingStatus,
+        status: (day.logs.length > 0
+          ? "everything_logged"
+          : (gapChoices[day.startAt] ??
+            (day.confirmation?.status === "nothing_happened"
+              ? "nothing_happened"
+              : day.confirmation?.status === "not_yet"
+                ? "not_yet"
+                : defaultEmptyStatus))) as TrackingStatus,
       }));
       const hasAnyLogs = weekDays.some((day) => day.logs.length > 0);
       const hasUnknownDays = daily.some((day) => day.status === "not_yet");
@@ -278,15 +302,27 @@ export function TrackingReviewCard({
       </View>
 
       <ScrollView
+        ref={habitChipScrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         className="mt-3"
+        onLayout={(event) => {
+          habitChipViewportWidthRef.current = event.nativeEvent.layout.width;
+          if (habitId != null) scrollHabitChipIntoView(habitId, false);
+        }}
       >
         {habits.map((item: Habit) => {
           const selected = item.id === habit.id;
           return (
             <Pressable
               key={item.id}
+              onLayout={(event) => {
+                habitChipLayoutsRef.current[item.id] = {
+                  x: event.nativeEvent.layout.x,
+                  width: event.nativeEvent.layout.width,
+                };
+                if (selected) scrollHabitChipIntoView(item.id, false);
+              }}
               onPress={() => {
                 Haptics.selectionAsync();
                 setAllReviewsComplete(false);

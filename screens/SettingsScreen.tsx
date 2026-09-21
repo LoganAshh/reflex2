@@ -511,7 +511,7 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator: false,
         contentContainerStyle: {
           paddingHorizontal: 20,
-          paddingTop: 42,
+          paddingTop: 30,
           paddingBottom: 32,
         },
       }}
@@ -537,7 +537,7 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <View className="mt-5 rounded-[32px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
+      <View className="mt-4 rounded-[32px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
         <View className="flex-row items-center">
           {profilePhotoUri ? (
             <View className="rounded-full border-4 border-green-600 bg-white">

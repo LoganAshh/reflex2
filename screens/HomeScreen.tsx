@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -26,6 +20,7 @@ import { Screen } from "../components/Screen";
 import { TrackingReviewLauncher } from "../components/TrackingReviewCard";
 import { getPreviousCycleBounds } from "../data/tracking";
 import { cleanHabitIcon } from "../data/habitIcons";
+import { CALIBRATION_RULES } from "../data/baselines";
 
 function startOfDayMs(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -532,13 +527,6 @@ export default function HomeScreen() {
           : difference < 0
             ? `${formatAverage(Math.abs(difference))} more than ${comparisonTime}`
             : `Same as ${comparisonTime}`;
-    const improvementPercent =
-      difference != null &&
-      difference > 0 &&
-      previousAmount != null &&
-      previousAmount > 0
-        ? Math.round((difference / previousAmount) * 100)
-        : null;
     const timeframe =
       period === "day"
         ? "today"
@@ -553,7 +541,6 @@ export default function HomeScreen() {
       timeframe,
       comparison,
       difference,
-      improvementPercent,
     };
   }, [
     activeCurrentGoalPeriod,
@@ -608,7 +595,6 @@ export default function HomeScreen() {
     const tomorrowStart = todayStart + dayMs;
 
     const weekStart = startOfWeekMs(now);
-    const daysSoFarThisWeek = Math.floor((todayStart - weekStart) / dayMs) + 1;
 
     const todaysLogs = logsForStats.filter(
       (l) => l.createdAt >= todayStart && l.createdAt < tomorrowStart,
@@ -656,13 +642,26 @@ export default function HomeScreen() {
       null,
     );
 
+    const trackedHabits =
+      selectedHabitId != null
+        ? activeHabit
+          ? [activeHabit]
+          : []
+        : selectedHabits;
+    const earliestCalibrationStart = trackedHabits.reduce<number | null>(
+      (earliest, habit) => {
+        if (habit.calibrationStartedAt == null) return earliest;
+        const start = startOfDayMs(new Date(habit.calibrationStartedAt));
+        return earliest == null ? start : Math.min(earliest, start);
+      },
+      null,
+    );
     const trackingStartBeforeToday =
-      selectedHabitId != null && activeHabit?.calibrationStartedAt != null
-        ? Math.min(
-            startOfDayMs(new Date(activeHabit.calibrationStartedAt)),
-            firstLogBeforeToday ?? Number.POSITIVE_INFINITY,
-          )
-        : firstLogBeforeToday;
+      earliestCalibrationStart == null
+        ? firstLogBeforeToday
+        : firstLogBeforeToday == null
+          ? earliestCalibrationStart
+          : Math.min(earliestCalibrationStart, firstLogBeforeToday);
     const hasTwoWeeksOfData =
       trackingStartBeforeToday != null &&
       trackingStartBeforeToday <= twoWeeksAgoStart;
@@ -712,8 +711,25 @@ export default function HomeScreen() {
       comparisonDays > 0 ? comparisonTotalResists / comparisonDays : 0;
     const averageGiveIns =
       comparisonDays > 0 ? comparisonTotalGiveIns / comparisonDays : 0;
-    const averageWeekToDateLogs = averageLogs * daysSoFarThisWeek;
-    const averageWeekToDateResists = averageResists * daysSoFarThisWeek;
+    const averageWeeklyLogsPastTwoWeeks = hasTwoWeeksOfData
+      ? comparisonTotalLogs / 2
+      : null;
+    const averageWeeklyResistsPastTwoWeeks = hasTwoWeeksOfData
+      ? comparisonTotalResists / 2
+      : null;
+    const nextWeekStart = addLocalDays(weekStart, 7);
+    const weekProgress = Math.max(
+      0,
+      Math.min(1, (now.getTime() - weekStart) / (nextWeekStart - weekStart)),
+    );
+    const averageLogsAtThisPointInWeek =
+      averageWeeklyLogsPastTwoWeeks == null
+        ? null
+        : averageWeeklyLogsPastTwoWeeks * weekProgress;
+    const averageResistsAtThisPointInWeek =
+      averageWeeklyResistsPastTwoWeeks == null
+        ? null
+        : averageWeeklyResistsPastTwoWeeks * weekProgress;
     return {
       todayLogs,
       weekLogs,
@@ -723,8 +739,10 @@ export default function HomeScreen() {
       averageLogs,
       averageResists,
       averageGiveIns,
-      averageWeekToDateLogs,
-      averageWeekToDateResists,
+      averageWeeklyLogsPastTwoWeeks,
+      averageWeeklyResistsPastTwoWeeks,
+      averageLogsAtThisPointInWeek,
+      averageResistsAtThisPointInWeek,
       comparisonDays,
       weekResistRate,
       todayResistRate,
@@ -737,138 +755,147 @@ export default function HomeScreen() {
     selectedHabits,
   ]);
 
-  const positiveFeedback = useMemo(() => {
-    if (
-      selectedHabitId != null &&
-      currentProgress?.difference != null &&
-      currentProgress.difference > 0 &&
-      currentProgress.comparison
-    ) {
-      return {
-        title:
-          currentProgress.currentAmount === 0
-            ? "You Stayed on Track"
-            : "Less Habit Activity",
-        text:
-          currentProgress.currentAmount === 0
-            ? `Excellent work! No habit activity has been logged ${currentProgress.timeframe}, ${currentProgress.comparison}.`
-            : `Great job! You logged ${currentProgress.value} ${currentProgress.sub}, ${currentProgress.comparison}.`,
-      };
-    }
+  const recentHabitAverage = useMemo(() => {
+    if (!activeHabit) return null;
 
-    if (stats.comparisonDays === 0 && stats.todayLogs === 0) {
-      const dayNumber = Math.floor(startOfDayMs(new Date()) / 86_400_000);
-      const habitOffset = selectedHabitId ?? 0;
-      const quote =
-        MOTIVATIONAL_QUOTES[
-          Math.abs(dayNumber + habitOffset) % MOTIVATIONAL_QUOTES.length
-        ];
+    const todayStart = startOfDayMs(new Date());
+    const windowStart = addLocalDays(todayStart, -14);
+    const recentLogs = logs.filter(
+      (log) =>
+        log.habitId === activeHabit.id &&
+        log.createdAt >= windowStart &&
+        log.createdAt < todayStart,
+    );
+    const observedDays = new Set(
+      recentLogs.map((log) => startOfDayMs(new Date(log.createdAt))),
+    );
 
-      return {
-        title: "A Thought for Today",
-        text: quote.attribution
-          ? `“${quote.text}” — ${quote.attribution}`
-          : quote.text,
-      };
-    }
-
-    const averageGiveInsText = formatAverage(stats.averageGiveIns);
-    const todayActivityUnit =
-      stats.todayGiveIns === 1
-        ? activeHabitUnit === "times"
-          ? "time"
-          : activeHabitUnit === "minutes"
-            ? "minute"
-            : activeHabitUnit === "habit activities"
-              ? "habit activity"
-              : activeHabitUnit
-        : activeHabitUnit;
-    const averageResistsText = formatAverage(stats.averageResists);
-    const averageLogsText = formatAverage(stats.averageLogs);
-    const comparisonText =
-      stats.comparisonDays >= 14
-        ? "the past 2 weeks"
-        : stats.comparisonDays > 0
-          ? `${stats.comparisonDays} ${
-              stats.comparisonDays === 1 ? "day" : "days"
-            } before today`
-          : "your previous days";
-
-    if (stats.todayGiveIns === 0) {
-      if (stats.todayLogs > 0) {
-        return {
-          title: "You Stayed on Track",
-          text: `Excellent work! You logged ${stats.todayLogs} ${
-            stats.todayLogs === 1 ? "urge" : "urges"
-          } today with no habit activity, below your usual ${averageGiveInsText} per day from ${comparisonText}.`,
-        };
+    for (const confirmation of trackingConfirmations) {
+      if (
+        confirmation.habitId === activeHabit.id &&
+        confirmation.period === "day" &&
+        confirmation.status !== "not_yet" &&
+        confirmation.periodStart >= windowStart &&
+        confirmation.periodStart < todayStart
+      ) {
+        observedDays.add(confirmation.periodStart);
       }
-
-      return {
-        title: "You Stayed on Track",
-        text: `Excellent work! No habit activity has been logged today, compared with your usual ${averageGiveInsText} per day from ${comparisonText}.`,
-      };
     }
 
-    if (stats.todayGiveIns > 0 && stats.todayGiveIns < stats.averageGiveIns) {
-      return {
-        title: "Less Habit Activity Than Usual",
-        text: `Great job! You logged ${stats.todayGiveIns} ${todayActivityUnit} today, below your usual ${averageGiveInsText} per day from ${comparisonText}.`,
-      };
+    const requiredObservedDays =
+      CALIBRATION_RULES[activeHabit.baselinePeriod].recentObservedDays;
+    if (observedDays.size < requiredObservedDays) return null;
+
+    const quantity = recentLogs.reduce(
+      (total, log) =>
+        total + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
+      0,
+    );
+
+    return (
+      (quantity / observedDays.size) * daysInPeriod(activeHabit.baselinePeriod)
+    );
+  }, [activeHabit, logs, trackingConfirmations]);
+  const displayedRecentHabitAverage =
+    recentHabitAverage == null ? null : Math.round(recentHabitAverage);
+  const currentProgressVsRecentPercent = useMemo(() => {
+    if (
+      !activeHabit ||
+      !currentProgress ||
+      recentHabitAverage == null ||
+      recentHabitAverage <= 0
+    ) {
+      return null;
     }
+
+    const now = Date.now();
+    const previousPeriod = getPreviousCycleBounds(activeCurrentGoalPeriod, now);
+    const currentPeriodStart = previousPeriod.endAtExclusive;
+    const currentPeriodEnd = addLocalDays(
+      currentPeriodStart,
+      daysInPeriod(activeCurrentGoalPeriod),
+    );
+    const elapsedFraction = Math.max(
+      0,
+      Math.min(
+        1,
+        (now - currentPeriodStart) / (currentPeriodEnd - currentPeriodStart),
+      ),
+    );
+    const recentAverageInCurrentPeriod =
+      (recentHabitAverage / daysInPeriod(activeHabit.baselinePeriod)) *
+      daysInPeriod(activeCurrentGoalPeriod);
+    const expectedAtThisPoint = recentAverageInCurrentPeriod * elapsedFraction;
 
     if (
-      stats.todayGiveIns > stats.averageGiveIns &&
-      stats.todayResists > stats.averageResists
+      expectedAtThisPoint <= 0 ||
+      currentProgress.currentAmount >= expectedAtThisPoint
     ) {
+      return null;
+    }
+
+    return Math.round(
+      ((expectedAtThisPoint - currentProgress.currentAmount) /
+        expectedAtThisPoint) *
+        100,
+    );
+  }, [
+    activeCurrentGoalPeriod,
+    activeHabit,
+    currentProgress,
+    recentHabitAverage,
+  ]);
+
+  const resistsImprovementPercent =
+    stats.averageResistsAtThisPointInWeek == null
+      ? null
+      : getPercentIncrease(
+          stats.weekResists,
+          stats.averageResistsAtThisPointInWeek,
+        );
+  const logsImprovementPercent =
+    stats.averageLogsAtThisPointInWeek == null
+      ? null
+      : getPercentIncrease(stats.weekLogs, stats.averageLogsAtThisPointInWeek);
+  const dailyQuoteNumber = Math.floor(startOfDayMs(new Date()) / 86_400_000);
+  const dailyQuote =
+    MOTIVATIONAL_QUOTES[
+      Math.abs(dailyQuoteNumber) % MOTIVATIONAL_QUOTES.length
+    ];
+
+  const positiveFeedback = useMemo(() => {
+    if (selectedHabitId != null && currentProgressVsRecentPercent != null) {
       return {
-        title: "You Resisted More than Usual",
-        text: `Strong effort! You resisted ${stats.todayResists} ${
-          stats.todayResists === 1 ? "urge" : "urges"
-        } today, above your usual ${averageResistsText} per day from ${comparisonText}.`,
+        title: "Less Habit Activity",
+        text: `You have ${currentProgressVsRecentPercent}% less habit activity than your recent pace.`,
       };
     }
 
-    if (
-      stats.todayResists < stats.averageResists &&
-      stats.todayLogs > stats.averageLogs
-    ) {
+    if (resistsImprovementPercent != null) {
       return {
-        title: "You Were More Aware than Usual",
-        text: `Good awareness! You logged ${stats.todayLogs} ${
-          stats.todayLogs === 1 ? "time" : "times"
-        } today, above your usual ${averageLogsText} per day from ${comparisonText}.`,
+        title: "More Urges Resisted",
+        text: `You’ve resisted ${resistsImprovementPercent}% more urges than your recent pace this week.`,
       };
     }
 
-    if (stats.todayResists > 1) {
+    if (logsImprovementPercent != null) {
       return {
-        title: "You Resisted",
-        text: `Solid progress! You resisted ${stats.todayResists} urges today. Every resist interrupts the pattern.`,
-      };
-    }
-
-    if (stats.todayLogs > 1) {
-      return {
-        title: "You Were Aware",
-        text: `Nice follow-through! You checked in ${stats.todayLogs} times today and kept the habit visible.`,
+        title: "More Check-Ins",
+        text: `You’ve logged ${logsImprovementPercent}% more check-ins than your recent pace this week.`,
       };
     }
 
     return {
-      title: "You Stayed Engaged",
-      text: "You showed up! You noticed the moment instead of ignoring it.",
+      title: "A Thought for Today",
+      text: dailyQuote.attribution
+        ? `“${dailyQuote.text}” — ${dailyQuote.attribution}`
+        : dailyQuote.text,
     };
   }, [
-    stats.averageGiveIns,
-    stats.averageLogs,
-    stats.averageResists,
-    stats.comparisonDays,
-    stats.todayGiveIns,
-    activeHabitUnit,
-    stats.todayLogs,
-    stats.todayResists,
-    currentProgress,
+    currentProgressVsRecentPercent,
+    dailyQuote,
+    logsImprovementPercent,
+    resistsImprovementPercent,
     selectedHabitId,
   ]);
 
@@ -879,6 +906,7 @@ export default function HomeScreen() {
     sub,
     labelAtBottom = false,
     percentIncrease,
+    percentDirection = "up",
     accentColor = "#16A34A",
   }: {
     label: string;
@@ -887,6 +915,7 @@ export default function HomeScreen() {
     sub?: string;
     labelAtBottom?: boolean;
     percentIncrease?: number | null;
+    percentDirection?: "up" | "down";
     accentColor?: string;
   }) => (
     <View
@@ -908,7 +937,7 @@ export default function HomeScreen() {
             style={{ backgroundColor: accentColor }}
           >
             <Text className="text-[11px] font-black text-white">
-              ↑ {percentIncrease}%
+              {percentDirection === "down" ? "↓" : "↑"} {percentIncrease}%
             </Text>
           </View>
         ) : labelAtBottom ? (
@@ -918,7 +947,7 @@ export default function HomeScreen() {
             importantForAccessibility="no-hide-descendants"
           >
             <Text className="text-[11px] font-black text-transparent">
-              ↑ 100%
+              {percentDirection === "down" ? "↓" : "↑"} 100%
             </Text>
           </View>
         ) : null}
@@ -1221,7 +1250,12 @@ export default function HomeScreen() {
                     {positiveFeedback.title}
                   </Text>
 
-                  <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-500">
+                  <Text
+                    adjustsFontSizeToFit
+                    className="mt-0.5 text-xs font-semibold leading-4 text-gray-500"
+                    minimumFontScale={0.72}
+                    numberOfLines={2}
+                  >
                     {positiveFeedback.text}
                   </Text>
                 </View>
@@ -1236,10 +1270,7 @@ export default function HomeScreen() {
                     label="Resists this week"
                     value={`${stats.weekResists}`}
                     icon="trophy"
-                    percentIncrease={getPercentIncrease(
-                      stats.weekResists,
-                      stats.averageWeekToDateResists,
-                    )}
+                    percentIncrease={resistsImprovementPercent}
                   />
 
                   <StatTile
@@ -1247,34 +1278,33 @@ export default function HomeScreen() {
                     label="Logs this week"
                     value={`${stats.weekLogs}`}
                     icon="calendar"
-                    percentIncrease={getPercentIncrease(
-                      stats.weekLogs,
-                      stats.averageWeekToDateLogs,
-                    )}
+                    percentIncrease={logsImprovementPercent}
                   />
                 </View>
 
                 <View className="mt-3 flex-row gap-3">
                   <StatTile
                     accentColor={activeHabitColor}
-                    label="Resists today"
-                    value={`${stats.todayResists}`}
+                    label="Average resists"
+                    value={
+                      stats.averageWeeklyResistsPastTwoWeeks == null
+                        ? "—"
+                        : `${Math.round(
+                            stats.averageWeeklyResistsPastTwoWeeks,
+                          )}`
+                    }
                     icon="shield-checkmark"
-                    percentIncrease={getPercentIncrease(
-                      stats.todayResists,
-                      stats.averageResists,
-                    )}
                   />
 
                   <StatTile
                     accentColor={activeHabitColor}
-                    label="Logs today"
-                    value={`${stats.todayLogs}`}
+                    label="Average logs"
+                    value={
+                      stats.averageWeeklyLogsPastTwoWeeks == null
+                        ? "—"
+                        : `${Math.round(stats.averageWeeklyLogsPastTwoWeeks)}`
+                    }
                     icon="create"
-                    percentIncrease={getPercentIncrease(
-                      stats.todayLogs,
-                      stats.averageLogs,
-                    )}
                   />
                 </View>
               </>
@@ -1289,7 +1319,8 @@ export default function HomeScreen() {
                       value={currentProgress?.value ?? "0"}
                       sub={currentProgress?.sub}
                       icon="pulse"
-                      percentIncrease={currentProgress?.improvementPercent}
+                      percentIncrease={currentProgressVsRecentPercent}
+                      percentDirection="down"
                     />
 
                     <StatTile
@@ -1320,24 +1351,42 @@ export default function HomeScreen() {
                 <View className="mt-3 flex-row gap-3">
                   <StatTile
                     accentColor={activeHabitColor}
-                    label="Resists today"
-                    value={`${stats.todayResists}`}
-                    icon="shield-checkmark"
-                    percentIncrease={getPercentIncrease(
-                      stats.todayResists,
-                      stats.averageResists,
-                    )}
+                    label="Recent average"
+                    labelAtBottom
+                    value={
+                      displayedRecentHabitAverage == null
+                        ? "—"
+                        : `${displayedRecentHabitAverage}`
+                    }
+                    sub={
+                      displayedRecentHabitAverage == null || !activeHabit
+                        ? "Still building"
+                        : `${unitForValue(
+                            activeHabitUnit,
+                            displayedRecentHabitAverage,
+                          )} ${periodRateLabel(activeHabit.baselinePeriod)}`
+                    }
+                    icon="analytics"
                   />
 
                   <StatTile
                     accentColor={activeHabitColor}
-                    label="Logs today"
-                    value={`${stats.todayLogs}`}
-                    icon="create"
-                    percentIncrease={getPercentIncrease(
-                      stats.todayLogs,
-                      stats.averageLogs,
-                    )}
+                    label="Long-term goal"
+                    labelAtBottom
+                    value={
+                      activeHabit?.finalTarget == null
+                        ? "—"
+                        : formatAverage(activeHabit.finalTarget)
+                    }
+                    sub={
+                      activeHabit?.finalTarget == null
+                        ? "Add your goal"
+                        : `${unitForValue(
+                            activeHabitUnit,
+                            activeHabit.finalTarget,
+                          )} ${periodRateLabel(activeHabit.goalPeriod)}`
+                    }
+                    icon="ribbon"
                   />
                 </View>
               </>
