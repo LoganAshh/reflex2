@@ -112,6 +112,18 @@ function daysInPeriod(period: HabitPeriod) {
   return 1;
 }
 
+function convertAmountInput(
+  value: string,
+  fromPeriod: HabitPeriod,
+  toPeriod: HabitPeriod,
+) {
+  if (!value.trim()) return value;
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return value;
+  const converted = normalizeGoalAmount(amount, fromPeriod, toPeriod);
+  return `${Math.round(converted * 100) / 100}`;
+}
+
 function measurementUnitForAmount(unit: string, amount: string) {
   if (Number(amount) !== 1) return unit;
   if (unit === "times") return "time";
@@ -359,6 +371,12 @@ export default function ManageListScreen() {
         (editingItem as Habit))
       : null;
   const startingAmountLocked = editingHabit?.calibratedBaseline != null;
+  const startingAmountDisplayValue =
+    startingAmountLocked &&
+    estimatedBaseline.trim() !== "" &&
+    Number.isFinite(Number(estimatedBaseline))
+      ? Math.round(Number(estimatedBaseline)).toString()
+      : estimatedBaseline;
   const editingCycleReview = editingHabit
     ? cycleReviews[editingHabit.id]
     : null;
@@ -632,18 +650,38 @@ export default function ManageListScreen() {
     setEditColor(getHabitColor(item));
     if (type === "habits") {
       const habit = item as Habit;
+      const sharedPeriod = goalPeriodForSetup(habit);
+      const startingAmount =
+        habit.calibratedBaseline ?? habit.estimatedBaseline;
       setEditIcon((habit.icon as HabitIconName) ?? DEFAULT_HABIT_ICON);
       setMeasurementType(
         habit.measurementType === "minutes" ? "minutes" : "times",
       );
       setEstimatedBaseline(
-        (habit.calibratedBaseline ?? habit.estimatedBaseline)?.toString() ?? "",
+        startingAmount == null
+          ? ""
+          : `${normalizeGoalAmount(
+              startingAmount,
+              habit.baselinePeriod,
+              sharedPeriod,
+            )}`,
       );
-      setBaselinePeriod(startingPeriodFor(habit));
+      setBaselinePeriod(sharedPeriod);
       setFinalTarget(habit.finalTarget?.toString() ?? "");
-      setGoalPeriod(goalPeriodForSetup(habit));
+      setGoalPeriod(sharedPeriod);
     }
   }
+
+  const changeSharedHabitPeriod = (nextPeriod: HabitPeriod) => {
+    setEstimatedBaseline((value) =>
+      convertAmountInput(value, baselinePeriod, nextPeriod),
+    );
+    setFinalTarget((value) =>
+      convertAmountInput(value, goalPeriod, nextPeriod),
+    );
+    setBaselinePeriod(nextPeriod);
+    setGoalPeriod(nextPeriod);
+  };
 
   const closeEdit = () => {
     Keyboard.dismiss();
@@ -698,8 +736,8 @@ export default function ManageListScreen() {
           currentAmount < 0
         ) {
           Alert.alert(
-            "Add an estimated current amount",
-            `Enter a valid estimated current amount for ${name}.`,
+            "Add an estimated starting amount",
+            `Enter a valid estimated starting amount for ${name}.`,
           );
           return;
         }
@@ -724,7 +762,7 @@ export default function ManageListScreen() {
             "Check the goal rate",
             `${name}'s goal cannot represent a higher rate than its ${
               startingAmountLocked ? "calculated" : "estimated"
-            } current amount.`,
+            } starting amount.`,
           );
           return;
         }
@@ -740,13 +778,17 @@ export default function ManageListScreen() {
             ? (editingHabit?.unit ?? measurementType)
             : measurementType,
           estimatedBaseline: startingAmountLocked
-            ? (editingHabit?.estimatedBaseline ?? currentAmount)
+            ? editingHabit?.estimatedBaseline == null
+              ? currentAmount
+              : normalizeGoalAmount(
+                  editingHabit.estimatedBaseline,
+                  editingHabit.baselinePeriod,
+                  baselinePeriod,
+                )
             : currentAmount,
-          baselinePeriod: startingAmountLocked
-            ? (editingHabit?.baselinePeriod ?? baselinePeriod)
-            : baselinePeriod,
+          baselinePeriod,
           finalTarget: goalAmount,
-          goalPeriod,
+          goalPeriod: baselinePeriod,
         });
 
         if (selectAfterSaveId === editingItem.id) {
@@ -887,7 +929,7 @@ export default function ManageListScreen() {
       if (incompleteHabit) {
         Alert.alert(
           "Finish habit setup",
-          `Add an estimated current amount and a long-term goal amount for ${incompleteHabit.name} before leaving.`,
+          `Add an estimated starting amount and a long-term goal amount for ${incompleteHabit.name} before leaving.`,
         );
         openEdit(incompleteHabit);
         return;
@@ -1166,12 +1208,12 @@ export default function ManageListScreen() {
                         <View>
                           <Text className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">
                             {startingAmountLocked
-                              ? "Calculated current amount"
-                              : "Estimated current amount"}
+                              ? "Calculated starting amount"
+                              : "Estimated starting amount"}
                           </Text>
                           <View className="flex-row items-center rounded-2xl border border-gray-200 bg-gray-50 p-2">
                             <TextInput
-                              value={estimatedBaseline}
+                              value={startingAmountDisplayValue}
                               onChangeText={setEstimatedBaseline}
                               editable={!startingAmountLocked}
                               placeholder="5"
@@ -1222,16 +1264,13 @@ export default function ManageListScreen() {
                               per
                             </Text>
                             <Pressable
-                              disabled={startingAmountLocked}
                               onPress={() =>
                                 showPeriodMenu(
                                   baselinePeriod,
-                                  setBaselinePeriod,
+                                  changeSharedHabitPeriod,
                                 )
                               }
-                              className={`w-20 flex-row items-center justify-between rounded-xl border border-gray-200 bg-white px-2 py-2 ${
-                                startingAmountLocked ? "opacity-60" : ""
-                              }`}
+                              className="w-20 flex-row items-center justify-between rounded-xl border border-gray-200 bg-white px-2 py-2"
                             >
                               <Text className="text-xs font-black text-black">
                                 {periodLabel(baselinePeriod)}
@@ -1243,11 +1282,11 @@ export default function ManageListScreen() {
                               />
                             </Pressable>
                           </View>
-                          <Text className="mt-2 text-xs font-semibold leading-4 text-gray-500">
-                            {startingAmountLocked
-                              ? "Calculated from early tracking."
-                              : "Used until enough data is collected."}
-                          </Text>
+                          {!startingAmountLocked ? (
+                            <Text className="mt-2 text-xs font-semibold leading-4 text-gray-500">
+                              Used until enough data is collected.
+                            </Text>
+                          ) : null}
                         </View>
 
                         <View>
@@ -1309,12 +1348,15 @@ export default function ManageListScreen() {
                             </Text>
                             <Pressable
                               onPress={() =>
-                                showPeriodMenu(goalPeriod, setGoalPeriod)
+                                showPeriodMenu(
+                                  baselinePeriod,
+                                  changeSharedHabitPeriod,
+                                )
                               }
                               className="w-20 flex-row items-center justify-between rounded-xl border border-gray-200 bg-white px-2 py-2"
                             >
                               <Text className="text-xs font-black text-black">
-                                {periodLabel(goalPeriod)}
+                                {periodLabel(baselinePeriod)}
                               </Text>
                               <Ionicons
                                 name="chevron-down"

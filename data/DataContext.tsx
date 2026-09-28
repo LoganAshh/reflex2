@@ -304,6 +304,27 @@ function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
 
     if (id <= 0 || !name) continue;
 
+    const baselinePeriod =
+      item.baselinePeriod === "week" || item.baselinePeriod === "28_days"
+        ? item.baselinePeriod
+        : "day";
+    const goalPeriod =
+      item.goalPeriod === "week" || item.goalPeriod === "28_days"
+        ? item.goalPeriod
+        : baselinePeriod;
+    const currentGoalPeriod =
+      item.currentGoalPeriod === "week" || item.currentGoalPeriod === "28_days"
+        ? item.currentGoalPeriod
+        : goalPeriod;
+    const pendingGoalPeriod =
+      item.pendingGoalPeriod === "week" || item.pendingGoalPeriod === "28_days"
+        ? item.pendingGoalPeriod
+        : goalPeriod;
+    const estimatedBaseline = cleanOptionalNumber(item.estimatedBaseline);
+    const calibratedBaseline = cleanOptionalNumber(item.calibratedBaseline);
+    const currentGoal = cleanOptionalNumber(item.currentGoal);
+    const pendingGoal = cleanOptionalNumber(item.pendingGoal);
+
     result.push({
       id,
       name,
@@ -318,38 +339,30 @@ function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
           ? item.measurementType
           : "times",
       unit: cleanString(item.unit) || "times",
-      estimatedBaseline: cleanOptionalNumber(item.estimatedBaseline),
-      calibratedBaseline: cleanOptionalNumber(item.calibratedBaseline),
+      estimatedBaseline:
+        estimatedBaseline == null
+          ? null
+          : normalizeGoalAmount(estimatedBaseline, baselinePeriod, goalPeriod),
+      calibratedBaseline:
+        calibratedBaseline == null
+          ? null
+          : normalizeGoalAmount(calibratedBaseline, baselinePeriod, goalPeriod),
       calibrationStartedAt: cleanOptionalInt(item.calibrationStartedAt),
       calibratedAt: cleanOptionalInt(item.calibratedAt),
       rebaselineStartedAt: cleanOptionalInt(item.rebaselineStartedAt),
-      baselinePeriod:
-        item.baselinePeriod === "week" || item.baselinePeriod === "28_days"
-          ? item.baselinePeriod
-          : "day",
+      baselinePeriod: goalPeriod,
       finalTarget: cleanOptionalNumber(item.finalTarget),
-      goalPeriod:
-        item.goalPeriod === "week" || item.goalPeriod === "28_days"
-          ? item.goalPeriod
-          : item.baselinePeriod === "week" || item.baselinePeriod === "28_days"
-            ? item.baselinePeriod
-            : "day",
-      currentGoal: cleanOptionalNumber(item.currentGoal),
-      currentGoalPeriod:
-        item.currentGoalPeriod === "week" ||
-        item.currentGoalPeriod === "28_days"
-          ? item.currentGoalPeriod
-          : item.goalPeriod === "week" || item.goalPeriod === "28_days"
-            ? item.goalPeriod
-            : "day",
-      pendingGoal: cleanOptionalNumber(item.pendingGoal),
-      pendingGoalPeriod:
-        item.pendingGoalPeriod === "week" ||
-        item.pendingGoalPeriod === "28_days"
-          ? item.pendingGoalPeriod
-          : item.goalPeriod === "week" || item.goalPeriod === "28_days"
-            ? item.goalPeriod
-            : "day",
+      goalPeriod,
+      currentGoal:
+        currentGoal == null
+          ? null
+          : normalizeGoalAmount(currentGoal, currentGoalPeriod, goalPeriod),
+      currentGoalPeriod: goalPeriod,
+      pendingGoal:
+        pendingGoal == null
+          ? null
+          : normalizeGoalAmount(pendingGoal, pendingGoalPeriod, goalPeriod),
+      pendingGoalPeriod: goalPeriod,
       pendingGoalReason: cleanNullableString(item.pendingGoalReason),
     });
   }
@@ -360,6 +373,7 @@ function sanitizeNamedEntities(items: unknown[]): BackupNamedEntity[] {
 function sanitizeGoalHistory(items: unknown[]): BackupGoalHistory[] {
   const allowedReasons = new Set<GoalChangeReason>([
     "initial",
+    "calibration",
     "plan_updated",
     "approved_step",
     "manual_easier",
@@ -711,7 +725,43 @@ export function DataProvider({ children }: DataProviderProps) {
         currentConfirmations,
       );
       if (candidate != null) {
+        const isInitialCalibration =
+          habit.calibratedBaseline == null && habit.rebaselineStartedAt == null;
         await saveCalibratedBaselineInDb(habit.id, candidate, startedAt, now);
+        if (
+          isInitialCalibration &&
+          habit.currentGoal != null &&
+          habit.estimatedBaseline != null &&
+          habit.finalTarget != null
+        ) {
+          const estimatedStartingGoal = calculateInitialCurrentGoal(
+            habit.estimatedBaseline,
+            habit.baselinePeriod,
+            habit.finalTarget,
+            habit.goalPeriod,
+            habit.measurementType,
+          );
+          const recalculatedGoal = calculateInitialCurrentGoal(
+            candidate,
+            habit.baselinePeriod,
+            habit.finalTarget,
+            habit.goalPeriod,
+            habit.measurementType,
+          );
+          const goalStillUsesEstimate =
+            Math.abs(estimatedStartingGoal - habit.currentGoal) <= 0.0001;
+          if (
+            goalStillUsesEstimate &&
+            Math.abs(recalculatedGoal - habit.currentGoal) > 0.0001
+          ) {
+            await setCurrentGoalInDb(
+              habit.id,
+              recalculatedGoal,
+              habit.goalPeriod,
+              "calibration",
+            );
+          }
+        }
         changed = true;
       }
     }
@@ -828,7 +878,11 @@ export function DataProvider({ children }: DataProviderProps) {
       ]);
 
     if (await reconcileBaselines(h, l, confirmations, sh)) {
-      [h, sh] = await Promise.all([loadHabits(), loadSelectedHabits()]);
+      [h, sh, history] = await Promise.all([
+        loadHabits(),
+        loadSelectedHabits(),
+        loadGoalHistory(),
+      ]);
     }
     if (await reconcileGoals(h)) {
       [h, sh, history] = await Promise.all([
@@ -1227,17 +1281,22 @@ export function DataProvider({ children }: DataProviderProps) {
     input,
   ) => {
     if (!Number.isFinite(habitId)) return;
-    const estimatedBaseline = Number(input.estimatedBaseline);
+    const sharedPeriod = input.goalPeriod;
+    const rawEstimatedBaseline = Number(input.estimatedBaseline);
+    const estimatedBaseline = normalizeGoalAmount(
+      rawEstimatedBaseline,
+      input.baselinePeriod,
+      sharedPeriod,
+    );
     const finalTarget = Number(input.finalTarget);
     if (!Number.isFinite(estimatedBaseline) || estimatedBaseline < 0) {
-      throw new Error("Estimated current amount must be zero or greater.");
+      throw new Error("Estimated starting amount must be zero or greater.");
     }
     if (!Number.isFinite(finalTarget) || finalTarget < 0) {
       throw new Error("Long-term goal amount must be zero or greater.");
     }
-    const currentDaily =
-      estimatedBaseline / daysInHabitPeriod(input.baselinePeriod);
-    const goalDaily = finalTarget / daysInHabitPeriod(input.goalPeriod);
+    const currentDaily = estimatedBaseline / daysInHabitPeriod(sharedPeriod);
+    const goalDaily = finalTarget / daysInHabitPeriod(sharedPeriod);
     if (goalDaily > currentDaily) {
       throw new Error("Goal rate cannot be higher than the starting rate.");
     }
@@ -1251,38 +1310,55 @@ export function DataProvider({ children }: DataProviderProps) {
       ...input,
       unit,
       estimatedBaseline,
+      baselinePeriod: sharedPeriod,
       finalTarget,
+      goalPeriod: sharedPeriod,
     });
 
     if (existingHabit) {
+      const existingEstimatedDaily =
+        existingHabit.estimatedBaseline == null
+          ? null
+          : existingHabit.estimatedBaseline /
+            daysInHabitPeriod(existingHabit.baselinePeriod);
+      const existingTargetDaily =
+        existingHabit.finalTarget == null
+          ? null
+          : existingHabit.finalTarget /
+            daysInHabitPeriod(existingHabit.goalPeriod);
       const baselineChangedWithoutCalibration =
         existingHabit.calibratedBaseline == null &&
-        (existingHabit.estimatedBaseline !== estimatedBaseline ||
-          existingHabit.baselinePeriod !== input.baselinePeriod);
+        (existingEstimatedDaily == null ||
+          Math.abs(existingEstimatedDaily - currentDaily) > 0.0001);
+      const targetRateChanged =
+        existingTargetDaily == null ||
+        Math.abs(existingTargetDaily - goalDaily) > 0.0001;
       const goalPlanChanged =
         existingHabit.currentGoal == null ||
-        existingHabit.finalTarget !== finalTarget ||
-        existingHabit.goalPeriod !== input.goalPeriod ||
+        targetRateChanged ||
         existingHabit.measurementType !== input.measurementType ||
         baselineChangedWithoutCalibration;
 
       if (goalPlanChanged) {
-        const baseline = existingHabit.calibratedBaseline ?? estimatedBaseline;
-        const baselinePeriod =
+        const baseline =
           existingHabit.calibratedBaseline == null
-            ? input.baselinePeriod
-            : existingHabit.baselinePeriod;
+            ? estimatedBaseline
+            : normalizeGoalAmount(
+                existingHabit.calibratedBaseline,
+                existingHabit.baselinePeriod,
+                sharedPeriod,
+              );
         const currentGoal = calculateInitialCurrentGoal(
           baseline,
-          baselinePeriod,
+          sharedPeriod,
           finalTarget,
-          input.goalPeriod,
+          sharedPeriod,
           input.measurementType,
         );
         await setCurrentGoalInDb(
           habitId,
           currentGoal,
-          input.goalPeriod,
+          sharedPeriod,
           existingHabit.currentGoal == null ? "initial" : "plan_updated",
         );
       }

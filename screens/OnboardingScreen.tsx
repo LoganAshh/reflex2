@@ -158,6 +158,19 @@ function daysInPeriod(period: HabitPeriod) {
   return 1;
 }
 
+function convertAmountInput(
+  value: string,
+  fromPeriod: HabitPeriod,
+  toPeriod: HabitPeriod,
+) {
+  if (!value.trim()) return value;
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return value;
+  const converted =
+    (amount / daysInPeriod(fromPeriod)) * daysInPeriod(toPeriod);
+  return `${Math.round(converted * 100) / 100}`;
+}
+
 function startingPeriodFor(habit: Habit): HabitPeriod {
   return habit.estimatedBaseline == null ? "week" : habit.baselinePeriod;
 }
@@ -166,6 +179,21 @@ function goalPeriodForSetup(habit: Habit): HabitPeriod {
   return habit.finalTarget == null
     ? startingPeriodFor(habit)
     : habit.goalPeriod;
+}
+
+function onboardingPlanForHabit(habit: Habit): OnboardingHabitPlan {
+  const period = goalPeriodForSetup(habit);
+  return {
+    measurementType: habit.measurementType === "minutes" ? "minutes" : "times",
+    currentAmount: convertAmountInput(
+      habit.estimatedBaseline?.toString() ?? "",
+      habit.baselinePeriod,
+      period,
+    ),
+    goalAmount: habit.finalTarget?.toString() ?? "",
+    currentPeriod: period,
+    goalPeriod: period,
+  };
 }
 
 type ChipListProps<T extends { id: number; name: string; isCustom: 0 | 1 }> = {
@@ -695,14 +723,7 @@ export default function OnboardingScreen() {
       Object.fromEntries(
         selectedHabits.map((habit) => [
           habit.id,
-          {
-            measurementType:
-              habit.measurementType === "minutes" ? "minutes" : "times",
-            currentAmount: habit.estimatedBaseline?.toString() ?? "",
-            goalAmount: habit.finalTarget?.toString() ?? "",
-            currentPeriod: startingPeriodFor(habit),
-            goalPeriod: goalPeriodForSetup(habit),
-          },
+          onboardingPlanForHabit(habit),
         ]),
       ),
     );
@@ -760,33 +781,37 @@ export default function OnboardingScreen() {
   );
 
   const getHabitPlan = (habit: Habit): OnboardingHabitPlan =>
-    habitPlans[habit.id] ?? {
-      measurementType:
-        habit.measurementType === "minutes" ? "minutes" : "times",
-      currentAmount: habit.estimatedBaseline?.toString() ?? "",
-      goalAmount: habit.finalTarget?.toString() ?? "",
-      currentPeriod: startingPeriodFor(habit),
-      goalPeriod: goalPeriodForSetup(habit),
-    };
+    habitPlans[habit.id] ?? onboardingPlanForHabit(habit);
 
   const updateHabitPlanDraft = (
     habit: Habit,
     patch: Partial<OnboardingHabitPlan>,
   ) => {
     setHabitPlans((current) => {
-      const existing = current[habit.id] ?? {
-        measurementType:
-          habit.measurementType === "minutes" ? "minutes" : "times",
-        currentAmount: habit.estimatedBaseline?.toString() ?? "",
-        goalAmount: habit.finalTarget?.toString() ?? "",
-        currentPeriod: startingPeriodFor(habit),
-        goalPeriod: goalPeriodForSetup(habit),
-      };
+      const existing = current[habit.id] ?? onboardingPlanForHabit(habit);
 
       return {
         ...current,
         [habit.id]: { ...existing, ...patch },
       };
+    });
+  };
+
+  const changeHabitPlanPeriod = (habit: Habit, nextPeriod: HabitPeriod) => {
+    const plan = getHabitPlan(habit);
+    updateHabitPlanDraft(habit, {
+      currentAmount: convertAmountInput(
+        plan.currentAmount,
+        plan.currentPeriod,
+        nextPeriod,
+      ),
+      goalAmount: convertAmountInput(
+        plan.goalAmount,
+        plan.goalPeriod,
+        nextPeriod,
+      ),
+      currentPeriod: nextPeriod,
+      goalPeriod: nextPeriod,
     });
   };
 
@@ -883,8 +908,8 @@ export default function OnboardingScreen() {
           currentAmount < 0
         ) {
           Alert.alert(
-            "Add an estimated current amount",
-            `Enter a valid estimated current amount for ${habit.name}.`,
+            "Add an estimated starting amount",
+            `Enter a valid estimated starting amount for ${habit.name}.`,
           );
           return false;
         }
@@ -906,7 +931,7 @@ export default function OnboardingScreen() {
         if (goalDaily > currentDaily) {
           Alert.alert(
             "Check the goal rate",
-            `${habit.name}'s goal cannot represent a higher rate than its estimated current amount.`,
+            `${habit.name}'s goal cannot represent a higher rate than its estimated starting amount.`,
           );
           return false;
         }
@@ -966,7 +991,7 @@ export default function OnboardingScreen() {
           estimatedBaseline: Number(plan.currentAmount),
           baselinePeriod: plan.currentPeriod,
           finalTarget: Number(plan.goalAmount),
-          goalPeriod: plan.goalPeriod,
+          goalPeriod: plan.currentPeriod,
         });
       }
       await setSelectedCues(cueIds);
@@ -1236,7 +1261,7 @@ export default function OnboardingScreen() {
         <View className="flex-1 pt-4">
           <SetupTitle
             title="Set your starting point"
-            body="Add an estimated current amount and a long-term goal amount for each habit. You can change these later."
+            body="Add an estimated starting amount and a long-term goal for each habit. Both use the same frequency."
             icon="flag"
           />
 
@@ -1270,7 +1295,7 @@ export default function OnboardingScreen() {
                   <View className="mt-4 gap-3">
                     <View>
                       <Text className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">
-                        Estimated current amount
+                        Estimated starting amount
                       </Text>
                       <View className="flex-row items-center rounded-2xl border border-gray-200 bg-white p-2">
                         <TextInput
@@ -1328,7 +1353,7 @@ export default function OnboardingScreen() {
                             showPeriodMenu(
                               plan.currentPeriod,
                               (currentPeriod) =>
-                                updateHabitPlanDraft(habit, { currentPeriod }),
+                                changeHabitPlanPeriod(habit, currentPeriod),
                             )
                           }
                           className="w-20 flex-row items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-2 py-2"
@@ -1401,14 +1426,14 @@ export default function OnboardingScreen() {
                         </Text>
                         <Pressable
                           onPress={() =>
-                            showPeriodMenu(plan.goalPeriod, (goalPeriod) =>
-                              updateHabitPlanDraft(habit, { goalPeriod }),
+                            showPeriodMenu(plan.currentPeriod, (goalPeriod) =>
+                              changeHabitPlanPeriod(habit, goalPeriod),
                             )
                           }
                           className="w-20 flex-row items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-2 py-2"
                         >
                           <Text className="text-xs font-black text-black">
-                            {periodLabel(plan.goalPeriod)}
+                            {periodLabel(plan.currentPeriod)}
                           </Text>
                           <Ionicons
                             name="chevron-down"

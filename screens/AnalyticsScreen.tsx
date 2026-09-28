@@ -157,7 +157,7 @@ async function successHaptic() {
 
 type TabKey = "Overall" | string;
 type PatternRangeKey = "Week" | "4W" | "3M" | "All";
-type PatternDetailKey = "when" | "where" | "why";
+type PatternDetailKey = "days" | "when" | "where" | "why";
 type ActivityDetailKey = "activity" | "outcomes" | "intensity";
 
 const PATTERN_RANGE_OPTIONS: Array<{
@@ -170,6 +170,16 @@ const PATTERN_RANGE_OPTIONS: Array<{
   { key: "3M", label: "3M", days: 90 },
   { key: "All", label: "All", days: null },
 ];
+
+const WEEKDAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
 
 function rangeLabel(range: PatternRangeKey) {
   return PATTERN_RANGE_OPTIONS.find((option) => option.key === range)?.label;
@@ -234,17 +244,25 @@ function PatternSummaryRow({
   icon,
   onPress,
   accentColor = BRAND_GREEN,
+  summaryLimit = 1,
+  emptySummary = "No information recorded",
 }: {
   label: string;
   items: { name: string; count: number }[];
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   accentColor?: string;
+  summaryLimit?: number;
+  emptySummary?: string;
 }) {
   const summary = items
-    .slice(0, 1)
-    .map((item) => `${item.name} · ${item.count}`)
-    .join("");
+    .slice(0, summaryLimit)
+    .map((item) =>
+      summaryLimit > 1
+        ? `${item.name} (${item.count})`
+        : `${item.name} · ${item.count}`,
+    )
+    .join(" · ");
   const canOpen = items.length > 1;
 
   return (
@@ -270,7 +288,7 @@ function PatternSummaryRow({
           className="mt-0.5 text-xs font-semibold text-gray-500"
           numberOfLines={1}
         >
-          {summary || "No information recorded"}
+          {summary || emptySummary}
         </Text>
       </View>
 
@@ -745,6 +763,7 @@ export default function AnalyticsScreen() {
     const cueCounts = new Map<string, number>();
     const locCounts = new Map<string, number>();
     const timeCounts = new Map<string, number>();
+    const dayCounts = new Map<string, number>();
 
     const timeBucket = (ms: number) => {
       const d = new Date(ms);
@@ -770,39 +789,62 @@ export default function AnalyticsScreen() {
 
       const bucket = timeBucket(l.createdAt);
       timeCounts.set(bucket, (timeCounts.get(bucket) ?? 0) + 1);
+
+      const weekday = WEEKDAY_NAMES[new Date(l.createdAt).getDay()];
+      dayCounts.set(weekday, (dayCounts.get(weekday) ?? 0) + 1);
     }
+
+    const rankedDays = WEEKDAY_NAMES.map((name) => ({
+      name,
+      count: dayCounts.get(name) ?? 0,
+    })).sort(
+      (a, b) =>
+        b.count - a.count ||
+        WEEKDAY_NAMES.indexOf(a.name) - WEEKDAY_NAMES.indexOf(b.name),
+    );
+    const hasEnoughDayActivity = patternLogs.length >= 3;
+    const observedDays = rankedDays.filter((day) => day.count > 0);
 
     return {
       gaveInCount: patternLogs.length,
       topCues: ranked(cueCounts),
       topLocations: ranked(locCounts),
       topTimes: ranked(timeCounts),
+      topDays: hasEnoughDayActivity ? observedDays : [],
+      dayBreakdown: hasEnoughDayActivity ? observedDays : [],
     };
   }, [filteredLogs, patternRange]);
 
   const activePatternDetail =
-    patternDetailKey === "when"
+    patternDetailKey === "days"
       ? {
-          title: "When it happens",
-          icon: "time" as const,
-          items: data.topTimes,
+          title: "Most common days",
+          icon: "calendar" as const,
+          items: data.dayBreakdown,
           total: data.gaveInCount,
         }
-      : patternDetailKey === "where"
+      : patternDetailKey === "when"
         ? {
-            title: "Where it happens",
-            icon: "location" as const,
-            items: data.topLocations,
+            title: "When it happens",
+            icon: "time" as const,
+            items: data.topTimes,
             total: data.gaveInCount,
           }
-        : patternDetailKey === "why"
+        : patternDetailKey === "where"
           ? {
-              title: "Why it happens",
-              icon: "alert-circle" as const,
-              items: data.topCues,
+              title: "Where it happens",
+              icon: "location" as const,
+              items: data.topLocations,
               total: data.gaveInCount,
             }
-          : null;
+          : patternDetailKey === "why"
+            ? {
+                title: "Why it happens",
+                icon: "alert-circle" as const,
+                items: data.topCues,
+                total: data.gaveInCount,
+              }
+            : null;
 
   const activitySummary = useMemo(() => {
     const selectedRange = PATTERN_RANGE_OPTIONS.find(
@@ -1210,7 +1252,19 @@ export default function AnalyticsScreen() {
             <View className="mt-1">
               <PatternSummaryRow
                 accentColor={activeHabitColor}
-                label="When"
+                label="Day"
+                items={data.topDays}
+                icon="calendar"
+                emptySummary="Not enough activity yet"
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setPatternDetailKey("days");
+                }}
+              />
+
+              <PatternSummaryRow
+                accentColor={activeHabitColor}
+                label="Time"
                 items={data.topTimes}
                 icon="time"
                 onPress={() => {
@@ -1221,7 +1275,7 @@ export default function AnalyticsScreen() {
 
               <PatternSummaryRow
                 accentColor={activeHabitColor}
-                label="Where"
+                label="Location"
                 items={data.topLocations}
                 icon="location"
                 onPress={() => {
@@ -1232,7 +1286,7 @@ export default function AnalyticsScreen() {
 
               <PatternSummaryRow
                 accentColor={activeHabitColor}
-                label="Why"
+                label="Cues"
                 items={data.topCues}
                 icon="alert-circle"
                 onPress={() => {

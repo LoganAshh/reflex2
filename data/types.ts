@@ -52,6 +52,7 @@ export type HabitPlanInput = {
 
 export type GoalChangeReason =
   | "initial"
+  | "calibration"
   | "plan_updated"
   | "approved_step"
   | "manual_easier"

@@ -5,7 +5,16 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Alert, Modal, View, Text, Pressable, ScrollView } from "react-native";
+import {
+  Alert,
+  Animated,
+  Easing,
+  Modal,
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import {
@@ -35,6 +44,10 @@ const QUICK_ACTION_TITLES = [
 ] as const;
 
 const SELECTED_ACTION_BOX_MAX_HEIGHT = 110;
+const BREATHING_TOTAL_SECONDS = 60;
+const INHALE_SECONDS = 4;
+const EXHALE_SECONDS = 6;
+const BREATHING_CYCLE_SECONDS = INHALE_SECONDS + EXHALE_SECONDS;
 
 type HelpRoute =
   | RouteProp<RootStackParamList, "UrgeHelp">
@@ -87,14 +100,14 @@ const helpSteps: Step[] = [
   {
     kind: "info",
     title: "Pause and Breathe",
-    body: "Breathe in slowly through your nose, then breathe out even more slowly through your mouth. Continue for 10 breaths and wait before deciding what to do.",
+    body: "Follow the circle for one minute. Inhale through your nose and exhale through your mouth.",
     tip: "Slow breathing can calm your body and gives the urge time to weaken. Urges are like ocean waves: they build, reach a peak, and then naturally fade.",
     icon: "pause-circle",
   },
   {
     kind: "info",
     title: "Change your Environment",
-    body: "If you are sitting, stand up. Enter a different room or step outside for a breath of fresh air.",
+    body: "Move to another room or step outside.",
     tip: "Urges are heavily tied to environmental cues. If you stay in the exact same spot where the urge hit, your brain will keep screaming at you to do the habit.",
     icon: "walk",
   },
@@ -119,11 +132,13 @@ function ProgressBar({
   progressPct,
   currentStepNumber,
   totalSteps,
+  onSkip,
 }: {
   visible: boolean;
   progressPct: number;
   currentStepNumber: number;
   totalSteps: number;
+  onSkip?: () => void;
 }) {
   if (!visible) return null;
 
@@ -134,10 +149,24 @@ function ProgressBar({
           Guided help
         </Text>
 
-        <View className="rounded-full border border-gray-200 bg-gray-50 px-4 py-2 shadow-sm">
-          <Text className="text-sm font-black text-green-600">
-            Step {currentStepNumber} of {totalSteps}
-          </Text>
+        <View className="flex-row items-center">
+          <View className="rounded-full border border-gray-200 bg-gray-50 px-4 py-2 shadow-sm">
+            <Text className="text-sm font-black text-green-600">
+              Step {currentStepNumber} of {totalSteps}
+            </Text>
+          </View>
+
+          {onSkip ? (
+            <Pressable
+              onPress={onSkip}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Skip this step"
+              className="ml-2 rounded-full border border-gray-200 bg-white px-3 py-2 shadow-sm"
+            >
+              <Text className="text-sm font-black text-gray-500">Skip</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
@@ -209,6 +238,216 @@ function HelpTipModal({
         </View>
       </View>
     </Modal>
+  );
+}
+
+type BreathingTimerStatus = "idle" | "running" | "paused" | "complete";
+
+function GuidedBreathingTimer({
+  compact,
+  onInfo,
+}: {
+  compact: boolean;
+  onInfo: () => void;
+}) {
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [status, setStatus] = useState<BreathingTimerStatus>("idle");
+  const breathProgress = useRef(new Animated.Value(0)).current;
+  const previousPhaseRef = useRef<"inhale" | "exhale">("inhale");
+
+  const cycleSecond = elapsedSeconds % BREATHING_CYCLE_SECONDS;
+  const phase: "inhale" | "exhale" =
+    cycleSecond < INHALE_SECONDS ? "inhale" : "exhale";
+  const phaseSecondsLeft =
+    phase === "inhale"
+      ? INHALE_SECONDS - cycleSecond
+      : BREATHING_CYCLE_SECONDS - cycleSecond;
+  const phaseCount =
+    phase === "inhale" ? cycleSecond + 1 : cycleSecond - INHALE_SECONDS + 1;
+  const totalSecondsLeft = Math.max(
+    0,
+    BREATHING_TOTAL_SECONDS - elapsedSeconds,
+  );
+
+  useEffect(() => {
+    if (status !== "running") return;
+
+    const interval = setInterval(() => {
+      setElapsedSeconds((current) => {
+        const next = Math.min(current + 1, BREATHING_TOTAL_SECONDS);
+
+        if (next === BREATHING_TOTAL_SECONDS) {
+          setStatus("complete");
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success,
+          ).catch(() => {});
+        }
+
+        return next;
+      });
+    }, 1_000);
+
+    return () => clearInterval(interval);
+  }, [status]);
+
+  useEffect(() => {
+    if (status !== "running") {
+      breathProgress.stopAnimation();
+      return;
+    }
+
+    Animated.timing(breathProgress, {
+      toValue: phase === "inhale" ? 1 : 0,
+      duration: phaseSecondsLeft * 1_000,
+      easing:
+        phase === "inhale"
+          ? Easing.inOut(Easing.ease)
+          : Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+
+    if (previousPhaseRef.current !== phase) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      previousPhaseRef.current = phase;
+    }
+
+    return () => breathProgress.stopAnimation();
+  }, [breathProgress, phase, status]);
+
+  const reset = () => {
+    breathProgress.stopAnimation();
+    breathProgress.setValue(0);
+    previousPhaseRef.current = "inhale";
+    setElapsedSeconds(0);
+    setStatus("idle");
+  };
+
+  const start = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setStatus("running");
+  };
+
+  const togglePause = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setStatus((current) => (current === "paused" ? "running" : "paused"));
+  };
+
+  const animatedScale = breathProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.82, 1.16],
+  });
+
+  const timerMinutes = Math.floor(totalSecondsLeft / 60);
+  const timerSeconds = totalSecondsLeft % 60;
+  const timerLabel = `${timerMinutes}:${String(timerSeconds).padStart(2, "0")}`;
+
+  return (
+    <View
+      className={`${compact ? "mt-4 p-3" : "mt-5 p-4"} w-[96%] rounded-[28px] border border-green-100 bg-green-50`}
+    >
+      <View className="flex-row items-center justify-between">
+        <Text className="text-lg font-black tabular-nums text-green-700">
+          {timerLabel}
+        </Text>
+
+        <Pressable
+          onPress={onInfo}
+          accessibilityRole="button"
+          accessibilityLabel="Why this helps"
+          hitSlop={8}
+          className="h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white"
+        >
+          <Ionicons name="bulb-outline" size={18} color="#000000" />
+        </Pressable>
+      </View>
+
+      <View className={`${compact ? "mt-2" : "mt-3"} items-center`}>
+        <View
+          className={`${compact ? "h-40 w-40" : "h-44 w-44"} items-center justify-center`}
+        >
+          <Animated.View
+            className="absolute h-full w-full rounded-full bg-green-200"
+            style={{ transform: [{ scale: animatedScale }] }}
+          />
+          <View className="h-[82%] w-[82%] items-center justify-center rounded-full border-4 border-green-600 bg-white shadow-sm">
+            {status === "idle" ? (
+              <Ionicons name="play-circle" size={58} color="#000000" />
+            ) : status === "complete" ? (
+              <Ionicons name="checkmark-circle" size={42} color="#000000" />
+            ) : (
+              <>
+                <Text
+                  accessibilityLiveRegion="polite"
+                  className="text-xl font-black text-black"
+                >
+                  {phase === "inhale" ? "Inhale" : "Exhale"}
+                </Text>
+                <Text className="mt-0.5 text-2xl font-black tabular-nums text-green-600">
+                  {phaseCount}
+                </Text>
+              </>
+            )}
+          </View>
+        </View>
+
+        <View className="mt-2 h-5 items-center justify-center">
+          {status === "complete" ? (
+            <Text className="text-center text-sm font-black text-black">
+              You completed one minute
+            </Text>
+          ) : null}
+        </View>
+
+        {status === "idle" ? (
+          <Pressable
+            onPress={start}
+            className="mt-3 h-11 min-w-36 items-center justify-center rounded-2xl bg-green-600 px-6"
+          >
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="play" size={17} color="#FFFFFF" />
+              <Text className="ml-2 text-center text-sm font-black text-white">
+                Start
+              </Text>
+            </View>
+          </Pressable>
+        ) : status === "paused" ? (
+          <View className="mt-3 h-11 w-full flex-row gap-2">
+            <Pressable
+              onPress={reset}
+              className="h-full flex-1 items-center justify-center rounded-2xl border border-gray-200 bg-white px-3"
+            >
+              <Text className="text-center text-sm font-black text-black">
+                Restart
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={togglePause}
+              className="h-full flex-1 items-center justify-center rounded-2xl bg-green-600 px-3"
+            >
+              <Text className="text-center text-sm font-black text-white">
+                Resume
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            onPress={status === "complete" ? reset : togglePause}
+            className="mt-3 h-11 min-w-32 items-center justify-center rounded-2xl border border-gray-200 bg-white px-5"
+          >
+            <View className="flex-row items-center justify-center">
+              <Ionicons
+                name={status === "complete" ? "refresh" : "pause"}
+                size={17}
+                color="#111827"
+              />
+              <Text className="ml-2 text-center text-sm font-black text-black">
+                {status === "complete" ? "Restart" : "Pause"}
+              </Text>
+            </View>
+          </Pressable>
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -581,13 +820,15 @@ export default function UrgeHelpScreen() {
   const isReplacementActionStep =
     currentStep.title === "Do a Replacement Action";
   const isEnvironmentStep = currentStep.title === "Change your Environment";
+  const isBreathingStep = currentStep.title === "Pause and Breathe";
   const choiceRequired = isEnvironmentStep || isReplacementActionStep;
   const hasRequiredChoice = isEnvironmentStep
     ? selectedMovedToLocationId != null
     : isReplacementActionStep
       ? selectedActionId != null
       : true;
-  const usesHelpTipBubble = isEnvironmentStep || isReplacementActionStep;
+  const usesHelpTipBubble =
+    isEnvironmentStep || isReplacementActionStep || isBreathingStep;
   const usesCompactStepLayout = isEnvironmentStep || isReplacementActionStep;
   const isGuidedMode = mode === "guided";
   const usesGuidedSpacing = mode === "guided" && usesCompactStepLayout;
@@ -1227,12 +1468,13 @@ export default function UrgeHelpScreen() {
           </>
         )}
 
-        <View className="mt-3 rounded-[20px] border border-gray-200 bg-white p-3">
-          <Text className="text-[10px] font-black uppercase tracking-wide text-gray-500">
-            {isHelpFirst ? "Ready for your log" : "Saved to this log"}
-          </Text>
-
-          <Text className="mt-0.5 text-sm font-black text-black">
+        <View className="mt-3 flex-row items-center rounded-[20px] border border-gray-200 bg-white p-3">
+          <Ionicons
+            name={selectedActionTitle ? "checkmark-circle" : "ellipse-outline"}
+            size={19}
+            color={selectedActionTitle ? "#16A34A" : "#6B7280"}
+          />
+          <Text className="ml-2 flex-1 text-sm font-black text-black">
             {selectedActionTitle ?? "No replacement action selected"}
           </Text>
         </View>
@@ -1326,11 +1568,13 @@ export default function UrgeHelpScreen() {
           </View>
         ) : null}
 
-        <View className="mt-3 rounded-[20px] border border-gray-200 bg-white p-3">
-          <Text className="text-[10px] font-black uppercase tracking-wide text-gray-500">
-            {isHelpFirst ? "Ready for your log" : "Saved to this log"}
-          </Text>
-          <Text className="mt-0.5 text-sm font-black text-black">
+        <View className="mt-3 flex-row items-center rounded-[20px] border border-gray-200 bg-white p-3">
+          <Ionicons
+            name={selectedLocationName ? "checkmark-circle" : "ellipse-outline"}
+            size={19}
+            color={selectedLocationName ? "#16A34A" : "#6B7280"}
+          />
+          <Text className="ml-2 flex-1 text-sm font-black text-black">
             {selectedLocationName ?? "No new location selected"}
           </Text>
         </View>
@@ -1385,6 +1629,7 @@ export default function UrgeHelpScreen() {
         progressPct={progressPct}
         currentStepNumber={currentStepNumber}
         totalSteps={totalSteps}
+        onSkip={showGuidedSkip ? skipCurrentStep : undefined}
       />
 
       <ScrollView
@@ -1405,9 +1650,15 @@ export default function UrgeHelpScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="items-center">
-          <View className={iconWrapClassName}>
-            <Ionicons name={currentStep.icon} size={iconSize} color="#000000" />
-          </View>
+          {!isBreathingStep ? (
+            <View className={iconWrapClassName}>
+              <Ionicons
+                name={currentStep.icon}
+                size={iconSize}
+                color="#000000"
+              />
+            </View>
+          ) : null}
 
           <Text
             className={titleClassName}
@@ -1419,6 +1670,10 @@ export default function UrgeHelpScreen() {
           </Text>
 
           <Text className={bodyClassName}>{currentStep.body}</Text>
+
+          {isBreathingStep ? (
+            <GuidedBreathingTimer compact={isGuidedMode} onInfo={openHelpTip} />
+          ) : null}
 
           {"tip" in currentStep && currentStep.tip && !usesHelpTipBubble ? (
             <View
@@ -1626,21 +1881,6 @@ export default function UrgeHelpScreen() {
                   </Text>
                 </View>
               </Pressable>
-
-              {showGuidedSkip ? (
-                <Pressable
-                  key="first-guided-skip"
-                  onPress={skipCurrentStep}
-                  className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-4 py-2"
-                  style={({ pressed }) => ({
-                    transform: [{ translateY: pressed ? 1 : 0 }],
-                  })}
-                >
-                  <Text className="text-center text-sm font-black text-gray-700">
-                    Skip for now
-                  </Text>
-                </Pressable>
-              ) : null}
             </>
           ) : (
             <>
@@ -1710,20 +1950,7 @@ export default function UrgeHelpScreen() {
                 </Pressable>
               </View>
 
-              {showGuidedSkip ? (
-                <Pressable
-                  key={`guided-skip-${stepIndex}`}
-                  onPress={skipCurrentStep}
-                  className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-4 py-2"
-                  style={({ pressed }) => ({
-                    transform: [{ translateY: pressed ? 1 : 0 }],
-                  })}
-                >
-                  <Text className="text-center text-sm font-black text-gray-700">
-                    Skip for now
-                  </Text>
-                </Pressable>
-              ) : showGuidedLogOption ? (
+              {showGuidedLogOption ? (
                 <Pressable
                   key="guided-log-option"
                   onPress={finishHelp}

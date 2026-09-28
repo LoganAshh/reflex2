@@ -289,6 +289,39 @@ export async function ensureLocalSchemaColumns() {
     "pendingGoalPeriod TEXT NOT NULL DEFAULT 'day'",
   );
   await ensureColumn("habits", "pendingGoalReason", "pendingGoalReason TEXT");
+  await db.execAsync(`
+    UPDATE habits
+    SET estimatedBaseline = CASE
+          WHEN estimatedBaseline IS NULL THEN NULL
+          ELSE estimatedBaseline /
+            CASE baselinePeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END *
+            CASE goalPeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END
+        END,
+        calibratedBaseline = CASE
+          WHEN calibratedBaseline IS NULL THEN NULL
+          ELSE calibratedBaseline /
+            CASE baselinePeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END *
+            CASE goalPeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END
+        END,
+        currentGoal = CASE
+          WHEN currentGoal IS NULL THEN NULL
+          ELSE currentGoal /
+            CASE currentGoalPeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END *
+            CASE goalPeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END
+        END,
+        pendingGoal = CASE
+          WHEN pendingGoal IS NULL THEN NULL
+          ELSE pendingGoal /
+            CASE pendingGoalPeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END *
+            CASE goalPeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END
+        END,
+        baselinePeriod = goalPeriod,
+        currentGoalPeriod = goalPeriod,
+        pendingGoalPeriod = goalPeriod
+    WHERE baselinePeriod <> goalPeriod
+       OR currentGoalPeriod <> goalPeriod
+       OR pendingGoalPeriod <> goalPeriod;
+  `);
   await ensureColumn("cues", "hidden", "hidden INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(
     "locations",
@@ -1066,7 +1099,19 @@ export async function updateHabitPlanInDb(id: number, input: HabitPlanInput) {
            ELSE calibratedBaseline /
              CASE baselinePeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END * ?
          END,
-         baselinePeriod = ?, finalTarget = ?, goalPeriod = ?
+         baselinePeriod = ?, finalTarget = ?, goalPeriod = ?,
+         currentGoal = CASE
+           WHEN currentGoal IS NULL THEN NULL
+           ELSE currentGoal /
+             CASE currentGoalPeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END * ?
+         END,
+         currentGoalPeriod = ?,
+         pendingGoal = CASE
+           WHEN pendingGoal IS NULL THEN NULL
+           ELSE pendingGoal /
+             CASE pendingGoalPeriod WHEN 'week' THEN 7 WHEN '28_days' THEN 28 ELSE 1 END * ?
+         END,
+         pendingGoalPeriod = ?
      WHERE id = ? AND hidden = 0;`,
     [
       input.measurementType,
@@ -1075,6 +1120,10 @@ export async function updateHabitPlanInDb(id: number, input: HabitPlanInput) {
       newPeriodDays,
       input.baselinePeriod,
       input.finalTarget,
+      input.goalPeriod,
+      newPeriodDays,
+      input.goalPeriod,
+      newPeriodDays,
       input.goalPeriod,
       id,
     ],

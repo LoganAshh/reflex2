@@ -6,6 +6,7 @@ const {
   startOfLocalDay,
 } = require("../.test-build/baselines.js");
 const {
+  calculateInitialCurrentGoal,
   calculateRecoveryGoal,
   consecutiveDifficultCycles,
   consecutiveDifficultCyclesForGoal,
@@ -89,6 +90,29 @@ function log(createdAt, count) {
 test("period conversion keeps the same daily rate", () => {
   assert.equal(normalizeGoalAmount(2, "day", "week"), 14);
   assert.equal(normalizeGoalAmount(8, "week", "28_days"), 32);
+});
+
+test("one shared habit frequency preserves every plan rate", () => {
+  const weeklyPlan = {
+    startingAmount: 14,
+    currentGoal: 10,
+    longTermGoal: 4,
+  };
+  const dailyPlan = Object.fromEntries(
+    Object.entries(weeklyPlan).map(([key, amount]) => [
+      key,
+      normalizeGoalAmount(amount, "week", "day"),
+    ]),
+  );
+
+  assert.equal(dailyPlan.startingAmount, 2);
+  assert.equal(dailyPlan.currentGoal, 10 / 7);
+  assert.equal(dailyPlan.longTermGoal, 4 / 7);
+});
+
+test("a calculated starting amount produces a fresh initial step goal", () => {
+  assert.equal(calculateInitialCurrentGoal(10, "week", 0, "week", "times"), 9);
+  assert.equal(calculateInitialCurrentGoal(20, "week", 0, "week", "times"), 18);
 });
 
 test("calibration timing balances faster feedback with enough known days", () => {

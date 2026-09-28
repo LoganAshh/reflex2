@@ -21,6 +21,7 @@ import { TrackingReviewLauncher } from "../components/TrackingReviewCard";
 import { getPreviousCycleBounds } from "../data/tracking";
 import { cleanHabitIcon } from "../data/habitIcons";
 import { CALIBRATION_RULES } from "../data/baselines";
+import { calculateInitialCurrentGoal } from "../data/goals";
 
 function startOfDayMs(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -276,10 +277,7 @@ export default function HomeScreen() {
       }),
     [cycleReviews, selectedHabits],
   );
-  const nextGoalHabit =
-    (selectedHabitId == null
-      ? nextGoalHabits[0]
-      : nextGoalHabits.find((habit) => habit.id === selectedHabitId)) ?? null;
+  const nextGoalHabit = nextGoalHabits[0] ?? null;
   const recoveryGoalHabits = useMemo(() => {
     const selectedById = new Map(
       selectedHabits.map((habit) => [habit.id, habit]),
@@ -303,11 +301,7 @@ export default function HomeScreen() {
         goalHistoryId: entry.id,
       }));
   }, [acknowledgedRecoveryGoalHistoryIds, goalHistory, selectedHabits]);
-  const recoveryGoalHabit =
-    (selectedHabitId == null
-      ? recoveryGoalHabits[0]
-      : recoveryGoalHabits.find((item) => item.habit.id === selectedHabitId)) ??
-    null;
+  const recoveryGoalHabit = recoveryGoalHabits[0] ?? null;
   const newlyCalculatedHabits = useMemo(
     () =>
       selectedHabits.filter(
@@ -317,13 +311,7 @@ export default function HomeScreen() {
       ),
     [acknowledgedCalculatedHabitIds, selectedHabits],
   );
-  const relevantCalculatedHabits = useMemo(
-    () =>
-      selectedHabitId == null
-        ? newlyCalculatedHabits
-        : newlyCalculatedHabits.filter((habit) => habit.id === selectedHabitId),
-    [newlyCalculatedHabits, selectedHabitId],
-  );
+  const relevantCalculatedHabits = newlyCalculatedHabits;
   const calculatedNoticeHabits = relevantCalculatedHabits;
   const calculatedNoticeHabitName =
     calculatedNoticeHabits[0]?.name ?? "your habit";
@@ -341,10 +329,7 @@ export default function HomeScreen() {
   const showCalculatedNotice =
     relevantCalculatedHabits.length > 0 ||
     (bannerPreviewActive && previewHabit != null);
-  const relevantMissingPlanHabits =
-    selectedHabitId == null
-      ? missingPlanHabits
-      : missingPlanHabits.filter((habit) => habit.id === selectedHabitId);
+  const relevantMissingPlanHabits = missingPlanHabits;
   const displayedMissingPlanHabits =
     relevantMissingPlanHabits.length > 0
       ? relevantMissingPlanHabits
@@ -362,11 +347,7 @@ export default function HomeScreen() {
   const showNextGoalBanner = displayedNextGoalHabit != null;
   const showRecoveryGoalBanner = displayedRecoveryGoalHabit != null;
   const previousWeekForUpdates = getPreviousCycleBounds("week");
-  const weeklyReviewHabits = (
-    selectedHabitId == null
-      ? selectedHabits
-      : selectedHabits.filter((habit) => habit.id === selectedHabitId)
-  ).filter((habit) => {
+  const weeklyReviewHabits = selectedHabits.filter((habit) => {
     if (bannerPreviewActive) return true;
     const starts = [
       habit.calibrationStartedAt,
@@ -1397,9 +1378,7 @@ export default function HomeScreen() {
 
       <TrackingReviewLauncher
         placement="home"
-        habitId={
-          bannerPreviewActive ? (previewHabit?.id ?? null) : selectedHabitId
-        }
+        habitId={null}
         previewOnly={bannerPreviewActive}
         hideLauncher
         openToken={weeklyReviewOpenToken}
@@ -1730,6 +1709,61 @@ export default function HomeScreen() {
                     displayedCalculatedAmount == null
                       ? habit.unit
                       : unitForValue(habit.unit, displayedCalculatedAmount);
+                  const habitGoalChanges = goalHistory.filter(
+                    (entry) => entry.habitId === habit.id,
+                  );
+                  const calibrationGoalIndex = habitGoalChanges.findIndex(
+                    (entry) => entry.reason === "calibration",
+                  );
+                  const calibrationGoal =
+                    calibrationGoalIndex >= 0
+                      ? habitGoalChanges[calibrationGoalIndex]
+                      : null;
+                  const previousStepGoal =
+                    calibrationGoalIndex >= 0
+                      ? (habitGoalChanges[calibrationGoalIndex + 1] ?? null)
+                      : null;
+                  const previewFinalTarget = habit.finalTarget ?? 0;
+                  const previewEstimatedStep = calculateInitialCurrentGoal(
+                    estimatedAmount ?? 10,
+                    habit.baselinePeriod,
+                    previewFinalTarget,
+                    habit.goalPeriod,
+                    habit.measurementType,
+                  );
+                  const previewCalculatedStep = calculateInitialCurrentGoal(
+                    calculatedAmount ?? 8,
+                    habit.baselinePeriod,
+                    previewFinalTarget,
+                    habit.goalPeriod,
+                    habit.measurementType,
+                  );
+                  const previewStepSize =
+                    habit.measurementType === "minutes" ? 5 : 1;
+                  const displayedPreviousStepGoal = bannerPreviewActive
+                    ? {
+                        amount:
+                          Math.abs(
+                            previewEstimatedStep - previewCalculatedStep,
+                          ) > 0.0001
+                            ? previewEstimatedStep
+                            : previewCalculatedStep + previewStepSize,
+                        period: habit.goalPeriod,
+                      }
+                    : previousStepGoal;
+                  const displayedCalibrationGoal = bannerPreviewActive
+                    ? {
+                        amount: previewCalculatedStep,
+                        period: habit.goalPeriod,
+                      }
+                    : calibrationGoal;
+                  const stepGoalChanged =
+                    displayedCalibrationGoal != null &&
+                    displayedPreviousStepGoal != null &&
+                    Math.abs(
+                      displayedCalibrationGoal.amount -
+                        displayedPreviousStepGoal.amount,
+                    ) > 0.0001;
 
                   return (
                     <View
@@ -1778,6 +1812,33 @@ export default function HomeScreen() {
                           </Text>
                         </View>
                       </View>
+
+                      {stepGoalChanged &&
+                      displayedCalibrationGoal &&
+                      displayedPreviousStepGoal ? (
+                        <View className="mt-3 rounded-3xl border border-purple-200 bg-purple-50 p-4">
+                          <Text className="text-xs font-black uppercase tracking-wide text-purple-700">
+                            Updated step goal
+                          </Text>
+                          <Text className="mt-1 text-sm font-bold leading-5 text-gray-700">
+                            {`Your step goal changed from ${formatAverage(
+                              displayedPreviousStepGoal.amount,
+                            )} ${unitForValue(
+                              habit.unit,
+                              displayedPreviousStepGoal.amount,
+                            )} ${periodRateLabel(
+                              displayedPreviousStepGoal.period,
+                            )} to ${formatAverage(
+                              displayedCalibrationGoal.amount,
+                            )} ${unitForValue(
+                              habit.unit,
+                              displayedCalibrationGoal.amount,
+                            )} ${periodRateLabel(
+                              displayedCalibrationGoal.period,
+                            )}.`}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                   );
                 })}

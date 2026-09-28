@@ -7,7 +7,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   UIManager,
@@ -19,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import type { LogEntry } from "../../data/DataContext";
 import { INPUT_LIMITS } from "../../data/inputLimits";
+import { LogOutcomeCard } from "../LogOutcomeCard";
 
 type ChipItem = {
   key: string;
@@ -233,7 +233,7 @@ function ChipRow<T extends BaseItem>({
           <Ionicons name={getSectionIcon(title)} size={19} color="#000000" />
         </View>
 
-        <View className="ml-2 flex-1">
+        <View className="ml-3 flex-1">
           <Text className="text-sm font-black text-black">{title}</Text>
         </View>
       </View>
@@ -689,36 +689,32 @@ export function EditLogModal({
     value,
     icon,
     onPress,
-    disabled,
   }: {
     label: string;
     value: string;
     icon: keyof typeof Ionicons.glyphMap;
     onPress?: () => void;
-    disabled?: boolean;
   }) => (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
-      className={`flex-1 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm ${disabled ? "opacity-60" : ""}`}
+      className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm"
     >
-      <View className="flex-row items-center justify-between">
+      <View className="flex-row items-center">
         <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
           <Ionicons name={icon} size={19} color="#000000" />
         </View>
 
-        {onPress && !disabled ? (
-          <View className="rounded-full border border-gray-200 bg-white px-2 py-0.5">
-            <Text className="text-[10px] font-black text-black">Change</Text>
+        <View className="ml-3 flex-1 flex-row items-center">
+          <Text className="text-sm font-black text-black">{label}</Text>
+          <Text className="ml-2 text-sm font-bold text-gray-500">{value}</Text>
+        </View>
+
+        {onPress ? (
+          <View className="rounded-full border border-gray-200 bg-white px-3 py-1">
+            <Text className="text-xs font-black text-black">Change</Text>
           </View>
         ) : null}
       </View>
-
-      <Text className="mt-2 text-[10px] font-black uppercase tracking-wide text-gray-500">
-        {label}
-      </Text>
-
-      <Text className="mt-0.5 text-base font-black text-black">{value}</Text>
     </Pressable>
   );
 
@@ -816,49 +812,25 @@ export function EditLogModal({
               listRef={movedToLocationListRef}
             />
 
-            <View className="mt-2 w-full rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row flex-1 items-center pr-4">
-                  <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                    <Ionicons
-                      name={
-                        didResist === 1 ? "shield-checkmark" : "shield-outline"
-                      }
-                      size={19}
-                      color="#000000"
-                    />
-                  </View>
+            <LogOutcomeCard
+              didResist={didResist === 1}
+              quantityLabel={countLabel}
+              onSelectResisted={() => {
+                void lightHaptic();
+                setDidResist(1);
+                setCount(0);
+                setShowCountPicker(false);
+                setCustomCountText("");
+              }}
+              onSelectGaveIn={() => {
+                void lightHaptic();
+                setDidResist(0);
+                if (count === 0) setCount(1);
+              }}
+              onChangeQuantity={toggleCountPicker}
+            />
 
-                  <View className="ml-2 flex-1">
-                    <Text className="text-sm font-black text-black">
-                      Did you resist?
-                    </Text>
-                  </View>
-                </View>
-
-                <Switch
-                  value={didResist === 1}
-                  onValueChange={(value) => {
-                    lightHaptic();
-                    setDidResist(value ? 1 : 0);
-                    if (value) setCount(0);
-                    else if (count === 0) setCount(1);
-                  }}
-                  trackColor={{ false: "#E5E7EB", true: "#86EFAC" }}
-                  thumbColor={didResist === 1 ? "#16A34A" : "#F9FAFB"}
-                />
-              </View>
-            </View>
-
-            <View className="mt-2 flex-row gap-2">
-              <StatCard
-                label="Quantity"
-                value={countLabel}
-                icon="repeat"
-                onPress={didResist === 1 ? undefined : toggleCountPicker}
-                disabled={didResist === 1}
-              />
-
+            <View className="mt-2 flex-row">
               <StatCard
                 label="Intensity"
                 value={intensityLabel}
@@ -1204,7 +1176,7 @@ export function EditLogModal({
                     <Ionicons name="document-text" size={19} color="#000000" />
                   </View>
 
-                  <Text className="ml-2 text-sm font-black text-black">
+                  <Text className="ml-3 text-sm font-black text-black">
                     Notes
                   </Text>
                 </View>

@@ -9,7 +9,6 @@ import {
   View,
   Text,
   Pressable,
-  Switch,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -40,6 +39,7 @@ import type {
   WeeklyReviewLogRequest,
 } from "../App";
 import { Screen } from "../components/Screen";
+import { LogOutcomeCard } from "../components/LogOutcomeCard";
 import { INPUT_LIMITS, managedItemInputLimit } from "../data/inputLimits";
 import {
   useData,
@@ -785,7 +785,7 @@ function ChipRow<T extends BaseItem>({
       <View className="flex-row items-center">
         <HelperIcon icon={icon} label={`${title} helper`} onPress={onInfo} />
 
-        <View className="ml-2 flex-1">
+        <View className="ml-3 flex-1">
           <Text className="text-sm font-black text-black">{title}</Text>
         </View>
       </View>
@@ -961,127 +961,122 @@ function CountPickerModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+      <Pressable
+        className="flex-1 items-center justify-center bg-black/40 px-6"
+        onPress={onClose}
       >
         <Pressable
-          className="flex-1 items-center justify-center bg-black/40 px-6"
-          onPress={onClose}
+          className="w-full rounded-[32px] bg-white p-5"
+          onPress={() => {}}
         >
-          <Pressable
-            className="w-full rounded-[32px] bg-white p-5"
-            onPress={() => {}}
-          >
-            <View className="flex-row items-center">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                <Ionicons name="repeat" size={24} color="#000000" />
-              </View>
-
-              <View className="ml-3 flex-1">
-                <Text className="text-xl font-black text-black">
-                  Quantity logged
-                </Text>
-                <Text className="mt-1 text-sm font-semibold text-gray-500">
-                  Log the actual amount, not just one event.
-                </Text>
-              </View>
+          <View className="flex-row items-center">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="repeat" size={24} color="#000000" />
             </View>
 
-            <View className="mt-5 flex-row flex-wrap">
-              {options.map((n) => {
-                const selected = !showCustomValue && value === n;
+            <View className="ml-3 flex-1">
+              <Text className="text-xl font-black text-black">
+                Quantity logged
+              </Text>
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                Log the actual amount, not just one event.
+              </Text>
+            </View>
+          </View>
 
-                return (
-                  <Pressable
-                    key={n}
-                    onPress={() => onPick(n)}
-                    className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
-                      selected
-                        ? "border-green-600 bg-green-600"
-                        : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <Text
-                      className={`text-sm font-black ${
-                        selected ? "text-white" : "text-black"
-                      }`}
-                    >
-                      {labelFor(n)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-
+          {showCustomValue ? (
+            <View className="mt-5 flex-row items-center gap-2">
+              <TextInput
+                ref={customValueInputRef}
+                value={customValue}
+                onChangeText={setCustomValue}
+                placeholder={`Other ${unit}`}
+                placeholderTextColor="#9CA3AF"
+                keyboardType={
+                  Platform.OS === "ios"
+                    ? "numbers-and-punctuation"
+                    : "number-pad"
+                }
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={submitCustomValue}
+                className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
+              />
               <Pressable
-                onPress={() => {
-                  setShowCustomValue(true);
-                  requestAnimationFrame(() =>
-                    customValueInputRef.current?.focus(),
-                  );
-                }}
-                className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
-                  showCustomValue
-                    ? "border-green-600 bg-green-600"
-                    : "border-gray-200 bg-white"
+                onPress={submitCustomValue}
+                disabled={
+                  !Number.isFinite(Number(customValue)) ||
+                  Number(customValue) < 1
+                }
+                className={`rounded-2xl px-5 py-3 ${
+                  Number(customValue) >= 1 ? "bg-green-600" : "bg-gray-300"
                 }`}
               >
-                <Text
-                  className={`text-sm font-black ${
-                    showCustomValue ? "text-white" : "text-black"
-                  }`}
-                >
-                  Custom
-                </Text>
+                <Text className="font-black text-white">Done</Text>
               </Pressable>
             </View>
+          ) : null}
 
-            {showCustomValue ? (
-              <View className="mt-3 flex-row items-center gap-2">
-                <TextInput
-                  ref={customValueInputRef}
-                  value={customValue}
-                  onChangeText={setCustomValue}
-                  placeholder={`Other ${unit}`}
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType={
-                    Platform.OS === "ios"
-                      ? "numbers-and-punctuation"
-                      : "number-pad"
-                  }
-                  returnKeyType="done"
-                  blurOnSubmit
-                  onSubmitEditing={submitCustomValue}
-                  className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
-                />
+          <View className="mt-5 flex-row flex-wrap">
+            {options.map((n) => {
+              const selected = !showCustomValue && value === n;
+
+              return (
                 <Pressable
-                  onPress={submitCustomValue}
-                  disabled={
-                    !Number.isFinite(Number(customValue)) ||
-                    Number(customValue) < 1
-                  }
-                  className={`rounded-2xl px-5 py-3 ${
-                    Number(customValue) >= 1 ? "bg-green-600" : "bg-gray-300"
+                  key={n}
+                  onPress={() => onPick(n)}
+                  className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
+                    selected
+                      ? "border-green-600 bg-green-600"
+                      : "border-gray-200 bg-white"
                   }`}
                 >
-                  <Text className="font-black text-white">Done</Text>
+                  <Text
+                    className={`text-sm font-black ${
+                      selected ? "text-white" : "text-black"
+                    }`}
+                  >
+                    {labelFor(n)}
+                  </Text>
                 </Pressable>
-              </View>
-            ) : null}
+              );
+            })}
 
-            {!showCustomValue ? (
-              <View className="mt-3 flex-row justify-end">
-                <Pressable
-                  onPress={onClose}
-                  className="rounded-2xl bg-green-600 px-5 py-3"
-                >
-                  <Text className="text-sm font-black text-white">Done</Text>
-                </Pressable>
-              </View>
-            ) : null}
-          </Pressable>
+            <Pressable
+              onPress={() => {
+                setShowCustomValue(true);
+                requestAnimationFrame(() =>
+                  customValueInputRef.current?.focus(),
+                );
+              }}
+              className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
+                showCustomValue
+                  ? "border-green-600 bg-green-600"
+                  : "border-gray-200 bg-white"
+              }`}
+            >
+              <Text
+                className={`text-sm font-black ${
+                  showCustomValue ? "text-white" : "text-black"
+                }`}
+              >
+                Custom
+              </Text>
+            </Pressable>
+          </View>
+
+          {!showCustomValue ? (
+            <View className="mt-3 flex-row justify-end">
+              <Pressable
+                onPress={onClose}
+                className="rounded-2xl bg-green-600 px-5 py-3"
+              >
+                <Text className="text-sm font-black text-white">Done</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </Pressable>
-      </KeyboardAvoidingView>
+      </Pressable>
     </Modal>
   );
 }
@@ -1833,40 +1828,37 @@ export default function LogScreen({
     value,
     icon,
     onPress,
-    disabled,
   }: {
     label: string;
     value: string;
     icon: keyof typeof Ionicons.glyphMap;
     onPress?: () => void;
-    disabled?: boolean;
   }) => (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
       className="flex-1 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm"
     >
-      <View className="flex-row items-center justify-between">
+      <View className="flex-row items-center">
         <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
           <Ionicons name={icon} size={19} color="#000000" />
         </View>
 
+        <View className="ml-3 flex-1 flex-row items-center">
+          <Text className="text-sm font-black text-black">{label}</Text>
+          <Text className="ml-2 text-sm font-bold text-gray-500">{value}</Text>
+        </View>
+
         {onPress ? (
-          <View className="rounded-full border border-gray-200 bg-white px-2 py-0.5">
-            <Text className="text-[10px] font-black text-black">Change</Text>
+          <View className="rounded-full border border-gray-200 bg-white px-3 py-1">
+            <Text className="text-xs font-black text-black">Change</Text>
           </View>
         ) : null}
       </View>
-
-      <Text className="mt-2 text-[10px] font-black uppercase tracking-wide text-gray-500">
-        {label}
-      </Text>
-      <Text className="mt-0.5 text-base font-black text-black">{value}</Text>
     </Pressable>
   );
 
   return (
-    <Screen keyboardAvoiding keyboardVerticalOffset={0}>
+    <Screen keyboardAvoiding={!showCountPicker} keyboardVerticalOffset={0}>
       <IntensityPickerModal
         visible={showIntensityPicker}
         value={intensity}
@@ -2114,48 +2106,26 @@ export default function LogScreen({
             listRef={locationListRef}
           />
 
-          <View className="mt-2 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row flex-1 items-center pr-4">
-                <HelperIcon
-                  icon={didResist ? "shield-checkmark" : "shield-outline"}
-                  label="Did you resist helper"
-                  onPress={() =>
-                    openInfo(
-                      "Did you resist?",
-                      "Turn this on when you felt the urge but chose not to act on it. Quantity will automatically become 0.",
-                      didResist ? "shield-checkmark" : "shield-outline",
-                    )
-                  }
-                />
+          <LogOutcomeCard
+            didResist={didResist}
+            quantityLabel={countLabel}
+            onSelectResisted={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+                () => {},
+              );
+              setDidResistAndMaybeCount(true);
+              setShowCountPicker(false);
+            }}
+            onSelectGaveIn={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+                () => {},
+              );
+              setDidResistAndMaybeCount(false);
+            }}
+            onChangeQuantity={() => setShowCountPicker(true)}
+          />
 
-                <View className="ml-2 flex-1">
-                  <Text className="text-sm font-black text-black">
-                    Did you resist?
-                  </Text>
-                </View>
-              </View>
-
-              <Switch
-                value={didResist}
-                onValueChange={setDidResistAndMaybeCount}
-                trackColor={{ false: "#E5E7EB", true: "#86EFAC" }}
-                thumbColor={didResist ? "#16A34A" : "#F9FAFB"}
-              />
-            </View>
-          </View>
-
-          <View className="mt-2 flex-row gap-2">
-            <ValueCard
-              label="Quantity"
-              value={countLabel}
-              icon="repeat"
-              onPress={() => {
-                if (!didResist) setShowCountPicker(true);
-              }}
-              disabled={didResist}
-            />
-
+          <View className="mt-2 flex-row">
             <ValueCard
               label="Intensity"
               value={intensityLabel}
@@ -2179,7 +2149,7 @@ export default function LogScreen({
                   }
                 />
 
-                <View className="ml-2 flex-1">
+                <View className="ml-3 flex-1">
                   <Text className="text-sm font-black text-black">Notes</Text>
                 </View>
               </View>
