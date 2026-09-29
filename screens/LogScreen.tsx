@@ -153,17 +153,6 @@ function formatWeeklyReviewDateTime(date: Date) {
   });
 }
 
-function quantityUnit(unit: string, value: number) {
-  if (value !== 1) return unit;
-  if (unit.toLowerCase() === "times") return "time";
-  if (unit.toLowerCase() === "minutes") return "minute";
-  return unit;
-}
-
-function formatQuantity(value: number, unit: string) {
-  return `${value} ${quantityUnit(unit, value)}`;
-}
-
 function mergeDatePart(current: Date, selectedDate: Date) {
   const next = new Date(current);
   next.setFullYear(
@@ -908,179 +897,6 @@ function IntensityPickerModal({
   );
 }
 
-function CountPickerModal({
-  visible,
-  value,
-  unit,
-  onPick,
-  onClose,
-}: {
-  visible: boolean;
-  value: number;
-  unit: string;
-  onPick: (n: number) => void;
-  onClose: () => void;
-}) {
-  const [customValue, setCustomValue] = useState("");
-  const [showCustomValue, setShowCustomValue] = useState(false);
-  const customValueInputRef = useRef<TextInput | null>(null);
-  const options = useMemo(
-    () =>
-      unit.trim().toLowerCase() === "minutes"
-        ? [1, 5, 10, 15, 20, 30, 45, 60]
-        : Array.from({ length: 10 }, (_, i) => i + 1),
-    [unit],
-  );
-
-  const labelFor = (n: number) => formatQuantity(n, unit);
-
-  useEffect(() => {
-    if (!visible) {
-      setShowCustomValue(false);
-      setCustomValue("");
-      return;
-    }
-
-    if (!options.includes(value)) {
-      setShowCustomValue(true);
-      setCustomValue(String(value));
-    }
-  }, [visible, value, options]);
-
-  const submitCustomValue = () => {
-    const rawAmount = Number(customValue);
-    if (!Number.isFinite(rawAmount) || rawAmount < 1) return;
-    const amount = Math.min(999999, Math.max(1, Math.round(rawAmount)));
-    onPick(amount);
-  };
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        className="flex-1 items-center justify-center bg-black/40 px-6"
-        onPress={onClose}
-      >
-        <Pressable
-          className="w-full rounded-[32px] bg-white p-5"
-          onPress={() => {}}
-        >
-          <View className="flex-row items-center">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-              <Ionicons name="repeat" size={24} color="#000000" />
-            </View>
-
-            <View className="ml-3 flex-1">
-              <Text className="text-xl font-black text-black">
-                Quantity logged
-              </Text>
-              <Text className="mt-1 text-sm font-semibold text-gray-500">
-                Log the actual amount, not just one event.
-              </Text>
-            </View>
-          </View>
-
-          {showCustomValue ? (
-            <View className="mt-5 flex-row items-center gap-2">
-              <TextInput
-                ref={customValueInputRef}
-                value={customValue}
-                onChangeText={setCustomValue}
-                placeholder={`Other ${unit}`}
-                placeholderTextColor="#9CA3AF"
-                keyboardType={
-                  Platform.OS === "ios"
-                    ? "numbers-and-punctuation"
-                    : "number-pad"
-                }
-                returnKeyType="done"
-                blurOnSubmit
-                onSubmitEditing={submitCustomValue}
-                className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
-              />
-              <Pressable
-                onPress={submitCustomValue}
-                disabled={
-                  !Number.isFinite(Number(customValue)) ||
-                  Number(customValue) < 1
-                }
-                className={`rounded-2xl px-5 py-3 ${
-                  Number(customValue) >= 1 ? "bg-green-600" : "bg-gray-300"
-                }`}
-              >
-                <Text className="font-black text-white">Done</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          <View className="mt-5 flex-row flex-wrap">
-            {options.map((n) => {
-              const selected = !showCustomValue && value === n;
-
-              return (
-                <Pressable
-                  key={n}
-                  onPress={() => onPick(n)}
-                  className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
-                    selected
-                      ? "border-green-600 bg-green-600"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <Text
-                    className={`text-sm font-black ${
-                      selected ? "text-white" : "text-black"
-                    }`}
-                  >
-                    {labelFor(n)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-
-            <Pressable
-              onPress={() => {
-                setShowCustomValue(true);
-                requestAnimationFrame(() =>
-                  customValueInputRef.current?.focus(),
-                );
-              }}
-              className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
-                showCustomValue
-                  ? "border-green-600 bg-green-600"
-                  : "border-gray-200 bg-white"
-              }`}
-            >
-              <Text
-                className={`text-sm font-black ${
-                  showCustomValue ? "text-white" : "text-black"
-                }`}
-              >
-                Custom
-              </Text>
-            </Pressable>
-          </View>
-
-          {!showCustomValue ? (
-            <View className="mt-3 flex-row justify-end">
-              <Pressable
-                onPress={onClose}
-                className="rounded-2xl bg-green-600 px-5 py-3"
-              >
-                <Text className="text-sm font-black text-white">Done</Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
 function QuickAddLogItemModal({
   visible,
   type,
@@ -1234,7 +1050,6 @@ export default function LogScreen({
   const [intensity, setIntensity] = useState<number | null>(null);
   const [showIntensityPicker, setShowIntensityPicker] = useState(false);
   const [count, setCount] = useState<number>(1);
-  const [showCountPicker, setShowCountPicker] = useState(false);
   const [logDate, setLogDate] = useState(() => new Date());
   const [showLogDateTimeModal, setShowLogDateTimeModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1444,7 +1259,6 @@ export default function LogScreen({
     setIntensity(null);
     setCount(1);
     setShowIntensityPicker(false);
-    setShowCountPicker(false);
     setShowLogDateTimeModal(false);
     setLogDate(new Date());
 
@@ -1813,7 +1627,6 @@ export default function LogScreen({
   };
 
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
-  const countLabel = formatQuantity(didResist ? 0 : count, countUnit);
 
   const openInfo = (
     title: string,
@@ -1843,13 +1656,18 @@ export default function LogScreen({
           <Ionicons name={icon} size={19} color="#000000" />
         </View>
 
-        <View className="ml-3 flex-1 flex-row items-center">
+        <View className="ml-3 flex-1">
           <Text className="text-sm font-black text-black">{label}</Text>
-          <Text className="ml-2 text-sm font-bold text-gray-500">{value}</Text>
+          <Text
+            numberOfLines={1}
+            className="mt-0.5 text-xs font-bold text-gray-500"
+          >
+            {value}
+          </Text>
         </View>
 
         {onPress ? (
-          <View className="rounded-full border border-gray-200 bg-white px-3 py-1">
+          <View className="rounded-full border border-gray-200 bg-white px-2 py-1">
             <Text className="text-xs font-black text-black">Change</Text>
           </View>
         ) : null}
@@ -1858,7 +1676,7 @@ export default function LogScreen({
   );
 
   return (
-    <Screen keyboardAvoiding={!showCountPicker} keyboardVerticalOffset={0}>
+    <Screen keyboardVerticalOffset={0}>
       <IntensityPickerModal
         visible={showIntensityPicker}
         value={intensity}
@@ -1871,18 +1689,6 @@ export default function LogScreen({
           setShowIntensityPicker(false);
         }}
         onClose={() => setShowIntensityPicker(false)}
-      />
-
-      <CountPickerModal
-        visible={showCountPicker}
-        value={Math.max(1, count)}
-        unit={countUnit}
-        onPick={(n) => {
-          setCount(n);
-          setDidResist(false);
-          setShowCountPicker(false);
-        }}
-        onClose={() => setShowCountPicker(false)}
       />
 
       <LogDateTimeModal
@@ -2108,13 +1914,13 @@ export default function LogScreen({
 
           <LogOutcomeCard
             didResist={didResist}
-            quantityLabel={countLabel}
+            quantity={count}
+            unit={countUnit}
             onSelectResisted={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
                 () => {},
               );
               setDidResistAndMaybeCount(true);
-              setShowCountPicker(false);
             }}
             onSelectGaveIn={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
@@ -2122,7 +1928,13 @@ export default function LogScreen({
               );
               setDidResistAndMaybeCount(false);
             }}
-            onChangeQuantity={() => setShowCountPicker(true)}
+            onSelectQuantity={(quantity) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+                () => {},
+              );
+              setCount(quantity);
+              setDidResist(false);
+            }}
           />
 
           <View className="mt-2 flex-row">
@@ -2149,9 +1961,9 @@ export default function LogScreen({
                   }
                 />
 
-                <View className="ml-3 flex-1">
-                  <Text className="text-sm font-black text-black">Notes</Text>
-                </View>
+                <Text className="ml-3 flex-1 text-sm font-black text-black">
+                  Notes
+                </Text>
               </View>
 
               <Pressable

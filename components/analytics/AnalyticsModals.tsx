@@ -174,17 +174,6 @@ function countLabelFor(n: number) {
   return `${n}x`;
 }
 
-function quantityUnit(unit: string, value: number) {
-  if (value !== 1) return unit;
-  if (unit.toLowerCase() === "times") return "time";
-  if (unit.toLowerCase() === "minutes") return "minute";
-  return unit;
-}
-
-function formatQuantity(value: number, unit: string) {
-  return `${value} ${quantityUnit(unit, value)}`;
-}
-
 function getSectionIcon(title: string): keyof typeof Ionicons.glyphMap {
   if (title === "Habit") return "radio-button-on";
   if (title === "Cue" || title === "Cues") return "alert-circle";
@@ -494,7 +483,6 @@ export function EditLogModal({
   ampm,
   editError,
   showIntensityPicker,
-  showCountPicker,
   setHabitId,
   setCueIds,
   setLocationId,
@@ -511,7 +499,6 @@ export function EditLogModal({
   setMinuteText,
   setAmpm,
   setShowIntensityPicker,
-  setShowCountPicker,
   onSave,
   onDelete,
   onClose,
@@ -538,7 +525,6 @@ export function EditLogModal({
   ampm: "AM" | "PM";
   editError: string;
   showIntensityPicker: boolean;
-  showCountPicker: boolean;
   setHabitId: (id: number | null) => void;
   setCueIds: (ids: number[]) => void;
   setLocationId: (id: number | null) => void;
@@ -555,7 +541,6 @@ export function EditLogModal({
   setMinuteText: (value: string) => void;
   setAmpm: (value: "AM" | "PM") => void;
   setShowIntensityPicker: (value: boolean) => void;
-  setShowCountPicker: (value: boolean) => void;
   onSave: () => void;
   onDelete: () => void;
   onClose: () => void;
@@ -571,7 +556,6 @@ export function EditLogModal({
   const notesInputRef = useRef<TextInput | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [customCountText, setCustomCountText] = useState("");
   const [showNotes, setShowNotes] = useState(notesText.trim().length > 0);
 
   React.useEffect(() => {
@@ -590,13 +574,6 @@ export function EditLogModal({
 
   const activeHabit = habitOptions.find((habit) => habit.id === habitId);
   const countUnit = activeHabit?.unit?.trim() || "times";
-  const countOptions = useMemo(
-    () =>
-      countUnit.toLowerCase() === "minutes"
-        ? [1, 5, 10, 15, 20, 30, 45, 60]
-        : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    [countUnit],
-  );
 
   const selectedPreset = TIME_PRESETS.find(
     (preset) =>
@@ -606,7 +583,6 @@ export function EditLogModal({
   );
 
   const intensityLabel = intensity == null ? "None" : `${intensity}/10`;
-  const countLabel = formatQuantity(didResist === 1 ? 0 : count, countUnit);
 
   const scrollNotesIntoView = () => {
     setTimeout(() => {
@@ -650,38 +626,13 @@ export function EditLogModal({
   const toggleIntensityPicker = async () => {
     await lightHaptic();
     Keyboard.dismiss();
-    setShowCountPicker(false);
     setShowIntensityPicker(!showIntensityPicker);
-  };
-
-  const toggleCountPicker = async () => {
-    await lightHaptic();
-    Keyboard.dismiss();
-    setShowIntensityPicker(false);
-    if (!showCountPicker) {
-      setCustomCountText(countOptions.includes(count) ? "" : String(count));
-    }
-    setShowCountPicker(!showCountPicker);
   };
 
   const chooseIntensity = async (value: number | null) => {
     await lightHaptic();
     setIntensity(value);
     setShowIntensityPicker(false);
-  };
-
-  const chooseCount = async (value: number) => {
-    await lightHaptic();
-    setCount(value);
-    setDidResist(0);
-    setShowCountPicker(false);
-    setCustomCountText("");
-  };
-
-  const submitCustomCount = () => {
-    const value = Number(customCountText);
-    if (!Number.isFinite(value) || value < 1) return;
-    chooseCount(Math.min(999999, Math.max(1, Math.round(value))));
   };
 
   const StatCard = ({
@@ -704,13 +655,18 @@ export function EditLogModal({
           <Ionicons name={icon} size={19} color="#000000" />
         </View>
 
-        <View className="ml-3 flex-1 flex-row items-center">
+        <View className="ml-3 flex-1">
           <Text className="text-sm font-black text-black">{label}</Text>
-          <Text className="ml-2 text-sm font-bold text-gray-500">{value}</Text>
+          <Text
+            numberOfLines={1}
+            className="mt-0.5 text-xs font-bold text-gray-500"
+          >
+            {value}
+          </Text>
         </View>
 
         {onPress ? (
-          <View className="rounded-full border border-gray-200 bg-white px-3 py-1">
+          <View className="rounded-full border border-gray-200 bg-white px-2 py-1">
             <Text className="text-xs font-black text-black">Change</Text>
           </View>
         ) : null}
@@ -814,20 +770,23 @@ export function EditLogModal({
 
             <LogOutcomeCard
               didResist={didResist === 1}
-              quantityLabel={countLabel}
+              quantity={count}
+              unit={countUnit}
               onSelectResisted={() => {
                 void lightHaptic();
                 setDidResist(1);
                 setCount(0);
-                setShowCountPicker(false);
-                setCustomCountText("");
               }}
               onSelectGaveIn={() => {
                 void lightHaptic();
                 setDidResist(0);
                 if (count === 0) setCount(1);
               }}
-              onChangeQuantity={toggleCountPicker}
+              onSelectQuantity={(quantity) => {
+                void lightHaptic();
+                setCount(quantity);
+                setDidResist(0);
+              }}
             />
 
             <View className="mt-2 flex-row">
@@ -839,91 +798,47 @@ export function EditLogModal({
               />
             </View>
 
-            {showCountPicker ? (
-              <View className="mt-2 rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm">
-                <View className="flex-row items-center">
-                  <View className="h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                    <Ionicons name="repeat" size={20} color="#000000" />
+            <View
+              ref={notesAnchorRef}
+              className="mt-2 w-full rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm"
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row flex-1 items-center pr-3">
+                  <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+                    <Ionicons name="document-text" size={19} color="#000000" />
                   </View>
 
-                  <View className="ml-3 flex-1">
-                    <Text className="text-base font-black text-black">
-                      Quantity logged
-                    </Text>
-                    <Text className="mt-0.5 text-xs font-semibold text-gray-500">
-                      Log the actual amount, not just one event.
-                    </Text>
-                  </View>
+                  <Text className="ml-3 text-sm font-black text-black">
+                    Notes
+                  </Text>
                 </View>
 
-                <View className="mt-3 flex-row flex-wrap">
-                  {countOptions.map((value) => {
-                    const selected = count === value && !customCountText;
-
-                    return (
-                      <Pressable
-                        key={value}
-                        onPress={() => chooseCount(value)}
-                        className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
-                          selected
-                            ? "border-green-600 bg-green-600"
-                            : "border-gray-200 bg-white"
-                        }`}
-                      >
-                        <Text
-                          className={`text-sm font-black ${
-                            selected ? "text-white" : "text-black"
-                          }`}
-                        >
-                          {formatQuantity(value, countUnit)}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                  <Pressable
-                    onPress={() =>
-                      setCustomCountText(String(Math.max(1, count)))
-                    }
-                    className={`mb-2 mr-2 rounded-full border px-4 py-2.5 ${
-                      customCountText
-                        ? "border-green-600 bg-green-600"
-                        : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <Text
-                      className={`text-sm font-black ${customCountText ? "text-white" : "text-black"}`}
-                    >
-                      Custom
-                    </Text>
-                  </Pressable>
-                </View>
-
-                {customCountText ? (
-                  <View className="mt-1 flex-row items-center gap-2">
-                    <TextInput
-                      value={customCountText}
-                      onChangeText={setCustomCountText}
-                      placeholder={`Other ${countUnit}`}
-                      placeholderTextColor="#9CA3AF"
-                      keyboardType={
-                        Platform.OS === "ios"
-                          ? "numbers-and-punctuation"
-                          : "number-pad"
-                      }
-                      returnKeyType="done"
-                      onSubmitEditing={submitCustomCount}
-                      className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-black"
-                    />
-                    <Pressable
-                      onPress={submitCustomCount}
-                      className="rounded-2xl bg-green-600 px-5 py-3"
-                    >
-                      <Text className="font-black text-white">Done</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
+                <Pressable
+                  onPress={() => setShowNotes((value) => !value)}
+                  className="rounded-2xl border border-gray-200 bg-white px-3 py-1.5"
+                >
+                  <Text className="text-xs font-black text-black">
+                    {showNotes ? "Hide" : "Add"}
+                  </Text>
+                </Pressable>
               </View>
-            ) : null}
+
+              {showNotes ? (
+                <TextInput
+                  ref={notesInputRef}
+                  value={notesText}
+                  onChangeText={setNotesText}
+                  maxLength={INPUT_LIMITS.logNotes}
+                  blurOnSubmit
+                  returnKeyType="done"
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                  onFocus={scrollNotesIntoView}
+                  placeholder="Anything useful to remember..."
+                  className="mt-2 min-h-[38px] rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm text-black"
+                  placeholderTextColor="#9CA3AF"
+                />
+              ) : null}
+            </View>
 
             {showIntensityPicker ? (
               <View className="mt-3 rounded-[28px] border border-gray-200 bg-gray-50 p-4 shadow-sm">
@@ -1163,48 +1078,6 @@ export function EditLogModal({
                     </Pressable>
                   ) : null}
                 </View>
-              ) : null}
-            </View>
-
-            <View
-              ref={notesAnchorRef}
-              className="mt-2 w-full rounded-3xl border border-gray-200 bg-gray-50 p-3 shadow-sm"
-            >
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row flex-1 items-center pr-3">
-                  <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                    <Ionicons name="document-text" size={19} color="#000000" />
-                  </View>
-
-                  <Text className="ml-3 text-sm font-black text-black">
-                    Notes
-                  </Text>
-                </View>
-
-                <Pressable
-                  onPress={() => setShowNotes((value) => !value)}
-                  className="rounded-2xl border border-gray-200 bg-white px-3 py-1.5"
-                >
-                  <Text className="text-xs font-black text-black">
-                    {showNotes ? "Hide" : "Add"}
-                  </Text>
-                </Pressable>
-              </View>
-
-              {showNotes ? (
-                <TextInput
-                  ref={notesInputRef}
-                  value={notesText}
-                  onChangeText={setNotesText}
-                  maxLength={INPUT_LIMITS.logNotes}
-                  blurOnSubmit
-                  returnKeyType="done"
-                  onSubmitEditing={() => Keyboard.dismiss()}
-                  onFocus={scrollNotesIntoView}
-                  placeholder="Anything useful to remember..."
-                  className="mt-2 min-h-[38px] rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm text-black"
-                  placeholderTextColor="#9CA3AF"
-                />
               ) : null}
             </View>
 

@@ -351,7 +351,6 @@ export default function AnalyticsScreen() {
   const [ampm, setAmpm] = useState<"AM" | "PM">("AM");
   const [editError, setEditError] = useState("");
   const [showIntensityPicker, setShowIntensityPicker] = useState(false);
-  const [showCountPicker, setShowCountPicker] = useState(false);
   const scrollViewRef = useRef<ScrollView | null>(null);
   const habitTabsScrollRef = useRef<ScrollView | null>(null);
   const handledResetTokenRef = useRef<number | null>(null);
@@ -361,7 +360,6 @@ export default function AnalyticsScreen() {
     setEditingLog(null);
     setEditError("");
     setShowIntensityPicker(false);
-    setShowCountPicker(false);
     Keyboard.dismiss();
   };
 
@@ -1681,7 +1679,6 @@ export default function AnalyticsScreen() {
         ampm={ampm}
         editError={editError}
         showIntensityPicker={showIntensityPicker}
-        showCountPicker={showCountPicker}
         setHabitId={setHabitId}
         setCueIds={setCueIds}
         setLocationId={setLocationId}
@@ -1698,7 +1695,6 @@ export default function AnalyticsScreen() {
         setMinuteText={setMinuteText}
         setAmpm={setAmpm}
         setShowIntensityPicker={setShowIntensityPicker}
-        setShowCountPicker={setShowCountPicker}
         onSave={handleSaveEdit}
         onDelete={handleDeleteLog}
         onClose={closeEditModal}

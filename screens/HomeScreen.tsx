@@ -777,8 +777,37 @@ export default function HomeScreen() {
       (quantity / observedDays.size) * daysInPeriod(activeHabit.baselinePeriod)
     );
   }, [activeHabit, logs, trackingConfirmations]);
-  const displayedRecentHabitAverage =
-    recentHabitAverage == null ? null : Math.round(recentHabitAverage);
+  const habitAverageCard = useMemo(() => {
+    if (recentHabitAverage != null) {
+      return {
+        label: "Recent average",
+        amount: recentHabitAverage,
+      };
+    }
+
+    if (activeHabit?.calibratedBaseline != null) {
+      return {
+        label: "Last known average",
+        amount: activeHabit.calibratedBaseline,
+      };
+    }
+
+    if (activeHabit?.estimatedBaseline != null) {
+      return {
+        label: "Estimated average",
+        amount: activeHabit.estimatedBaseline,
+      };
+    }
+
+    return {
+      label: "Recent average",
+      amount: null,
+    };
+  }, [activeHabit, recentHabitAverage]);
+  const displayedHabitAverage =
+    habitAverageCard.amount == null
+      ? null
+      : Math.round(habitAverageCard.amount);
   const currentProgressVsRecentPercent = useMemo(() => {
     if (
       !activeHabit ||
@@ -1332,19 +1361,19 @@ export default function HomeScreen() {
                 <View className="mt-3 flex-row gap-3">
                   <StatTile
                     accentColor={activeHabitColor}
-                    label="Recent average"
+                    label={habitAverageCard.label}
                     labelAtBottom
                     value={
-                      displayedRecentHabitAverage == null
+                      displayedHabitAverage == null
                         ? "—"
-                        : `${displayedRecentHabitAverage}`
+                        : `${displayedHabitAverage}`
                     }
                     sub={
-                      displayedRecentHabitAverage == null || !activeHabit
-                        ? "Still building"
+                      displayedHabitAverage == null || !activeHabit
+                        ? "Add your starting amount"
                         : `${unitForValue(
                             activeHabitUnit,
-                            displayedRecentHabitAverage,
+                            displayedHabitAverage,
                           )} ${periodRateLabel(activeHabit.baselinePeriod)}`
                     }
                     icon="analytics"
