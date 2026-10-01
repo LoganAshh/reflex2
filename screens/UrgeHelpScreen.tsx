@@ -764,6 +764,14 @@ export default function UrgeHelpScreen() {
 
   const currentStep: Step = useMemo(() => {
     if (mode === "decision") {
+      if (recentLog?.didResist === 1) {
+        return {
+          kind: "decision",
+          title: "You got stronger!",
+          body: "Every resisted urge is another rep for the response you want to build.",
+          icon: "shield-checkmark",
+        };
+      }
       return {
         kind: "decision",
         title: "Nice job logging",
@@ -795,8 +803,8 @@ export default function UrgeHelpScreen() {
       ? {
           kind: "done",
           title: "Great work!",
-          body: "You practiced responding to that urge with intention.",
-          tip: "Each time you practice a different response, you make it easier to choose again in the future.",
+          body: "You chose intentionally instead of automatically.",
+          tip: "Like a muscle, that response gets stronger each time you practice it.",
           icon: "star",
         }
       : {
@@ -808,7 +816,14 @@ export default function UrgeHelpScreen() {
 
     if (stepIndex < helpSteps.length) return helpSteps[stepIndex];
     return doneStep;
-  }, [mode, recentLog?.habitName, recentLogTime, stepIndex, triedStepIndexes]);
+  }, [
+    mode,
+    recentLog?.didResist,
+    recentLog?.habitName,
+    recentLogTime,
+    stepIndex,
+    triedStepIndexes,
+  ]);
 
   const totalSteps = helpSteps.length + 1;
   const currentStepNumber = stepIndex + 1;
@@ -1712,7 +1727,10 @@ export default function UrgeHelpScreen() {
       </ScrollView>
 
       {mode === "decision" ? (
-        <View className="pb-8 pt-4">
+        <View
+          className="pt-4"
+          style={{ paddingBottom: isHelpFirst ? 32 : 108 }}
+        >
           <Pressable
             onPress={() => {
               Haptics.notificationAsync(
@@ -1847,7 +1865,7 @@ export default function UrgeHelpScreen() {
           </Pressable>
         </View>
       ) : (
-        <View className="pb-4 pt-2">
+        <View className="pt-2" style={{ paddingBottom: isHelpFirst ? 16 : 92 }}>
           {isFirstGuidedStep ? (
             <>
               <Pressable

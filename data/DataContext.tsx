@@ -1093,7 +1093,11 @@ export function DataProvider({ children }: DataProviderProps) {
     const uniqueIds = Array.from(new Set(habitIds)).filter((habitId) =>
       Number.isFinite(habitId),
     );
-    const habitsById = new Map(habits.map((habit) => [habit.id, habit]));
+    // A habit's setup can be saved immediately before it is selected. Read the
+    // latest rows so the selected list never restores the older, incomplete
+    // in-memory version of that habit.
+    const latestHabits = await loadHabits();
+    const habitsById = new Map(latestHabits.map((habit) => [habit.id, habit]));
     const previousSelectedHabits = selectedHabits;
     const nextSelectedHabits = uniqueIds.flatMap((habitId) => {
       const habit = habitsById.get(habitId);
@@ -1104,6 +1108,7 @@ export function DataProvider({ children }: DataProviderProps) {
 
     try {
       await replaceSelectedHabits(uniqueIds);
+      setSelectedHabitsState(await loadSelectedHabits());
     } catch (error) {
       setSelectedHabitsState(previousSelectedHabits);
       throw error;

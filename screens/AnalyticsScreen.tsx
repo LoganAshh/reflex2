@@ -371,6 +371,7 @@ export default function AnalyticsScreen() {
     handledResetTokenRef.current = resetToken;
     setActiveTab("Overall");
     setMonthOffset(0);
+    setProgressView("calendar");
     setPatternRange("4W");
     setInsightRange("4W");
     setPatternDetailKey(null);
@@ -509,9 +510,12 @@ export default function AnalyticsScreen() {
   }, [activeTab, habitTabs]);
 
   const filteredLogs = useMemo(() => {
-    if (activeTab === "Overall") return logs;
+    if (activeTab === "Overall") {
+      const selectedIds = new Set(selectedHabits.map((habit) => habit.id));
+      return logs.filter((log) => selectedIds.has(log.habitId));
+    }
     return logs.filter((l) => (l.habitName ?? "").trim() === activeTab);
-  }, [logs, activeTab]);
+  }, [logs, activeTab, selectedHabits]);
 
   const calendar = useMemo(() => {
     const base = new Date();
@@ -530,7 +534,12 @@ export default function AnalyticsScreen() {
       if (l.didResist === 1) continue;
 
       const k = dayKey(l.createdAt);
-      const add = typeof l.count === "number" ? Math.max(0, l.count) : 1;
+      const add =
+        activeTab === "Overall"
+          ? 1
+          : typeof l.count === "number"
+            ? Math.max(0, l.count)
+            : 1;
 
       giveInCounts.set(k, (giveInCounts.get(k) ?? 0) + add);
     }
@@ -602,7 +611,14 @@ export default function AnalyticsScreen() {
     });
 
     return { weeks, monthLabel };
-  }, [filteredLogs, monthOffset, installDayStartMs, todayStartMs, hasAnyLogs]);
+  }, [
+    activeTab,
+    filteredLogs,
+    monthOffset,
+    installDayStartMs,
+    todayStartMs,
+    hasAnyLogs,
+  ]);
 
   const selectedDayLogs = useMemo(() => {
     if (selectedDayMs == null) return [];
@@ -1130,7 +1146,9 @@ export default function AnalyticsScreen() {
                     </Text>
 
                     <Text className="mt-0.5 text-xs font-semibold leading-4 text-gray-500">
-                      Tap a day to view or edit logs for that day.
+                      {activeTab === "Overall"
+                        ? "Color shows habit activity. Tap a day to view logs."
+                        : "Tap a day to view or edit logs for that day."}
                     </Text>
                   </View>
 
@@ -1164,6 +1182,7 @@ export default function AnalyticsScreen() {
             ) : (
               <ProgressTrendChart
                 habit={activeHabit}
+                overallHabits={selectedHabits}
                 cycles={cycleHistory}
                 logs={logs}
                 accentColor={activeHabitColor}
@@ -1414,8 +1433,8 @@ export default function AnalyticsScreen() {
                 <Text className="mt-1 text-sm font-semibold text-gray-500">
                   Based on {activePatternDetail?.total ?? 0}{" "}
                   {(activePatternDetail?.total ?? 0) === 1
-                    ? "give-in"
-                    : "give-ins"}{" "}
+                    ? "habit activity log"
+                    : "habit activity logs"}{" "}
                   · {rangeLabel(patternRange)} view
                 </Text>
               </View>
@@ -1567,7 +1586,7 @@ export default function AnalyticsScreen() {
                     percentage: activitySummary.resistRate,
                   },
                   {
-                    label: "Gave in",
+                    label: "Habit happened",
                     count: activitySummary.gaveIn,
                     percentage: activitySummary.gaveInRate,
                   },
@@ -1613,7 +1632,7 @@ export default function AnalyticsScreen() {
                     value: activitySummary.avgResistedIntensity,
                   },
                   {
-                    label: "When gave in",
+                    label: "When habit happened",
                     value: activitySummary.avgGaveInIntensity,
                   },
                 ].map((item) => (
@@ -1652,6 +1671,7 @@ export default function AnalyticsScreen() {
         visible={dayModalOpen}
         selectedDayLabel={selectedDayLabel}
         selectedDayLogs={selectedDayLogs}
+        habitOptions={habitOptions}
         onClose={closeDayModal}
         onEditLog={openEditModal}
       />

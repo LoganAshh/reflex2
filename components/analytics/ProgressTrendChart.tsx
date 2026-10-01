@@ -198,7 +198,7 @@ function individualPoints(habit: Habit, cycles: CycleHistoryEntry[]) {
   });
 }
 
-function overallPoints(cycles: CycleHistoryEntry[]) {
+function overallPoints(cycles: CycleHistoryEntry[], habitIds: Set<number>) {
   const weeks = new Map<
     number,
     Map<number, { levels: number[]; resisted: number }>
@@ -206,6 +206,7 @@ function overallPoints(cycles: CycleHistoryEntry[]) {
 
   for (const cycle of cycles) {
     if (
+      !habitIds.has(cycle.habitId) ||
       cycle.actualQuantity == null ||
       cycle.baseline == null ||
       cycle.baseline <= 0
@@ -224,17 +225,21 @@ function overallPoints(cycles: CycleHistoryEntry[]) {
     weeks.set(week, habits);
   }
 
+  const latestHabitLevels = new Map<number, number>();
   const raw = Array.from(weeks.entries())
     .sort(([a], [b]) => a - b)
     .map(([week, habits]) => {
-      const habitAverages = Array.from(habits.values()).map(
-        (habit) =>
+      for (const [habitId, habit] of habits) {
+        latestHabitLevels.set(
+          habitId,
           habit.levels.reduce((sum, value) => sum + value, 0) /
-          habit.levels.length,
-      );
+            habit.levels.length,
+        );
+      }
+      const visibleLevels = Array.from(latestHabitLevels.values());
       const value =
-        habitAverages.reduce((sum, amount) => sum + amount, 0) /
-        habitAverages.length;
+        visibleLevels.reduce((sum, amount) => sum + amount, 0) /
+        visibleLevels.length;
       const resistedUrges = Array.from(habits.values()).reduce(
         (sum, habit) => sum + habit.resisted,
         0,
@@ -461,12 +466,14 @@ function GoalLegendItem({
 
 export function ProgressTrendChart({
   habit,
+  overallHabits = [],
   cycles,
   logs,
   accentColor,
   embedded = false,
 }: {
   habit: Habit | null;
+  overallHabits?: Habit[];
   cycles: CycleHistoryEntry[];
   logs: LogEntry[];
   accentColor: string;
@@ -489,11 +496,15 @@ export function ProgressTrendChart({
     habit != null &&
     habit.currentGoalPeriod !== "day" &&
     completedHabitCycleCount < 4;
+  const overallHabitIds = useMemo(
+    () => new Set(overallHabits.map((item) => item.id)),
+    [overallHabits],
+  );
   const allPoints = useMemo(() => {
-    if (!habit) return overallPoints(cycles);
+    if (!habit) return overallPoints(cycles, overallHabitIds);
     if (usingProvisionalPoints) return provisionalActivityPoints(habit, logs);
     return individualPoints(habit, cycles);
-  }, [cycles, habit, logs, usingProvisionalPoints]);
+  }, [cycles, habit, logs, overallHabitIds, usingProvisionalPoints]);
   const suggestedRange = useMemo<RangeKey>(() => {
     if (usingProvisionalPoints) return "4W";
     if (habit?.currentGoalPeriod === "28_days" && allPoints.length >= 4) {
@@ -628,7 +639,7 @@ export function ProgressTrendChart({
               ? `${habit.currentGoalPeriod === "week" ? "Daily" : "Weekly"} activity · Lower is better`
               : habit
                 ? `Completed ${completedPeriodName(habit.currentGoalPeriod)} · Lower is better`
-                : "Overall activity score · Lower is better"}
+                : "Average level compared with each starting level · Lower is better"}
           </Text>
         </View>
         <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
@@ -712,7 +723,9 @@ export function ProgressTrendChart({
                 }}
               >
                 <Text className="text-right text-[9px] font-bold text-gray-400">
-                  {formatAxisNumber(maxValue - (maxValue - minValue) * ratio)}
+                  {`${formatAxisNumber(
+                    maxValue - (maxValue - minValue) * ratio,
+                  )}${habit == null ? "%" : ""}`}
                 </Text>
               </View>
             ))}
@@ -894,11 +907,11 @@ export function ProgressTrendChart({
               <Text className="mt-1 text-xl font-black text-black">
                 {habit && selected.actual != null
                   ? `${formatNumber(selected.actual)} ${unitForValue(selected.unit, selected.actual)} per ${periodName(selected.period)}`
-                  : `Overall score: ${formatNumber(selected.value)}`}
+                  : `Overall level: ${formatNumber(selected.value)}%`}
               </Text>
               {habit == null ? (
                 <Text className="mt-1 text-xs font-semibold text-gray-600">
-                  You started at 100
+                  100% is your combined starting level
                 </Text>
               ) : null}
               {habit && selected.goal != null ? (
@@ -928,9 +941,9 @@ export function ProgressTrendChart({
                         ? `${formatNumber(delta)} more than the previous cycle`
                         : "Same as the previous cycle"
                     : delta < 0
-                      ? `Down ${formatNumber(Math.abs(delta))} points from last week`
+                      ? `Down ${formatNumber(Math.abs(delta))} percentage points from last week`
                       : delta > 0
-                        ? `Up ${formatNumber(delta)} points from last week`
+                        ? `Up ${formatNumber(delta)} percentage points from last week`
                         : "Same as last week"}
                 </Text>
               ) : null}

@@ -153,6 +153,13 @@ function formatWeeklyReviewDateTime(date: Date) {
   });
 }
 
+function capitalizeNoteStart(value: string) {
+  return value.replace(
+    /^(\s*)([a-z])/,
+    (_match, spacing, letter: string) => `${spacing}${letter.toUpperCase()}`,
+  );
+}
+
 function mergeDatePart(current: Date, selectedDate: Date) {
   const next = new Date(current);
   next.setFullYear(
@@ -1916,6 +1923,7 @@ export default function LogScreen({
             didResist={didResist}
             quantity={count}
             unit={countUnit}
+            resetToken={route.params?.resetToken}
             onSelectResisted={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
                 () => {},
@@ -1981,10 +1989,11 @@ export default function LogScreen({
                 <TextInput
                   ref={notesInputRef}
                   value={notes}
-                  onChangeText={setNotes}
+                  onChangeText={(value) => setNotes(capitalizeNoteStart(value))}
                   maxLength={INPUT_LIMITS.logNotes}
                   placeholder="Anything useful to remember..."
                   placeholderTextColor="#9CA3AF"
+                  autoCapitalize="sentences"
                   className="mt-2 min-h-[38px] w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm text-black"
                   returnKeyType="done"
                   submitBehavior="blurAndSubmit"

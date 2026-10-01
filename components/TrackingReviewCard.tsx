@@ -70,6 +70,9 @@ export function TrackingReviewCard({
   const habitChipLayoutsRef = useRef<
     Record<number, { x: number; width: number }>
   >({});
+  const pendingHabitChipScrollTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   const scrollHabitChipIntoView = (id: number, animated = true) => {
     const layout = habitChipLayoutsRef.current[id];
@@ -80,6 +83,16 @@ export function TrackingReviewCard({
       x: Math.max(0, layout.x - (viewportWidth - layout.width) / 2),
       animated,
     });
+  };
+
+  const scheduleHabitChipScroll = (id: number, animated = true) => {
+    if (pendingHabitChipScrollTimerRef.current != null) {
+      clearTimeout(pendingHabitChipScrollTimerRef.current);
+    }
+    pendingHabitChipScrollTimerRef.current = setTimeout(() => {
+      pendingHabitChipScrollTimerRef.current = null;
+      scrollHabitChipIntoView(id, animated);
+    }, 40);
   };
 
   useEffect(() => {
@@ -96,10 +109,13 @@ export function TrackingReviewCard({
 
   useEffect(() => {
     if (habitId == null) return;
-    const frame = requestAnimationFrame(() => {
-      scrollHabitChipIntoView(habitId);
-    });
-    return () => cancelAnimationFrame(frame);
+    scheduleHabitChipScroll(habitId);
+    return () => {
+      if (pendingHabitChipScrollTimerRef.current != null) {
+        clearTimeout(pendingHabitChipScrollTimerRef.current);
+        pendingHabitChipScrollTimerRef.current = null;
+      }
+    };
   }, [habitId]);
 
   const habit = useMemo(
@@ -308,7 +324,7 @@ export function TrackingReviewCard({
         className="mt-3"
         onLayout={(event) => {
           habitChipViewportWidthRef.current = event.nativeEvent.layout.width;
-          if (habitId != null) scrollHabitChipIntoView(habitId, false);
+          if (habitId != null) scheduleHabitChipScroll(habitId, false);
         }}
       >
         {habits.map((item: Habit) => {
@@ -321,7 +337,7 @@ export function TrackingReviewCard({
                   x: event.nativeEvent.layout.x,
                   width: event.nativeEvent.layout.width,
                 };
-                if (selected) scrollHabitChipIntoView(item.id, false);
+                if (selected) scheduleHabitChipScroll(item.id);
               }}
               onPress={() => {
                 Haptics.selectionAsync();

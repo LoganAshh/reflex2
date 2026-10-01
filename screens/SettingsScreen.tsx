@@ -818,7 +818,7 @@ export default function SettingsScreen() {
           <SectionTitle title="Developer" icon="construct" />
           <Row
             title="Preview dashboard banners"
-            subtitle="Show every banner using safe preview data. Press Home again to exit."
+            subtitle="Show every grouped update using all selected habits. Select 2+ to test the full flow."
             icon="albums"
             onPress={() => {
               if (selectedHabits.length === 0) {

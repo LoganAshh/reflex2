@@ -18,7 +18,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import type { LogEntry } from "../../data/DataContext";
 import { INPUT_LIMITS } from "../../data/inputLimits";
-import { LogOutcomeCard } from "../LogOutcomeCard";
+import { LogOutcomeCard, formatLogAmount } from "../LogOutcomeCard";
 
 type ChipItem = {
   key: string;
@@ -167,11 +167,11 @@ function dateToTimeParts(date: Date) {
   };
 }
 
-function countLabelFor(n: number) {
-  if (n === 0) return "None";
-  if (n === 1) return "Once";
-  if (n === 2) return "Twice";
-  return `${n}x`;
+function capitalizeNoteStart(value: string) {
+  return value.replace(
+    /^(\s*)([a-z])/,
+    (_match, spacing, letter: string) => `${spacing}${letter.toUpperCase()}`,
+  );
 }
 
 function getSectionIcon(title: string): keyof typeof Ionicons.glyphMap {
@@ -285,12 +285,14 @@ export function DayLogsModal({
   visible,
   selectedDayLabel,
   selectedDayLogs,
+  habitOptions,
   onClose,
   onEditLog,
 }: {
   visible: boolean;
   selectedDayLabel: string;
   selectedDayLogs: LogEntry[];
+  habitOptions: BaseItem[];
   onClose: () => void;
   onEditLog: (log: LogEntry) => void;
 }) {
@@ -301,6 +303,8 @@ export function DayLogsModal({
     });
 
     const win = item.didResist === 1;
+    const unit =
+      habitOptions.find((habit) => habit.id === item.habitId)?.unit ?? "times";
 
     return (
       <View
@@ -380,8 +384,8 @@ export function DayLogsModal({
           </Text>
 
           <Text className="mt-1 text-sm text-gray-500">
-            <Text className="font-black text-black">Count:</Text>{" "}
-            {countLabelFor(item.count)}
+            <Text className="font-black text-black">Amount:</Text>{" "}
+            {formatLogAmount(item.count, unit)}
           </Text>
 
           {item.notes ? (
@@ -827,13 +831,16 @@ export function EditLogModal({
                 <TextInput
                   ref={notesInputRef}
                   value={notesText}
-                  onChangeText={setNotesText}
+                  onChangeText={(value) =>
+                    setNotesText(capitalizeNoteStart(value))
+                  }
                   maxLength={INPUT_LIMITS.logNotes}
                   blurOnSubmit
                   returnKeyType="done"
                   onSubmitEditing={() => Keyboard.dismiss()}
                   onFocus={scrollNotesIntoView}
                   placeholder="Anything useful to remember..."
+                  autoCapitalize="sentences"
                   className="mt-2 min-h-[38px] rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm text-black"
                   placeholderTextColor="#9CA3AF"
                 />

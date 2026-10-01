@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   Modal,
@@ -16,6 +16,7 @@ type LogOutcomeCardProps = {
   didResist: boolean;
   quantity: number;
   unit: string;
+  resetToken?: number;
   onSelectResisted: () => void;
   onSelectGaveIn: () => void;
   onSelectQuantity: (quantity: number) => void;
@@ -28,10 +29,20 @@ function quantityUnit(unit: string, value: number) {
   return unit;
 }
 
-function formatQuantity(value: number, unit: string) {
-  if (unit.trim().toLowerCase() === "times") {
+export function formatLogAmount(value: number, unit: string) {
+  if (value === 0) return "None";
+  const normalizedUnit = unit.trim().toLowerCase();
+  if (normalizedUnit === "times") {
     if (value === 1) return "Once";
     if (value === 2) return "Twice";
+  }
+
+  if (normalizedUnit === "minutes") {
+    const hours = Math.floor(value / 60);
+    const minutes = value % 60;
+    if (hours > 0 && minutes > 0) return `${hours} hr ${minutes} min`;
+    if (hours > 0) return `${hours} hr`;
+    return `${minutes} min`;
   }
 
   return `${value} ${quantityUnit(unit, value)}`;
@@ -41,6 +52,7 @@ export function LogOutcomeCard({
   didResist,
   quantity,
   unit,
+  resetToken,
   onSelectResisted,
   onSelectGaveIn,
   onSelectQuantity,
@@ -48,10 +60,15 @@ export function LogOutcomeCard({
   const [infoOpen, setInfoOpen] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [customValue, setCustomValue] = useState("");
+  const [customHours, setCustomHours] = useState("");
+  const [customMinutes, setCustomMinutes] = useState("");
+  const customMinutesInputRef = useRef<TextInput | null>(null);
+  const amountScrollRef = useRef<ScrollView | null>(null);
+  const isTimeBased = unit.trim().toLowerCase() === "minutes";
   const options = useMemo(
     () =>
       unit.trim().toLowerCase() === "minutes"
-        ? [1, 5, 10, 15, 20, 30, 45, 60]
+        ? [1, 5, 15, 30, 60, 120]
         : Array.from({ length: 10 }, (_, index) => index + 1),
     [unit],
   );
@@ -62,26 +79,77 @@ export function LogOutcomeCard({
     if (didResist) {
       setShowCustom(false);
       setCustomValue("");
+      setCustomHours("");
+      setCustomMinutes("");
     }
   }, [didResist]);
 
   useEffect(() => {
     setShowCustom(false);
     setCustomValue("");
+    setCustomHours("");
+    setCustomMinutes("");
   }, [unit]);
+
+  useEffect(() => {
+    if (resetToken == null) return;
+    setShowCustom(false);
+    setCustomValue("");
+    setCustomHours("");
+    setCustomMinutes("");
+    requestAnimationFrame(() => {
+      amountScrollRef.current?.scrollTo({ x: 0, animated: true });
+    });
+  }, [resetToken]);
 
   const chooseQuantity = (value: number) => {
     Keyboard.dismiss();
     setShowCustom(false);
     setCustomValue("");
+    setCustomHours("");
+    setCustomMinutes("");
     onSelectQuantity(value);
   };
 
   const submitCustomValue = () => {
+    if (isTimeBased) {
+      const hours = customHours.trim() === "" ? 0 : Number(customHours);
+      const minutes = customMinutes.trim() === "" ? 0 : Number(customMinutes);
+      if (
+        !Number.isInteger(hours) ||
+        !Number.isInteger(minutes) ||
+        hours < 0 ||
+        minutes < 0 ||
+        minutes > 59
+      ) {
+        return;
+      }
+      const totalMinutes = hours * 60 + minutes;
+      if (totalMinutes < 1) return;
+      chooseQuantity(Math.min(999999, totalMinutes));
+      return;
+    }
+
     const parsed = Number(customValue);
     if (!Number.isFinite(parsed) || parsed < 1) return;
     chooseQuantity(Math.min(999999, Math.max(1, Math.round(parsed))));
   };
+
+  const customDurationIsValid = (() => {
+    const hours = customHours.trim() === "" ? 0 : Number(customHours);
+    const minutes = customMinutes.trim() === "" ? 0 : Number(customMinutes);
+    return (
+      Number.isInteger(hours) &&
+      Number.isInteger(minutes) &&
+      hours >= 0 &&
+      minutes >= 0 &&
+      minutes <= 59 &&
+      hours * 60 + minutes >= 1
+    );
+  })();
+  const customAmountIsValid = isTimeBased
+    ? customDurationIsValid
+    : Number.isFinite(Number(customValue)) && Number(customValue) >= 1;
 
   return (
     <>
@@ -123,6 +191,7 @@ export function LogOutcomeCard({
         </View>
 
         <ScrollView
+          ref={amountScrollRef}
           className="mt-2"
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -153,7 +222,7 @@ export function LogOutcomeCard({
                         selected ? "text-white" : "text-black"
                       }`}
                     >
-                      {formatQuantity(value, unit)}
+                      {formatLogAmount(value, unit)}
                     </Text>
                   </Pressable>
                 );
@@ -162,7 +231,15 @@ export function LogOutcomeCard({
               <Pressable
                 onPress={() => {
                   setShowCustom(true);
-                  setCustomValue(customSelected ? String(quantity) : "");
+                  if (isTimeBased) {
+                    const existing = customSelected ? quantity : 0;
+                    const hours = Math.floor(existing / 60);
+                    const minutes = existing % 60;
+                    setCustomHours(hours > 0 ? String(hours) : "");
+                    setCustomMinutes(minutes > 0 ? String(minutes) : "");
+                  } else {
+                    setCustomValue(customSelected ? String(quantity) : "");
+                  }
                 }}
                 className={`mr-2 rounded-full border px-3 py-1.5 ${
                   showCustom || customSelected
@@ -175,7 +252,9 @@ export function LogOutcomeCard({
                     showCustom || customSelected ? "text-white" : "text-black"
                   }`}
                 >
-                  Custom
+                  {customSelected && !showCustom
+                    ? formatLogAmount(quantity, unit)
+                    : "Custom"}
                 </Text>
               </Pressable>
             </>
@@ -213,25 +292,83 @@ export function LogOutcomeCard({
                   Custom amount
                 </Text>
                 <Text className="mt-1 text-sm font-semibold text-gray-500">
-                  Enter the amount that happened.
+                  {isTimeBased
+                    ? "Enter the hours and minutes."
+                    : "Enter the amount that happened."}
                 </Text>
               </View>
             </View>
 
-            <TextInput
-              autoFocus
-              value={customValue}
-              onChangeText={setCustomValue}
-              placeholder={`Amount in ${unit}`}
-              placeholderTextColor="#9CA3AF"
-              keyboardType={
-                Platform.OS === "ios" ? "numbers-and-punctuation" : "number-pad"
-              }
-              returnKeyType="done"
-              blurOnSubmit
-              onSubmitEditing={submitCustomValue}
-              className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
-            />
+            {isTimeBased ? (
+              <View className="mt-4 flex-row gap-3">
+                <View className="flex-1">
+                  <Text className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">
+                    Hours
+                  </Text>
+                  <TextInput
+                    autoFocus
+                    value={customHours}
+                    onChangeText={setCustomHours}
+                    placeholder="0"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType={
+                      Platform.OS === "ios"
+                        ? "numbers-and-punctuation"
+                        : "number-pad"
+                    }
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() =>
+                      customMinutesInputRef.current?.focus()
+                    }
+                    maxLength={4}
+                    textAlignVertical="center"
+                    className="h-12 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-0 text-center text-black"
+                  />
+                </View>
+
+                <View className="flex-1">
+                  <Text className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">
+                    Minutes
+                  </Text>
+                  <TextInput
+                    ref={customMinutesInputRef}
+                    value={customMinutes}
+                    onChangeText={setCustomMinutes}
+                    placeholder="0"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType={
+                      Platform.OS === "ios"
+                        ? "numbers-and-punctuation"
+                        : "number-pad"
+                    }
+                    returnKeyType="done"
+                    blurOnSubmit
+                    onSubmitEditing={submitCustomValue}
+                    maxLength={2}
+                    textAlignVertical="center"
+                    className="h-12 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-0 text-center text-black"
+                  />
+                </View>
+              </View>
+            ) : (
+              <TextInput
+                autoFocus
+                value={customValue}
+                onChangeText={setCustomValue}
+                placeholder={`Amount in ${unit}`}
+                placeholderTextColor="#9CA3AF"
+                keyboardType={
+                  Platform.OS === "ios"
+                    ? "numbers-and-punctuation"
+                    : "number-pad"
+                }
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={submitCustomValue}
+                className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-black"
+              />
+            )}
 
             <View className="mt-4 flex-row">
               <Pressable
@@ -248,12 +385,9 @@ export function LogOutcomeCard({
 
               <Pressable
                 onPress={submitCustomValue}
-                disabled={
-                  !Number.isFinite(Number(customValue)) ||
-                  Number(customValue) < 1
-                }
+                disabled={!customAmountIsValid}
                 className={`ml-2 flex-1 rounded-2xl px-4 py-3 ${
-                  Number(customValue) >= 1 ? "bg-green-600" : "bg-gray-300"
+                  customAmountIsValid ? "bg-green-600" : "bg-gray-300"
                 }`}
               >
                 <Text className="text-center text-sm font-black text-white">

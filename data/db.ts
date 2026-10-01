@@ -369,6 +369,18 @@ export async function ensureLocalSchemaColumns() {
     WHERE selectedActionTitle IS NULL AND selectedActionId IS NOT NULL;
 
     UPDATE actions
+    SET hidden = 1
+    WHERE title = 'List 3 reasons not to give in'
+      AND isCustom = 0
+      AND EXISTS (
+        SELECT 1 FROM actions AS existing
+        WHERE existing.title IN (
+          'List 3 reasons to stay on track',
+          'List 3 reasons to continue'
+        )
+      );
+
+    UPDATE actions
     SET title = 'List 3 reasons to stay on track'
     WHERE title = 'List 3 reasons not to give in'
       AND isCustom = 0
