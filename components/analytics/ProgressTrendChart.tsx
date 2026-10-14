@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GestureResponderEvent, LayoutChangeEvent } from "react-native";
-import { Pressable, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import type {
@@ -11,6 +11,7 @@ import type {
   LogEntry,
 } from "../../data/types";
 import { normalizeGoalAmount } from "../../data/goals";
+import { getRecordedHabitQuantity } from "../../data/tracking";
 
 type RangeKey = "4W" | "3M" | "6M" | "All";
 
@@ -149,7 +150,11 @@ function resultLabel(result: GoalCycleResult | null) {
   return null;
 }
 
-function individualPoints(habit: Habit, cycles: CycleHistoryEntry[]) {
+function individualPoints(
+  habit: Habit,
+  cycles: CycleHistoryEntry[],
+  logs: LogEntry[],
+) {
   const relevant = cycles
     .filter(
       (cycle) =>
@@ -160,17 +165,19 @@ function individualPoints(habit: Habit, cycles: CycleHistoryEntry[]) {
     .sort((a, b) => a.startAt - b.startAt);
 
   return relevant.map<TrendPoint>((cycle, index) => {
-    const actual = normalizeGoalAmount(
-      cycle.actualQuantity ?? 0,
-      cycle.period,
-      habit.currentGoalPeriod,
+    const actual = getRecordedHabitQuantity(
+      logs,
+      habit.id,
+      cycle.startAt,
+      cycle.endAtExclusive,
     );
     const priorCycle = relevant[index - 1];
     const priorValue = priorCycle
-      ? normalizeGoalAmount(
-          priorCycle.actualQuantity ?? 0,
-          priorCycle.period,
-          habit.currentGoalPeriod,
+      ? getRecordedHabitQuantity(
+          logs,
+          habit.id,
+          priorCycle.startAt,
+          priorCycle.endAtExclusive,
         )
       : null;
     return {
@@ -198,7 +205,11 @@ function individualPoints(habit: Habit, cycles: CycleHistoryEntry[]) {
   });
 }
 
-function overallPoints(cycles: CycleHistoryEntry[], habitIds: Set<number>) {
+function overallPoints(
+  cycles: CycleHistoryEntry[],
+  habitIds: Set<number>,
+  logs: LogEntry[],
+) {
   const weeks = new Map<
     number,
     Map<number, { levels: number[]; resisted: number }>
@@ -219,7 +230,13 @@ function overallPoints(cycles: CycleHistoryEntry[], habitIds: Set<number>) {
       levels: [],
       resisted: 0,
     };
-    habit.levels.push((cycle.actualQuantity / cycle.baseline) * 100);
+    const recordedQuantity = getRecordedHabitQuantity(
+      logs,
+      cycle.habitId,
+      cycle.startAt,
+      cycle.endAtExclusive,
+    );
+    habit.levels.push((recordedQuantity / cycle.baseline) * 100);
     habit.resisted += cycle.resistedUrges;
     habits.set(cycle.habitId, habit);
     weeks.set(week, habits);
@@ -482,6 +499,7 @@ export function ProgressTrendChart({
   const [range, setRange] = useState<RangeKey>("4W");
   const [width, setWidth] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hasInspectedGraph, setHasInspectedGraph] = useState(false);
   const lastHapticId = useRef<string | null>(null);
   const manuallySelectedRange = useRef(false);
 
@@ -501,9 +519,9 @@ export function ProgressTrendChart({
     [overallHabits],
   );
   const allPoints = useMemo(() => {
-    if (!habit) return overallPoints(cycles, overallHabitIds);
+    if (!habit) return overallPoints(cycles, overallHabitIds, logs);
     if (usingProvisionalPoints) return provisionalActivityPoints(habit, logs);
-    return individualPoints(habit, cycles);
+    return individualPoints(habit, cycles, logs);
   }, [cycles, habit, logs, overallHabitIds, usingProvisionalPoints]);
   const suggestedRange = useMemo<RangeKey>(() => {
     if (usingProvisionalPoints) return "4W";
@@ -590,6 +608,7 @@ export function ProgressTrendChart({
 
   const selectNearest = (event: GestureResponderEvent) => {
     if (coordinates.length === 0) return;
+    setHasInspectedGraph(true);
     const x = event.nativeEvent.locationX;
     const nearest = coordinates.reduce((best, current) =>
       Math.abs(current.x - x) < Math.abs(best.x - x) ? current : best,
@@ -609,6 +628,11 @@ export function ProgressTrendChart({
   const delta =
     selected?.priorValue == null ? null : selected.value - selected.priorValue;
   const result = selected ? resultLabel(selected.result) : null;
+  const historicalGoalChanged =
+    habit != null &&
+    selected?.goal != null &&
+    currentGoal != null &&
+    Math.abs(selected.goal - currentGoal) > 0.0001;
   const yAxisRatios = [0, 0.25, 0.5, 0.75, 1];
   const xAxisDates =
     minTime === maxTime
@@ -642,9 +666,26 @@ export function ProgressTrendChart({
                 : "Average level compared with each starting level · Lower is better"}
           </Text>
         </View>
-        <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-          <Ionicons name="trending-up" size={19} color={accentColor} />
-        </View>
+        {habit == null ? (
+          <Pressable
+            onPress={() =>
+              Alert.alert(
+                "Overall progress",
+                "100% represents your habits' combined starting level. Lower percentages mean less habit activity than when you started.",
+              )
+            }
+            accessibilityRole="button"
+            accessibilityLabel="About overall progress"
+            className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white"
+            hitSlop={8}
+          >
+            <Ionicons name="information-circle" size={20} color={accentColor} />
+          </Pressable>
+        ) : (
+          <View className="h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+            <Ionicons name="trending-up" size={19} color={accentColor} />
+          </View>
+        )}
       </View>
 
       <View className="mt-3 flex-row gap-2">
@@ -895,9 +936,11 @@ export function ProgressTrendChart({
               </Text>
             ))}
           </View>
-          <Text className="mt-1 text-center text-[10px] font-bold text-gray-400">
-            Tap or drag to inspect
-          </Text>
+          {!hasInspectedGraph ? (
+            <Text className="mt-1 text-center text-[10px] font-bold text-gray-400">
+              Tap or drag to inspect
+            </Text>
+          ) : null}
 
           {selected ? (
             <View className="mt-3 rounded-2xl border border-gray-200 bg-white p-3">
@@ -909,12 +952,7 @@ export function ProgressTrendChart({
                   ? `${formatNumber(selected.actual)} ${unitForValue(selected.unit, selected.actual)} per ${periodName(selected.period)}`
                   : `Overall level: ${formatNumber(selected.value)}%`}
               </Text>
-              {habit == null ? (
-                <Text className="mt-1 text-xs font-semibold text-gray-600">
-                  100% is your combined starting level
-                </Text>
-              ) : null}
-              {habit && selected.goal != null ? (
+              {historicalGoalChanged && selected.goal != null ? (
                 <Text className="mt-1 text-xs font-semibold text-gray-600">
                   Goal then: {formatNumber(selected.goal)}{" "}
                   {unitForValue(selected.unit, selected.goal)} per{" "}
@@ -954,13 +992,7 @@ export function ProgressTrendChart({
               ) : null}
               {selected.provisional ? (
                 <Text className="mt-1 text-xs font-semibold text-gray-500">
-                  {`Your completed-${habit?.currentGoalPeriod === "week" ? "week" : "month"} trend is still building. This activity is not used for goal results yet.`}
-                </Text>
-              ) : null}
-              {selected.resistedUrges > 0 ? (
-                <Text className="mt-1 text-xs font-semibold text-gray-600">
-                  {selected.resistedUrges} resisted{" "}
-                  {selected.resistedUrges === 1 ? "urge" : "urges"}
+                  Building your completed-cycle trend.
                 </Text>
               ) : null}
             </View>

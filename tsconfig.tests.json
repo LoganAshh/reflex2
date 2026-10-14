@@ -12,7 +12,9 @@
   },
   "include": [
     "data/baselines.ts",
+    "data/durationInput.ts",
     "data/goals.ts",
+    "data/localTime.ts",
     "data/tracking.ts",
     "data/types.ts"
   ]

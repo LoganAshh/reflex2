@@ -26,12 +26,19 @@ import { Screen } from "../components/Screen";
 import { TrackingReviewLauncher } from "../components/TrackingReviewCard";
 import { getPreviousCycleBounds } from "../data/tracking";
 import { cleanHabitIcon } from "../data/habitIcons";
-import { CALIBRATION_RULES } from "../data/baselines";
+import { getProvisionalRecentLevel } from "../data/baselines";
 import {
   calculateInitialCurrentGoal,
   calculateNextReductionGoal,
   normalizeGoalAmount,
 } from "../data/goals";
+import {
+  convertDurationInput,
+  durationInputLabel,
+  durationInputToMinutes,
+  preferredDurationInput,
+  type DurationInputUnit,
+} from "../data/durationInput";
 
 function startOfDayMs(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -290,7 +297,11 @@ export default function HomeScreen() {
     useState<number[]>([]);
   const [missingPlanStartingAmount, setMissingPlanStartingAmount] =
     useState("");
+  const [missingPlanStartingDurationUnit, setMissingPlanStartingDurationUnit] =
+    useState<DurationInputUnit>("minutes");
   const [missingPlanGoalAmount, setMissingPlanGoalAmount] = useState("");
+  const [missingPlanGoalDurationUnit, setMissingPlanGoalDurationUnit] =
+    useState<DurationInputUnit>("minutes");
   const [missingPlanMeasurementType, setMissingPlanMeasurementType] = useState<
     "times" | "minutes"
   >("times");
@@ -975,43 +986,11 @@ export default function HomeScreen() {
 
   const recentHabitAverage = useMemo(() => {
     if (!activeHabit) return null;
-
-    const todayStart = startOfDayMs(new Date());
-    const windowStart = addLocalDays(todayStart, -14);
-    const recentLogs = logs.filter(
-      (log) =>
-        log.habitId === activeHabit.id &&
-        log.createdAt >= windowStart &&
-        log.createdAt < todayStart,
-    );
-    const observedDays = new Set(
-      recentLogs.map((log) => startOfDayMs(new Date(log.createdAt))),
-    );
-
-    for (const confirmation of trackingConfirmations) {
-      if (
-        confirmation.habitId === activeHabit.id &&
-        confirmation.period === "day" &&
-        confirmation.status !== "not_yet" &&
-        confirmation.periodStart >= windowStart &&
-        confirmation.periodStart < todayStart
-      ) {
-        observedDays.add(confirmation.periodStart);
-      }
-    }
-
-    const requiredObservedDays =
-      CALIBRATION_RULES[activeHabit.baselinePeriod].recentObservedDays;
-    if (observedDays.size < requiredObservedDays) return null;
-
-    const quantity = recentLogs.reduce(
-      (total, log) =>
-        total + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
-      0,
-    );
-
-    return (
-      (quantity / observedDays.size) * daysInPeriod(activeHabit.baselinePeriod)
+    return getProvisionalRecentLevel(
+      activeHabit,
+      logs,
+      Date.now(),
+      trackingConfirmations,
     );
   }, [activeHabit, logs, trackingConfirmations]);
   const habitAverageCard = useMemo(() => {
@@ -1372,43 +1351,100 @@ export default function HomeScreen() {
           );
     const inputValue = (value: number | null) =>
       value == null ? "" : `${Math.round(value * 100) / 100}`;
+    const isDuration = activeMissingPlanHabit.measurementType === "minutes";
+    const startingDuration = preferredDurationInput(
+      isDuration ? convertedStartingAmount : null,
+    );
+    const goalDuration = preferredDurationInput(
+      isDuration ? convertedGoalAmount : null,
+    );
 
     setMissingPlanPeriod(period);
-    setMissingPlanMeasurementType(
-      activeMissingPlanHabit.measurementType === "minutes"
-        ? "minutes"
-        : "times",
+    setMissingPlanMeasurementType(isDuration ? "minutes" : "times");
+    setMissingPlanStartingAmount(
+      isDuration ? startingDuration.value : inputValue(convertedStartingAmount),
     );
-    setMissingPlanStartingAmount(inputValue(convertedStartingAmount));
-    setMissingPlanGoalAmount(inputValue(convertedGoalAmount));
+    setMissingPlanStartingDurationUnit(startingDuration.unit);
+    setMissingPlanGoalAmount(
+      isDuration ? goalDuration.value : inputValue(convertedGoalAmount),
+    );
+    setMissingPlanGoalDurationUnit(goalDuration.unit);
     setMissingPlanError("");
   }, [activeMissingPlanHabit]);
 
-  const showMissingPlanMeasurementMenu = () => {
+  const showMissingPlanMeasurementMenu = (field: "starting" | "goal") => {
     Keyboard.dismiss();
-    const choose = (measurement: "times" | "minutes") => {
-      setMissingPlanMeasurementType(measurement);
+    if (
+      missingPlanStartingAmountLocked &&
+      missingPlanMeasurementType === "times"
+    ) {
+      return;
+    }
+    const allowTimes = !missingPlanStartingAmountLocked;
+    const options = allowTimes
+      ? (["times", "minutes", "hours"] as const)
+      : (["minutes", "hours"] as const);
+    const choose = (selection: "times" | DurationInputUnit) => {
+      if (selection === "times") {
+        setMissingPlanMeasurementType("times");
+        setMissingPlanStartingDurationUnit("minutes");
+        setMissingPlanGoalDurationUnit("minutes");
+        setMissingPlanError("");
+        return;
+      }
+
+      const wasDuration = missingPlanMeasurementType === "minutes";
+      setMissingPlanMeasurementType("minutes");
+      if (field === "starting") {
+        if (wasDuration) {
+          setMissingPlanStartingAmount((value) =>
+            convertDurationInput(
+              value,
+              missingPlanStartingDurationUnit,
+              selection,
+            ),
+          );
+        } else {
+          setMissingPlanGoalDurationUnit("minutes");
+        }
+        setMissingPlanStartingDurationUnit(selection);
+      } else {
+        if (wasDuration) {
+          setMissingPlanGoalAmount((value) =>
+            convertDurationInput(value, missingPlanGoalDurationUnit, selection),
+          );
+        } else {
+          setMissingPlanStartingDurationUnit("minutes");
+        }
+        setMissingPlanGoalDurationUnit(selection);
+      }
       setMissingPlanError("");
     };
+
+    const labels = options.map((option) =>
+      option === "times" ? "Times" : option === "hours" ? "Hours" : "Minutes",
+    );
 
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ["Times", "Minutes", "Cancel"],
-          cancelButtonIndex: 2,
+          options: [...labels, "Cancel"],
+          cancelButtonIndex: labels.length,
           title: "Choose measurement",
         },
         (index) => {
-          if (index === 0) choose("times");
-          if (index === 1) choose("minutes");
+          const selection = options[index];
+          if (selection) choose(selection);
         },
       );
       return;
     }
 
     Alert.alert("Choose measurement", undefined, [
-      { text: "Times", onPress: () => choose("times") },
-      { text: "Minutes", onPress: () => choose("minutes") },
+      ...options.map((option, index) => ({
+        text: labels[index],
+        onPress: () => choose(option),
+      })),
       { text: "Cancel", style: "cancel" },
     ]);
   };
@@ -1467,12 +1503,20 @@ export default function HomeScreen() {
 
   const saveActiveMissingPlan = async () => {
     if (!activeMissingPlanHabit || savingMissingPlan) return;
-    const startingAmount = Number(missingPlanStartingAmount);
-    const goalAmount = Number(missingPlanGoalAmount);
+    const startingInput = Number(missingPlanStartingAmount);
+    const goalInput = Number(missingPlanGoalAmount);
+    const startingAmount =
+      missingPlanMeasurementType === "minutes"
+        ? durationInputToMinutes(startingInput, missingPlanStartingDurationUnit)
+        : startingInput;
+    const goalAmount =
+      missingPlanMeasurementType === "minutes"
+        ? durationInputToMinutes(goalInput, missingPlanGoalDurationUnit)
+        : goalInput;
 
     if (
       !missingPlanStartingAmount.trim() ||
-      !Number.isFinite(startingAmount) ||
+      !Number.isFinite(startingInput) ||
       startingAmount < 0
     ) {
       setMissingPlanError("Add a valid estimated starting amount.");
@@ -1480,7 +1524,7 @@ export default function HomeScreen() {
     }
     if (
       !missingPlanGoalAmount.trim() ||
-      !Number.isFinite(goalAmount) ||
+      !Number.isFinite(goalInput) ||
       goalAmount < 0
     ) {
       setMissingPlanError("Add a valid long-term goal amount.");
@@ -2397,16 +2441,21 @@ export default function HomeScreen() {
                     />
                     <Pressable
                       disabled={missingPlanStartingAmountLocked}
-                      onPress={showMissingPlanMeasurementMenu}
+                      onPress={() => showMissingPlanMeasurementMenu("starting")}
                       className={`ml-2 flex-row items-center rounded-xl border border-gray-200 bg-white px-2 py-2 ${
                         missingPlanStartingAmountLocked ? "opacity-60" : ""
                       }`}
                     >
                       <Text className="text-xs font-black text-black">
-                        {unitForValue(
-                          missingPlanMeasurementType,
-                          Number(missingPlanStartingAmount),
-                        )}
+                        {missingPlanMeasurementType === "times"
+                          ? unitForValue(
+                              "times",
+                              Number(missingPlanStartingAmount),
+                            )
+                          : durationInputLabel(
+                              missingPlanStartingDurationUnit,
+                              missingPlanStartingAmount,
+                            )}
                       </Text>
                       <Ionicons name="chevron-down" size={12} color="#6B7280" />
                     </Pressable>
@@ -2453,17 +2502,25 @@ export default function HomeScreen() {
                       className="h-10 w-16 rounded-xl border border-gray-200 bg-white px-3 py-0 text-center text-black"
                     />
                     <Pressable
-                      disabled={missingPlanStartingAmountLocked}
-                      onPress={showMissingPlanMeasurementMenu}
+                      disabled={
+                        missingPlanStartingAmountLocked &&
+                        missingPlanMeasurementType === "times"
+                      }
+                      onPress={() => showMissingPlanMeasurementMenu("goal")}
                       className={`ml-2 flex-row items-center rounded-xl border border-gray-200 bg-white px-2 py-2 ${
-                        missingPlanStartingAmountLocked ? "opacity-60" : ""
+                        missingPlanStartingAmountLocked &&
+                        missingPlanMeasurementType === "times"
+                          ? "opacity-60"
+                          : ""
                       }`}
                     >
                       <Text className="text-xs font-black text-black">
-                        {unitForValue(
-                          missingPlanMeasurementType,
-                          Number(missingPlanGoalAmount),
-                        )}
+                        {missingPlanMeasurementType === "times"
+                          ? unitForValue("times", Number(missingPlanGoalAmount))
+                          : durationInputLabel(
+                              missingPlanGoalDurationUnit,
+                              missingPlanGoalAmount,
+                            )}
                       </Text>
                       <Ionicons name="chevron-down" size={12} color="#6B7280" />
                     </Pressable>

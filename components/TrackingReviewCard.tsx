@@ -14,7 +14,12 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import type { WeeklyReviewLogRequest } from "../App";
 import LogScreen from "../screens/LogScreen";
-import { useData, type Habit, type TrackingStatus } from "../data/DataContext";
+import {
+  useData,
+  type Habit,
+  type LogEntry,
+  type TrackingStatus,
+} from "../data/DataContext";
 import { startOfLocalDay } from "../data/baselines";
 import { getPreviousCycleBounds } from "../data/tracking";
 
@@ -36,15 +41,32 @@ function dateRange(startAt: number, endAtExclusive: number) {
   })}`;
 }
 
+function reviewActivityLabel(value: number, unit: string) {
+  const normalizedUnit = unit.trim().toLowerCase();
+  if (normalizedUnit === "minutes") {
+    const hours = Math.floor(value / 60);
+    const minutes = value % 60;
+    if (hours > 0 && minutes > 0) return `${hours} hr ${minutes} min`;
+    if (hours > 0) return `${hours} hr`;
+    return `${minutes} min`;
+  }
+  if (normalizedUnit === "times") {
+    return `${value} ${value === 1 ? "time" : "times"}`;
+  }
+  return `${value} ${unit}`;
+}
+
 export function TrackingReviewCard({
   habits,
   onAddMissingLog,
+  onViewDay,
   onDone,
   initialHabitId = null,
   previewOnly = false,
 }: {
   habits: Habit[];
   onAddMissingLog?: (habitId: number, dayStart: number) => void;
+  onViewDay?: (habit: Habit, dayStart: number, logs: LogEntry[]) => void;
   onDone?: () => void;
   initialHabitId?: number | null;
   previewOnly?: boolean;
@@ -277,18 +299,15 @@ export function TrackingReviewCard({
                 : defaultEmptyStatus))) as TrackingStatus,
       }));
       const hasAnyLogs = weekDays.some((day) => day.logs.length > 0);
-      const hasUnknownDays = daily.some((day) => day.status === "not_yet");
       await setTrackingConfirmationsBatch([
         ...daily,
         {
           habitId: habit.id,
           period: "week",
           periodStart: previousWeek.startAt,
-          status: hasUnknownDays
-            ? "not_yet"
-            : hasAnyLogs
-              ? "everything_logged"
-              : "nothing_happened",
+          // This record means the user finished reviewing the week. Unknown
+          // days remain `not_yet` above, so calculations still exclude them.
+          status: hasAnyLogs ? "everything_logged" : "nothing_happened",
         },
       ]);
       setReviewingGaps(false);
@@ -427,22 +446,53 @@ export function TrackingReviewCard({
                   key={day.startAt}
                   className="rounded-2xl bg-gray-50 px-3 py-2.5"
                 >
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-sm font-black text-black">
-                      {new Date(day.startAt).toLocaleDateString(undefined, {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </Text>
-                    <Text className="text-xs font-bold text-gray-500">
-                      {day.logs.length > 0
-                        ? `${activity} activity · ${resisted} resisted`
-                        : emptyChoice === "nothing_happened"
-                          ? "Nothing happened"
-                          : "Empty · unknown"}
-                    </Text>
-                  </View>
+                  <Pressable
+                    disabled={day.logs.length === 0 || !onViewDay}
+                    accessibilityRole={
+                      day.logs.length > 0 ? "button" : undefined
+                    }
+                    accessibilityLabel={
+                      day.logs.length > 0
+                        ? `View details for ${new Date(day.startAt).toLocaleDateString()}`
+                        : undefined
+                    }
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      onViewDay?.(habit, day.startAt, day.logs);
+                    }}
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-sm font-black text-black">
+                        {new Date(day.startAt).toLocaleDateString(undefined, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </Text>
+                      <View className="ml-2 flex-1 flex-row items-center justify-end">
+                        <Text
+                          className="flex-1 text-right text-xs font-bold text-gray-500"
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.8}
+                        >
+                          {day.logs.length > 0
+                            ? `${reviewActivityLabel(activity, habit.unit)} happened · ${resisted} resisted`
+                            : emptyChoice === "nothing_happened"
+                              ? "Nothing happened"
+                              : "Empty · unknown"}
+                        </Text>
+                        {day.logs.length > 0 ? (
+                          <Ionicons
+                            name="chevron-forward"
+                            size={16}
+                            color="#6B7280"
+                            style={{ marginLeft: 4 }}
+                          />
+                        ) : null}
+                      </View>
+                    </View>
+                  </Pressable>
                   {reviewingGaps ? (
                     <View className="mt-2 gap-2">
                       {day.logs.length === 0 ? (
@@ -623,6 +673,153 @@ function WeeklyReviewLogOverlay({
   );
 }
 
+function WeeklyReviewDayDetailsOverlay({
+  habit,
+  dayStart,
+  logs,
+  onClose,
+}: {
+  habit: Habit;
+  dayStart: number;
+  logs: LogEntry[];
+  onClose: () => void;
+}) {
+  const dayLabel = new Date(dayStart).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+  const orderedLogs = [...logs].sort((a, b) => a.createdAt - b.createdAt);
+
+  return (
+    <View
+      className="absolute inset-0 z-30 items-center justify-center bg-black/40 px-5"
+      style={{ elevation: 30 }}
+    >
+      <View className="max-h-[82%] w-full rounded-[32px] bg-white p-5">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 flex-row items-center pr-3">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons name="calendar" size={24} color="#000000" />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="text-xl font-black text-black">Day details</Text>
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                {habit.name} · {dayLabel}
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            onPress={onClose}
+            className="h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white"
+            hitSlop={10}
+          >
+            <Ionicons name="close" size={20} color="#000000" />
+          </Pressable>
+        </View>
+
+        <ScrollView
+          className="mt-4"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 2 }}
+        >
+          {orderedLogs.map((log) => {
+            const time = new Date(log.createdAt).toLocaleTimeString(undefined, {
+              hour: "numeric",
+              minute: "2-digit",
+            });
+            const cues =
+              log.cueNames.length > 0
+                ? log.cueNames.join(", ")
+                : (log.cueName ?? "Not selected");
+
+            return (
+              <View
+                key={log.id}
+                className="mb-3 rounded-[28px] border border-gray-200 bg-gray-50 p-4"
+              >
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-xs font-black uppercase tracking-wide text-green-600">
+                    {time}
+                  </Text>
+                  <View
+                    className={`rounded-full border px-3 py-1 ${
+                      log.didResist === 1
+                        ? "border-green-600 bg-green-600"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text
+                      className={`text-[11px] font-black ${
+                        log.didResist === 1 ? "text-white" : "text-black"
+                      }`}
+                    >
+                      {log.didResist === 1 ? "Resisted" : "Habit happened"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View className="mt-3 rounded-2xl border border-gray-200 bg-white p-3">
+                  {log.didResist !== 1 ? (
+                    <Text className="text-sm text-gray-500">
+                      <Text className="font-black text-black">Amount:</Text>{" "}
+                      {reviewActivityLabel(log.count, habit.unit)}
+                    </Text>
+                  ) : null}
+                  <Text
+                    className={`${log.didResist !== 1 ? "mt-1 " : ""}text-sm text-gray-500`}
+                  >
+                    <Text className="font-black text-black">Why:</Text> {cues}
+                  </Text>
+                  <Text className="mt-1 text-sm text-gray-500">
+                    <Text className="font-black text-black">Where:</Text>{" "}
+                    {log.locationName ?? "Not selected"}
+                  </Text>
+                  <Text className="mt-1 text-sm text-gray-500">
+                    <Text className="font-black text-black">Intensity:</Text>{" "}
+                    {log.intensity == null
+                      ? "Not selected"
+                      : `${log.intensity}/10`}
+                  </Text>
+                  {log.movedToLocationName ? (
+                    <Text className="mt-1 text-sm text-gray-500">
+                      <Text className="font-black text-black">Moved to:</Text>{" "}
+                      {log.movedToLocationName}
+                    </Text>
+                  ) : null}
+                  {log.selectedActionTitle ? (
+                    <Text className="mt-1 text-sm text-gray-500">
+                      <Text className="font-black text-black">
+                        Replacement action:
+                      </Text>{" "}
+                      {log.selectedActionTitle}
+                    </Text>
+                  ) : null}
+                  {log.notes ? (
+                    <Text className="mt-1 text-sm text-gray-500">
+                      <Text className="font-black text-black">Notes:</Text>{" "}
+                      {log.notes}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+        </ScrollView>
+
+        <Pressable
+          onPress={onClose}
+          className="mt-4 rounded-3xl bg-green-600 py-4"
+        >
+          <Text className="text-center text-base font-black text-white">
+            Close
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export function TrackingReviewLauncher({
   placement,
   habitId = null,
@@ -640,6 +837,11 @@ export function TrackingReviewLauncher({
   const [open, setOpen] = useState(false);
   const [activeReviewLog, setActiveReviewLog] =
     useState<WeeklyReviewLogRequest | null>(null);
+  const [activeDetailDay, setActiveDetailDay] = useState<{
+    habit: Habit;
+    dayStart: number;
+    logs: LogEntry[];
+  } | null>(null);
   const [modalHabitIds, setModalHabitIds] = useState<number[]>([]);
   const [modalInitialHabitId, setModalInitialHabitId] = useState<number | null>(
     null,
@@ -826,6 +1028,9 @@ export function TrackingReviewLauncher({
                 key={`${placement}:${habitId ?? "overall"}:${modalHabitIds.join(",")}`}
                 habits={modalHabits}
                 onAddMissingLog={addMissingLog}
+                onViewDay={(habit, dayStart, dayLogs) =>
+                  setActiveDetailDay({ habit, dayStart, logs: dayLogs })
+                }
                 initialHabitId={modalInitialHabitId}
                 onDone={() => setOpen(false)}
                 previewOnly={previewOnly}
@@ -836,6 +1041,15 @@ export function TrackingReviewLauncher({
               <WeeklyReviewLogOverlay
                 request={activeReviewLog}
                 onClose={() => setActiveReviewLog(null)}
+              />
+            ) : null}
+
+            {activeDetailDay ? (
+              <WeeklyReviewDayDetailsOverlay
+                habit={activeDetailDay.habit}
+                dayStart={activeDetailDay.dayStart}
+                logs={activeDetailDay.logs}
+                onClose={() => setActiveDetailDay(null)}
               />
             ) : null}
           </SafeAreaView>

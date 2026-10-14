@@ -10,7 +10,6 @@ import {
   Text,
   Pressable,
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   TextInput,
   Keyboard,
@@ -932,89 +931,77 @@ function QuickAddLogItemModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+      <Pressable
+        className="flex-1 justify-center bg-black/40 px-4"
+        style={{ paddingBottom: Platform.OS === "ios" ? 200 : 160 }}
+        onPress={onClose}
       >
-        <ScrollView
-          className="flex-1 bg-black/40"
-          contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: "center",
-            paddingHorizontal: 16,
-          }}
-          keyboardShouldPersistTaps="always"
-          keyboardDismissMode="on-drag"
+        <Pressable
+          className="w-full rounded-[32px] bg-white p-5"
+          onPress={() => {}}
         >
-          <Pressable
-            className="w-full rounded-[32px] bg-white p-5"
-            onPress={() => {}}
-          >
-            <View className="flex-row items-center">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
-                <Ionicons
-                  name={type === "cues" ? "alert-circle" : "location"}
-                  size={24}
-                  color="#000000"
-                />
-              </View>
-              <View className="ml-3 flex-1">
-                <Text className="text-xl font-black text-black">
-                  Add {singular}
-                </Text>
-                <Text className="mt-1 text-sm font-semibold text-gray-500">
-                  It will be selected for this log.
-                </Text>
-              </View>
+          <View className="flex-row items-center">
+            <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
+              <Ionicons
+                name={type === "cues" ? "alert-circle" : "location"}
+                size={24}
+                color="#000000"
+              />
             </View>
-
-            <TextInput
-              autoFocus
-              value={value}
-              onChangeText={onChange}
-              maxLength={managedItemInputLimit(type)}
-              placeholder={`Enter a ${singular}`}
-              placeholderTextColor="#9CA3AF"
-              returnKeyType="done"
-              submitBehavior="blurAndSubmit"
-              blurOnSubmit
-              onSubmitEditing={() => Keyboard.dismiss()}
-              className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-base text-black"
-            />
-
-            {error ? (
-              <Text className="mt-2 text-sm font-bold text-red-600">
-                {error}
+            <View className="ml-3 flex-1">
+              <Text className="text-xl font-black text-black">
+                Add {singular}
               </Text>
-            ) : null}
-
-            <Pressable
-              disabled={saving || value.trim().length === 0}
-              onPress={onAdd}
-              className={`mt-4 rounded-2xl px-5 py-3 ${
-                saving || value.trim().length === 0
-                  ? "bg-green-300"
-                  : "bg-green-600"
-              }`}
-            >
-              <Text className="text-center text-sm font-black text-white">
-                {saving ? "Adding..." : "Add"}
+              <Text className="mt-1 text-sm font-semibold text-gray-500">
+                It will be selected for this log.
               </Text>
-            </Pressable>
+            </View>
+          </View>
 
-            <Pressable
-              disabled={saving}
-              onPress={onClose}
-              onPressIn={onClose}
-              className="mt-2 rounded-2xl border border-gray-200 bg-white px-5 py-3"
-            >
-              <Text className="text-center text-sm font-black text-black">
-                Cancel
-              </Text>
-            </Pressable>
+          <TextInput
+            autoFocus
+            value={value}
+            onChangeText={onChange}
+            maxLength={managedItemInputLimit(type)}
+            placeholder={`Enter a ${singular}`}
+            placeholderTextColor="#9CA3AF"
+            returnKeyType="done"
+            submitBehavior="blurAndSubmit"
+            blurOnSubmit
+            onSubmitEditing={() => Keyboard.dismiss()}
+            textAlignVertical="center"
+            className="mt-5 h-12 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-0 text-base text-black"
+          />
+
+          {error ? (
+            <Text className="mt-2 text-sm font-bold text-red-600">{error}</Text>
+          ) : null}
+
+          <Pressable
+            disabled={saving || value.trim().length === 0}
+            onPress={onAdd}
+            className={`mt-4 rounded-2xl px-5 py-3 ${
+              saving || value.trim().length === 0
+                ? "bg-green-300"
+                : "bg-green-600"
+            }`}
+          >
+            <Text className="text-center text-sm font-black text-white">
+              {saving ? "Adding..." : "Add"}
+            </Text>
           </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+
+          <Pressable
+            disabled={saving}
+            onPress={onClose}
+            className="mt-2 rounded-2xl border border-gray-200 bg-white px-5 py-3"
+          >
+            <Text className="text-center text-sm font-black text-black">
+              Cancel
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -1379,6 +1366,11 @@ export default function LogScreen({
       Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
     const showSub = Keyboard.addListener(showEvent, (event) => {
+      if (quickAddType != null) {
+        setKeyboardHeight(0);
+        keyboardLiftAnim.setValue(0);
+        return;
+      }
       setKeyboardHeight(event.endCoordinates.height);
 
       Animated.timing(keyboardLiftAnim, {
@@ -1402,7 +1394,7 @@ export default function LogScreen({
       showSub.remove();
       hideSub.remove();
     };
-  }, [keyboardLiftAnim]);
+  }, [keyboardLiftAnim, quickAddType]);
 
   const unlockSave = () => {
     saveInProgressRef.current = false;

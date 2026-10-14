@@ -38,6 +38,13 @@ import { HabitIconPicker } from "../components/HabitIconPicker";
 import { Screen } from "../components/Screen";
 import { calculateNextReductionGoal, normalizeGoalAmount } from "../data/goals";
 import { managedItemInputLimit } from "../data/inputLimits";
+import {
+  convertDurationInput,
+  durationInputLabel,
+  durationInputToMinutes,
+  preferredDurationInput,
+  type DurationInputUnit,
+} from "../data/durationInput";
 import DraggableFlatList from "react-native-draggable-flatlist";
 
 type ManageRoute = RouteProp<RootStackParamList, "ManageList">;
@@ -99,7 +106,6 @@ const HABIT_COLOR_NAMES: Record<(typeof HABIT_COLOR_OPTIONS)[number], string> =
   };
 
 const PERIOD_OPTIONS: HabitPeriod[] = ["day", "week", "28_days"];
-const MEASUREMENT_OPTIONS = ["times", "minutes"] as const;
 
 function periodLabel(period: HabitPeriod) {
   if (period === "28_days") return "Month";
@@ -165,11 +171,17 @@ function goalPeriodForSetup(habit: Habit): HabitPeriod {
     : habit.goalPeriod;
 }
 
-function showMeasurementMenu(
-  selectedMeasurement: (typeof MEASUREMENT_OPTIONS)[number],
-  onSelect: (measurement: (typeof MEASUREMENT_OPTIONS)[number]) => void,
+function showAmountUnitMenu(
+  selectedMeasurement: "times" | DurationInputUnit,
+  allowTimes: boolean,
+  onSelect: (measurement: "times" | DurationInputUnit) => void,
 ) {
-  const labels = ["Times", "Minutes"];
+  const options = allowTimes
+    ? (["times", "minutes", "hours"] as const)
+    : (["minutes", "hours"] as const);
+  const labels = options.map((option) =>
+    option === "times" ? "Times" : option === "hours" ? "Hours" : "Minutes",
+  );
   Keyboard.dismiss();
 
   if (Platform.OS === "ios") {
@@ -180,7 +192,7 @@ function showMeasurementMenu(
         title: "Choose measurement",
       },
       (buttonIndex) => {
-        const measurement = MEASUREMENT_OPTIONS[buttonIndex];
+        const measurement = options[buttonIndex];
         if (measurement) onSelect(measurement);
       },
     );
@@ -189,10 +201,15 @@ function showMeasurementMenu(
 
   Alert.alert(
     "Choose measurement",
-    `Currently ${selectedMeasurement === "minutes" ? "Minutes" : "Times"}`,
+    `Currently ${selectedMeasurement === "times" ? "Times" : selectedMeasurement === "hours" ? "Hours" : "Minutes"}`,
     [
-      ...MEASUREMENT_OPTIONS.map((measurement) => ({
-        text: measurement === "minutes" ? "Minutes" : "Times",
+      ...options.map((measurement) => ({
+        text:
+          measurement === "times"
+            ? "Times"
+            : measurement === "hours"
+              ? "Hours"
+              : "Minutes",
         onPress: () => onSelect(measurement),
       })),
       { text: "Cancel", style: "cancel" as const },
@@ -299,8 +316,12 @@ export default function ManageListScreen() {
     "times",
   );
   const [estimatedBaseline, setEstimatedBaseline] = useState("");
+  const [startingDurationUnit, setStartingDurationUnit] =
+    useState<DurationInputUnit>("minutes");
   const [baselinePeriod, setBaselinePeriod] = useState<HabitPeriod>("week");
   const [finalTarget, setFinalTarget] = useState("");
+  const [goalDurationUnit, setGoalDurationUnit] =
+    useState<DurationInputUnit>("minutes");
   const [goalPeriod, setGoalPeriod] = useState<HabitPeriod>("week");
   const [returnSelection, setReturnSelection] =
     useState<ManageListSelection | null>(null);
@@ -373,6 +394,7 @@ export default function ManageListScreen() {
   const startingAmountLocked = editingHabit?.calibratedBaseline != null;
   const startingAmountDisplayValue =
     startingAmountLocked &&
+    startingDurationUnit === "minutes" &&
     estimatedBaseline.trim() !== "" &&
     Number.isFinite(Number(estimatedBaseline))
       ? Math.round(Number(estimatedBaseline)).toString()
@@ -653,21 +675,34 @@ export default function ManageListScreen() {
       const sharedPeriod = goalPeriodForSetup(habit);
       const startingAmount =
         habit.calibratedBaseline ?? habit.estimatedBaseline;
-      setEditIcon((habit.icon as HabitIconName) ?? DEFAULT_HABIT_ICON);
-      setMeasurementType(
-        habit.measurementType === "minutes" ? "minutes" : "times",
-      );
-      setEstimatedBaseline(
+      const normalizedStartingAmount =
         startingAmount == null
-          ? ""
-          : `${normalizeGoalAmount(
+          ? null
+          : normalizeGoalAmount(
               startingAmount,
               habit.baselinePeriod,
               sharedPeriod,
-            )}`,
+            );
+      const isDuration = habit.measurementType === "minutes";
+      const startingDuration = preferredDurationInput(
+        isDuration ? normalizedStartingAmount : null,
       );
+      const goalDuration = preferredDurationInput(
+        isDuration ? habit.finalTarget : null,
+      );
+      setEditIcon((habit.icon as HabitIconName) ?? DEFAULT_HABIT_ICON);
+      setMeasurementType(isDuration ? "minutes" : "times");
+      setEstimatedBaseline(
+        isDuration
+          ? startingDuration.value
+          : (normalizedStartingAmount?.toString() ?? ""),
+      );
+      setStartingDurationUnit(startingDuration.unit);
       setBaselinePeriod(sharedPeriod);
-      setFinalTarget(habit.finalTarget?.toString() ?? "");
+      setFinalTarget(
+        isDuration ? goalDuration.value : (habit.finalTarget?.toString() ?? ""),
+      );
+      setGoalDurationUnit(goalDuration.unit);
       setGoalPeriod(sharedPeriod);
     }
   }
@@ -683,6 +718,47 @@ export default function ManageListScreen() {
     setGoalPeriod(nextPeriod);
   };
 
+  const changeAmountUnit = (
+    field: "starting" | "goal",
+    nextUnit: "times" | DurationInputUnit,
+  ) => {
+    if (
+      startingAmountLocked &&
+      measurementType === "times" &&
+      field === "goal"
+    ) {
+      return;
+    }
+    if (nextUnit === "times") {
+      setMeasurementType("times");
+      setStartingDurationUnit("minutes");
+      setGoalDurationUnit("minutes");
+      return;
+    }
+
+    const wasDuration = measurementType === "minutes";
+    setMeasurementType("minutes");
+    if (field === "starting") {
+      if (wasDuration) {
+        setEstimatedBaseline((value) =>
+          convertDurationInput(value, startingDurationUnit, nextUnit),
+        );
+      } else {
+        setGoalDurationUnit("minutes");
+      }
+      setStartingDurationUnit(nextUnit);
+    } else {
+      if (wasDuration) {
+        setFinalTarget((value) =>
+          convertDurationInput(value, goalDurationUnit, nextUnit),
+        );
+      } else {
+        setStartingDurationUnit("minutes");
+      }
+      setGoalDurationUnit(nextUnit);
+    }
+  };
+
   const closeEdit = () => {
     Keyboard.dismiss();
     if (previewOnly && navigation.canGoBack()) {
@@ -696,9 +772,11 @@ export default function ManageListScreen() {
     setHabitPicker(null);
     setGoalAdjustmentsOpen(false);
     setMeasurementType("times");
+    setStartingDurationUnit("minutes");
     setEstimatedBaseline("");
     setBaselinePeriod("day");
     setFinalTarget("");
+    setGoalDurationUnit("minutes");
     setGoalPeriod("day");
     setSelectAfterSaveId(null);
   };
@@ -727,12 +805,20 @@ export default function ManageListScreen() {
           : null;
 
       if (type === "habits") {
-        const currentAmount = Number(estimatedBaseline);
-        const goalAmount = Number(finalTarget);
+        const currentInput = Number(estimatedBaseline);
+        const goalInput = Number(finalTarget);
+        const currentAmount =
+          measurementType === "minutes"
+            ? durationInputToMinutes(currentInput, startingDurationUnit)
+            : currentInput;
+        const goalAmount =
+          measurementType === "minutes"
+            ? durationInputToMinutes(goalInput, goalDurationUnit)
+            : goalInput;
 
         if (
           !estimatedBaseline.trim() ||
-          !Number.isFinite(currentAmount) ||
+          !Number.isFinite(currentInput) ||
           currentAmount < 0
         ) {
           Alert.alert(
@@ -744,7 +830,7 @@ export default function ManageListScreen() {
 
         if (
           !finalTarget.trim() ||
-          !Number.isFinite(goalAmount) ||
+          !Number.isFinite(goalInput) ||
           goalAmount < 0
         ) {
           Alert.alert(
@@ -1237,11 +1323,12 @@ export default function ManageListScreen() {
                             <Pressable
                               disabled={startingAmountLocked}
                               onPress={() =>
-                                showMeasurementMenu(
-                                  measurementType === "minutes"
-                                    ? "minutes"
-                                    : "times",
-                                  setMeasurementType,
+                                showAmountUnitMenu(
+                                  measurementType === "times"
+                                    ? "times"
+                                    : startingDurationUnit,
+                                  true,
+                                  (unit) => changeAmountUnit("starting", unit),
                                 )
                               }
                               className={`ml-2 flex-row items-center rounded-xl border border-gray-200 bg-white px-2 py-2 ${
@@ -1249,10 +1336,15 @@ export default function ManageListScreen() {
                               }`}
                             >
                               <Text className="text-xs font-black text-black">
-                                {measurementUnitForAmount(
-                                  measurementUnitLabel,
-                                  estimatedBaseline,
-                                )}
+                                {measurementType === "times"
+                                  ? measurementUnitForAmount(
+                                      "times",
+                                      estimatedBaseline,
+                                    )
+                                  : durationInputLabel(
+                                      startingDurationUnit,
+                                      estimatedBaseline,
+                                    )}
                               </Text>
                               <Ionicons
                                 name="chevron-down"
@@ -1318,24 +1410,36 @@ export default function ManageListScreen() {
                               className="w-16 rounded-xl border border-gray-200 bg-white px-3 py-2 text-center text-black"
                             />
                             <Pressable
-                              disabled={startingAmountLocked}
+                              disabled={
+                                startingAmountLocked &&
+                                measurementType === "times"
+                              }
                               onPress={() =>
-                                showMeasurementMenu(
-                                  measurementType === "minutes"
-                                    ? "minutes"
-                                    : "times",
-                                  setMeasurementType,
+                                showAmountUnitMenu(
+                                  measurementType === "times"
+                                    ? "times"
+                                    : goalDurationUnit,
+                                  !startingAmountLocked,
+                                  (unit) => changeAmountUnit("goal", unit),
                                 )
                               }
                               className={`ml-2 flex-row items-center rounded-xl border border-gray-200 bg-white px-2 py-2 ${
-                                startingAmountLocked ? "opacity-60" : ""
+                                startingAmountLocked &&
+                                measurementType === "times"
+                                  ? "opacity-60"
+                                  : ""
                               }`}
                             >
                               <Text className="text-xs font-black text-black">
-                                {measurementUnitForAmount(
-                                  measurementUnitLabel,
-                                  finalTarget,
-                                )}
+                                {measurementType === "times"
+                                  ? measurementUnitForAmount(
+                                      "times",
+                                      finalTarget,
+                                    )
+                                  : durationInputLabel(
+                                      goalDurationUnit,
+                                      finalTarget,
+                                    )}
                               </Text>
                               <Ionicons
                                 name="chevron-down"

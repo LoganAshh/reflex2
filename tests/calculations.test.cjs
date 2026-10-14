@@ -3,6 +3,8 @@ const assert = require("node:assert/strict");
 const {
   CALIBRATION_RULES,
   getCalibrationCandidate,
+  getBaselineSummary,
+  getProvisionalRecentLevel,
   startOfLocalDay,
 } = require("../.test-build/baselines.js");
 const {
@@ -16,7 +18,60 @@ const {
 const {
   getCompletedCycleHistory,
   getLatestCycleReview,
+  getRecordedHabitQuantity,
 } = require("../.test-build/tracking.js");
+const {
+  decodeLocalDateTime,
+  encodeLocalDateTime,
+} = require("../.test-build/localTime.js");
+const {
+  convertDurationInput,
+  durationInputToMinutes,
+  preferredDurationInput,
+} = require("../.test-build/durationInput.js");
+
+test("hour inputs are stored as minutes and reopen in a friendly unit", () => {
+  assert.equal(durationInputToMinutes(1.5, "hours"), 90);
+  assert.equal(convertDurationInput("90", "minutes", "hours"), "1.5");
+  assert.equal(convertDurationInput("1.5", "hours", "minutes"), "90");
+  assert.deepEqual(preferredDurationInput(90), {
+    unit: "hours",
+    value: "1.5",
+  });
+  assert.deepEqual(preferredDurationInput(45), {
+    unit: "minutes",
+    value: "45",
+  });
+});
+
+test("saved local date and time survive a timezone change", () => {
+  const originalTimezone = process.env.TZ;
+
+  try {
+    process.env.TZ = "America/Phoenix";
+    const original = new Date(2026, 7, 28, 22, 15, 0, 0).getTime();
+    const savedLocalTime = encodeLocalDateTime(original);
+    const originalDayStart = new Date(2026, 7, 28, 0, 0, 0, 0).getTime();
+    const savedLocalDayStart = encodeLocalDateTime(originalDayStart);
+
+    process.env.TZ = "America/Chicago";
+    const restored = new Date(decodeLocalDateTime(savedLocalTime));
+    const restoredDayStart = new Date(decodeLocalDateTime(savedLocalDayStart));
+
+    assert.equal(restored.getFullYear(), 2026);
+    assert.equal(restored.getMonth(), 7);
+    assert.equal(restored.getDate(), 28);
+    assert.equal(restored.getHours(), 22);
+    assert.equal(restored.getMinutes(), 15);
+    assert.equal(restoredDayStart.getFullYear(), 2026);
+    assert.equal(restoredDayStart.getMonth(), 7);
+    assert.equal(restoredDayStart.getDate(), 28);
+    assert.equal(restoredDayStart.getHours(), 0);
+  } finally {
+    if (originalTimezone == null) delete process.env.TZ;
+    else process.env.TZ = originalTimezone;
+  }
+});
 
 function day(year, month, date) {
   return new Date(year, month - 1, date).getTime();
@@ -160,6 +215,38 @@ test("baseline calibration waits for enough elapsed and observed days", () => {
   );
 });
 
+test("live monthly average uses provisional no-activity days before review", () => {
+  const start = day(2026, 8, 1);
+  const monthlyHabit = habit({
+    baselinePeriod: "28_days",
+    calibrationStartedAt: start,
+  });
+  const oneLog = [log(addDays(start, 4) + 12_000, 3)];
+  const now = addDays(start, 14);
+
+  assert.equal(getProvisionalRecentLevel(monthlyHabit, oneLog, now, []), 6);
+  assert.equal(getBaselineSummary(monthlyHabit, oneLog, now, []).recent, null);
+});
+
+test("live monthly average excludes days marked forgot or unsure", () => {
+  const start = day(2026, 8, 1);
+  const monthlyHabit = habit({
+    baselinePeriod: "28_days",
+    calibrationStartedAt: start,
+  });
+  const unknownDay = confirmation(addDays(start, 2), "not_yet");
+
+  assert.equal(
+    getProvisionalRecentLevel(
+      monthlyHabit,
+      [log(addDays(start, 4) + 12_000, 3)],
+      addDays(start, 14),
+      [unknownDay],
+    ),
+    null,
+  );
+});
+
 test("six confirmed days are projected to a seven-day amount", () => {
   const start = day(2026, 8, 10);
   const confirmations = Array.from({ length: 6 }, (_, index) =>
@@ -176,6 +263,55 @@ test("six confirmed days are projected to a seven-day amount", () => {
   assert.equal(review.complete, true);
   assert.equal(review.actualQuantity, 14);
   assert.notEqual(review.result, "goal_achieved");
+});
+
+test("the graph can show the recorded total instead of the projected result", () => {
+  const start = day(2026, 8, 10);
+  const confirmations = Array.from({ length: 6 }, (_, index) =>
+    confirmation(addDays(start, index)),
+  );
+  const logs = [
+    log(addDays(start, 1) + 12_000, 1),
+    log(addDays(start, 3) + 12_000, 2),
+  ];
+  const cycle = getCompletedCycleHistory(
+    habit(),
+    logs,
+    confirmations,
+    [],
+    day(2026, 8, 17),
+  )[0];
+
+  assert.equal(cycle.actualQuantity, 3.5);
+  assert.equal(
+    getRecordedHabitQuantity(logs, 1, cycle.startAt, cycle.endAtExclusive),
+    3,
+  );
+});
+
+test("a submitted weekly review does not count unknown days as confirmed", () => {
+  const start = day(2026, 8, 10);
+  const confirmations = [
+    ...Array.from({ length: 5 }, (_, index) =>
+      confirmation(addDays(start, index)),
+    ),
+    {
+      ...confirmation(start),
+      id: start + 1,
+      period: "week",
+      status: "everything_logged",
+    },
+  ];
+  const review = getLatestCycleReview(
+    habit(),
+    [],
+    confirmations,
+    [],
+    day(2026, 8, 17),
+  );
+  assert.equal(review.confirmedCount, 5);
+  assert.equal(review.complete, false);
+  assert.equal(review.actualQuantity, null);
 });
 
 test("previous completed amount enables improved-but-missed", () => {

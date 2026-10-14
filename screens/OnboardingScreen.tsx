@@ -19,6 +19,13 @@ import { HabitIconPicker } from "../components/HabitIconPicker";
 import { Screen } from "../components/Screen";
 import { managedItemInputLimit } from "../data/inputLimits";
 import {
+  convertDurationInput,
+  durationInputLabel,
+  durationInputToMinutes,
+  preferredDurationInput,
+  type DurationInputUnit,
+} from "../data/durationInput";
+import {
   useData,
   type Habit,
   type Cue,
@@ -61,13 +68,13 @@ const HABIT_COLOR_NAMES: Record<(typeof HABIT_COLOR_OPTIONS)[number], string> =
 
 type OnboardingHabitPlan = {
   measurementType: "times" | "minutes";
+  currentDurationUnit: DurationInputUnit;
+  goalDurationUnit: DurationInputUnit;
   currentAmount: string;
   goalAmount: string;
   currentPeriod: HabitPeriod;
   goalPeriod: HabitPeriod;
 };
-
-const MEASUREMENT_OPTIONS = ["times", "minutes"] as const;
 
 const PERIOD_OPTIONS: HabitPeriod[] = ["day", "week", "28_days"];
 
@@ -108,20 +115,22 @@ function showPeriodMenu(
 }
 
 function measurementLabel(
-  measurement: (typeof MEASUREMENT_OPTIONS)[number],
+  measurement: "times" | DurationInputUnit,
   amount: string,
 ) {
   if (Number(amount) === 1) {
-    return measurement === "minutes" ? "Minute" : "Time";
+    if (measurement === "times") return "Time";
   }
-  return measurement === "minutes" ? "Minutes" : "Times";
+  if (measurement === "times") return "Times";
+  return durationInputLabel(measurement, amount);
 }
 
 function showMeasurementMenu(
-  selectedMeasurement: (typeof MEASUREMENT_OPTIONS)[number],
-  onSelect: (measurement: (typeof MEASUREMENT_OPTIONS)[number]) => void,
+  selectedMeasurement: "times" | DurationInputUnit,
+  onSelect: (measurement: "times" | DurationInputUnit) => void,
 ) {
-  const labels = ["Times", "Minutes"];
+  const options = ["times", "minutes", "hours"] as const;
+  const labels = ["Times", "Minutes", "Hours"];
   Keyboard.dismiss();
 
   if (Platform.OS === "ios") {
@@ -132,7 +141,7 @@ function showMeasurementMenu(
         title: "Choose measurement",
       },
       (buttonIndex) => {
-        const measurement = MEASUREMENT_OPTIONS[buttonIndex];
+        const measurement = options[buttonIndex];
         if (measurement) onSelect(measurement);
       },
     );
@@ -141,10 +150,15 @@ function showMeasurementMenu(
 
   Alert.alert(
     "Choose measurement",
-    `Currently ${selectedMeasurement === "minutes" ? "Minutes" : "Times"}`,
+    `Currently ${selectedMeasurement === "times" ? "Times" : selectedMeasurement === "hours" ? "Hours" : "Minutes"}`,
     [
-      ...MEASUREMENT_OPTIONS.map((measurement) => ({
-        text: measurement === "minutes" ? "Minutes" : "Times",
+      ...options.map((measurement) => ({
+        text:
+          measurement === "times"
+            ? "Times"
+            : measurement === "hours"
+              ? "Hours"
+              : "Minutes",
         onPress: () => onSelect(measurement),
       })),
       { text: "Cancel", style: "cancel" as const },
@@ -183,14 +197,33 @@ function goalPeriodForSetup(habit: Habit): HabitPeriod {
 
 function onboardingPlanForHabit(habit: Habit): OnboardingHabitPlan {
   const period = goalPeriodForSetup(habit);
+  const currentStoredAmount =
+    habit.estimatedBaseline == null
+      ? null
+      : Number(
+          convertAmountInput(
+            habit.estimatedBaseline.toString(),
+            habit.baselinePeriod,
+            period,
+          ),
+        );
+  const isDuration = habit.measurementType === "minutes";
+  const currentDuration = preferredDurationInput(
+    isDuration ? currentStoredAmount : null,
+  );
+  const goalDuration = preferredDurationInput(
+    isDuration ? habit.finalTarget : null,
+  );
   return {
-    measurementType: habit.measurementType === "minutes" ? "minutes" : "times",
-    currentAmount: convertAmountInput(
-      habit.estimatedBaseline?.toString() ?? "",
-      habit.baselinePeriod,
-      period,
-    ),
-    goalAmount: habit.finalTarget?.toString() ?? "",
+    measurementType: isDuration ? "minutes" : "times",
+    currentDurationUnit: currentDuration.unit,
+    goalDurationUnit: goalDuration.unit,
+    currentAmount: isDuration
+      ? currentDuration.value
+      : (currentStoredAmount?.toString() ?? ""),
+    goalAmount: isDuration
+      ? goalDuration.value
+      : (habit.finalTarget?.toString() ?? ""),
     currentPeriod: period,
     goalPeriod: period,
   };
@@ -815,6 +848,41 @@ export default function OnboardingScreen() {
     });
   };
 
+  const changeHabitPlanUnit = (
+    habit: Habit,
+    field: "current" | "goal",
+    nextUnit: "times" | DurationInputUnit,
+  ) => {
+    const plan = getHabitPlan(habit);
+    if (nextUnit === "times") {
+      updateHabitPlanDraft(habit, {
+        measurementType: "times",
+        currentDurationUnit: "minutes",
+        goalDurationUnit: "minutes",
+      });
+      return;
+    }
+
+    const wasDuration = plan.measurementType === "minutes";
+    const currentUnit =
+      field === "current" ? plan.currentDurationUnit : plan.goalDurationUnit;
+    const amountKey = field === "current" ? "currentAmount" : "goalAmount";
+    updateHabitPlanDraft(habit, {
+      measurementType: "minutes",
+      ...(field === "current"
+        ? { currentDurationUnit: nextUnit }
+        : { goalDurationUnit: nextUnit }),
+      ...(!wasDuration
+        ? field === "current"
+          ? { goalDurationUnit: "minutes" as const }
+          : { currentDurationUnit: "minutes" as const }
+        : {}),
+      [amountKey]: wasDuration
+        ? convertDurationInput(plan[amountKey], currentUnit, nextUnit)
+        : plan[amountKey],
+    });
+  };
+
   const advanceAmountInput = (
     habitIndex: number,
     field: "current" | "goal",
@@ -899,12 +967,20 @@ export default function OnboardingScreen() {
     if (step === setupStartIndex + 1) {
       for (const habit of selectedHabitDetails) {
         const plan = getHabitPlan(habit);
-        const currentAmount = Number(plan.currentAmount);
-        const goalAmount = Number(plan.goalAmount);
+        const currentInput = Number(plan.currentAmount);
+        const goalInput = Number(plan.goalAmount);
+        const currentAmount =
+          plan.measurementType === "minutes"
+            ? durationInputToMinutes(currentInput, plan.currentDurationUnit)
+            : currentInput;
+        const goalAmount =
+          plan.measurementType === "minutes"
+            ? durationInputToMinutes(goalInput, plan.goalDurationUnit)
+            : goalInput;
 
         if (
           !plan.currentAmount.trim() ||
-          !Number.isFinite(currentAmount) ||
+          !Number.isFinite(currentInput) ||
           currentAmount < 0
         ) {
           Alert.alert(
@@ -916,7 +992,7 @@ export default function OnboardingScreen() {
 
         if (
           !plan.goalAmount.trim() ||
-          !Number.isFinite(goalAmount) ||
+          !Number.isFinite(goalInput) ||
           goalAmount < 0
         ) {
           Alert.alert(
@@ -985,12 +1061,20 @@ export default function OnboardingScreen() {
       await setSelectedHabits(habitIds);
       for (const habit of selectedHabitDetails) {
         const plan = getHabitPlan(habit);
+        const startingAmount = Number(plan.currentAmount);
+        const goalAmount = Number(plan.goalAmount);
         await updateHabitPlan(habit.id, {
           measurementType: plan.measurementType,
           unit: plan.measurementType,
-          estimatedBaseline: Number(plan.currentAmount),
+          estimatedBaseline:
+            plan.measurementType === "minutes"
+              ? durationInputToMinutes(startingAmount, plan.currentDurationUnit)
+              : startingAmount,
           baselinePeriod: plan.currentPeriod,
-          finalTarget: Number(plan.goalAmount),
+          finalTarget:
+            plan.measurementType === "minutes"
+              ? durationInputToMinutes(goalAmount, plan.goalDurationUnit)
+              : goalAmount,
           goalPeriod: plan.currentPeriod,
         });
       }
@@ -1324,18 +1408,24 @@ export default function OnboardingScreen() {
                         <Pressable
                           onPress={() =>
                             showMeasurementMenu(
-                              plan.measurementType,
-                              (measurementType) =>
-                                updateHabitPlanDraft(habit, {
-                                  measurementType,
-                                }),
+                              plan.measurementType === "times"
+                                ? "times"
+                                : plan.currentDurationUnit,
+                              (measurement) =>
+                                changeHabitPlanUnit(
+                                  habit,
+                                  "current",
+                                  measurement,
+                                ),
                             )
                           }
                           className="ml-2 flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-2 py-2"
                         >
                           <Text className="text-xs font-black text-black">
                             {measurementLabel(
-                              plan.measurementType,
+                              plan.measurementType === "times"
+                                ? "times"
+                                : plan.currentDurationUnit,
                               plan.currentAmount,
                             )}
                           </Text>
@@ -1400,18 +1490,20 @@ export default function OnboardingScreen() {
                         <Pressable
                           onPress={() =>
                             showMeasurementMenu(
-                              plan.measurementType,
-                              (measurementType) =>
-                                updateHabitPlanDraft(habit, {
-                                  measurementType,
-                                }),
+                              plan.measurementType === "times"
+                                ? "times"
+                                : plan.goalDurationUnit,
+                              (measurement) =>
+                                changeHabitPlanUnit(habit, "goal", measurement),
                             )
                           }
                           className="ml-2 flex-row items-center rounded-xl border border-gray-200 bg-gray-50 px-2 py-2"
                         >
                           <Text className="text-xs font-black text-black">
                             {measurementLabel(
-                              plan.measurementType,
+                              plan.measurementType === "times"
+                                ? "times"
+                                : plan.goalDurationUnit,
                               plan.goalAmount,
                             )}
                           </Text>

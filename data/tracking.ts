@@ -157,6 +157,26 @@ function roundQuantity(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+export function getRecordedHabitQuantity(
+  logs: LogEntry[],
+  habitId: number,
+  startAt: number,
+  endAtExclusive: number,
+) {
+  return logs
+    .filter(
+      (log) =>
+        log.habitId === habitId &&
+        log.createdAt >= startAt &&
+        log.createdAt < endAtExclusive,
+    )
+    .reduce(
+      (sum, log) =>
+        sum + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
+      0,
+    );
+}
+
 function reviewCycle(
   habit: Habit,
   logs: LogEntry[],

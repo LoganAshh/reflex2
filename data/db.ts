@@ -22,6 +22,7 @@ import {
   PRESET_HABIT_ICONS,
   cleanHabitIcon,
 } from "./habitIcons";
+import { decodeLocalDateTime, encodeLocalDateTime } from "./localTime";
 
 export const db = SQLite.openDatabaseSync("reflex.db");
 
@@ -111,6 +112,7 @@ const CREATE_DATA_TABLES_SQL = `
     habitId INTEGER NOT NULL,
     period TEXT NOT NULL,
     periodStart INTEGER NOT NULL,
+    localPeriodStart INTEGER,
     status TEXT NOT NULL,
     updatedAt INTEGER NOT NULL,
     UNIQUE(habitId, period, periodStart),
@@ -175,6 +177,7 @@ const CREATE_DATA_TABLES_SQL = `
     didResist INTEGER NOT NULL DEFAULT 0,
     notes TEXT,
     createdAt INTEGER NOT NULL,
+    localCreatedAt INTEGER,
     selectedActionId INTEGER,
     habitName TEXT,
     cueName TEXT,
@@ -330,6 +333,11 @@ export async function ensureLocalSchemaColumns() {
   );
   await ensureColumn("actions", "hidden", "hidden INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(
+    "tracking_confirmations",
+    "localPeriodStart",
+    "localPeriodStart INTEGER",
+  );
+  await ensureColumn(
     "logs",
     "selectedActionId",
     "selectedActionId INTEGER REFERENCES actions(id) ON DELETE SET NULL",
@@ -346,6 +354,30 @@ export async function ensureLocalSchemaColumns() {
   );
   await ensureColumn("logs", "movedToLocationName", "movedToLocationName TEXT");
   await ensureColumn("logs", "selectedActionTitle", "selectedActionTitle TEXT");
+  await ensureColumn("logs", "localCreatedAt", "localCreatedAt INTEGER");
+
+  const legacyLogs = await db.getAllAsync<{ id: number; createdAt: number }>(
+    "SELECT id, createdAt FROM logs WHERE localCreatedAt IS NULL;",
+  );
+  const legacyConfirmations = await db.getAllAsync<{
+    id: number;
+    periodStart: number;
+  }>(
+    "SELECT id, periodStart FROM tracking_confirmations WHERE localPeriodStart IS NULL;",
+  );
+
+  for (const log of legacyLogs) {
+    await db.runAsync("UPDATE logs SET localCreatedAt = ? WHERE id = ?;", [
+      encodeLocalDateTime(log.createdAt),
+      log.id,
+    ]);
+  }
+  for (const confirmation of legacyConfirmations) {
+    await db.runAsync(
+      "UPDATE tracking_confirmations SET localPeriodStart = ? WHERE id = ?;",
+      [encodeLocalDateTime(confirmation.periodStart), confirmation.id],
+    );
+  }
 
   await db.execAsync(`
     UPDATE logs
@@ -603,9 +635,18 @@ export async function loadGoalHistory(): Promise<GoalHistoryEntry[]> {
 export async function loadTrackingConfirmations(): Promise<
   TrackingConfirmation[]
 > {
-  return db.getAllAsync<TrackingConfirmation>(
+  const rows = await db.getAllAsync<TrackingConfirmation>(
     `SELECT * FROM tracking_confirmations ORDER BY periodStart DESC, id DESC;`,
   );
+  return rows
+    .map((row) => ({
+      ...row,
+      periodStart:
+        row.localPeriodStart == null
+          ? row.periodStart
+          : decodeLocalDateTime(row.localPeriodStart),
+    }))
+    .sort((a, b) => b.periodStart - a.periodStart || b.id - a.id);
 }
 
 export async function loadCycleHistory(): Promise<CycleHistoryEntry[]> {
@@ -673,16 +714,43 @@ export async function upsertTrackingConfirmation(params: {
   periodStart: number;
   status: TrackingStatus;
 }) {
+  const localPeriodStart = encodeLocalDateTime(params.periodStart);
+  const existing = await db.getFirstAsync<{ id: number }>(
+    `SELECT id
+     FROM tracking_confirmations
+     WHERE habitId = ?
+       AND period = ?
+       AND (localPeriodStart = ? OR (localPeriodStart IS NULL AND periodStart = ?))
+     ORDER BY id DESC
+     LIMIT 1;`,
+    [params.habitId, params.period, localPeriodStart, params.periodStart],
+  );
+
+  if (existing) {
+    await db.runAsync(
+      `UPDATE tracking_confirmations
+       SET periodStart = ?, localPeriodStart = ?, status = ?, updatedAt = ?
+       WHERE id = ?;`,
+      [
+        params.periodStart,
+        localPeriodStart,
+        params.status,
+        Date.now(),
+        existing.id,
+      ],
+    );
+    return;
+  }
+
   await db.runAsync(
     `INSERT INTO tracking_confirmations (
-      habitId, period, periodStart, status, updatedAt
-    ) VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(habitId, period, periodStart)
-    DO UPDATE SET status = excluded.status, updatedAt = excluded.updatedAt;`,
+      habitId, period, periodStart, localPeriodStart, status, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?);`,
     [
       params.habitId,
       params.period,
       params.periodStart,
+      localPeriodStart,
       params.status,
       Date.now(),
     ],
@@ -755,6 +823,7 @@ export async function loadLogs(): Promise<LogEntry[]> {
       l.didResist,
       l.notes,
       l.createdAt,
+      l.localCreatedAt,
       l.selectedActionId,
       COALESCE(l.selectedActionTitle, a.title) AS selectedActionTitle
     FROM logs l
@@ -766,34 +835,44 @@ export async function loadLogs(): Promise<LogEntry[]> {
     ORDER BY l.createdAt DESC;
   `);
 
-  return rows.map(({ cueIdsJson, cueNamesJson, ...row }) => {
-    let cueIds: number[] = [];
-    let cueNames: string[] = [];
+  return rows
+    .map(({ cueIdsJson, cueNamesJson, ...row }) => {
+      let cueIds: number[] = [];
+      let cueNames: string[] = [];
 
-    try {
-      const parsed = JSON.parse(cueIdsJson ?? "[]");
-      if (Array.isArray(parsed)) {
-        cueIds = parsed.filter(
-          (value): value is number => Number.isFinite(value) && value > 0,
-        );
-      }
-    } catch {}
+      try {
+        const parsed = JSON.parse(cueIdsJson ?? "[]");
+        if (Array.isArray(parsed)) {
+          cueIds = parsed.filter(
+            (value): value is number => Number.isFinite(value) && value > 0,
+          );
+        }
+      } catch {}
 
-    try {
-      const parsed = JSON.parse(cueNamesJson ?? "[]");
-      if (Array.isArray(parsed)) {
-        cueNames = parsed.filter(
-          (value): value is string =>
-            typeof value === "string" && value.trim().length > 0,
-        );
-      }
-    } catch {}
+      try {
+        const parsed = JSON.parse(cueNamesJson ?? "[]");
+        if (Array.isArray(parsed)) {
+          cueNames = parsed.filter(
+            (value): value is string =>
+              typeof value === "string" && value.trim().length > 0,
+          );
+        }
+      } catch {}
 
-    if (cueIds.length === 0 && row.cueId != null) cueIds = [row.cueId];
-    if (cueNames.length === 0 && row.cueName) cueNames = [row.cueName];
+      if (cueIds.length === 0 && row.cueId != null) cueIds = [row.cueId];
+      if (cueNames.length === 0 && row.cueName) cueNames = [row.cueName];
 
-    return { ...row, cueIds, cueNames };
-  });
+      return {
+        ...row,
+        createdAt:
+          row.localCreatedAt == null
+            ? row.createdAt
+            : decodeLocalDateTime(row.localCreatedAt),
+        cueIds,
+        cueNames,
+      };
+    })
+    .sort((a, b) => b.createdAt - a.createdAt || b.id - a.id);
 }
 
 export async function loadActions(): Promise<ReplacementAction[]> {
@@ -916,6 +995,7 @@ export async function insertLog(params: {
       didResist,
       notes,
       createdAt,
+      localCreatedAt,
       selectedActionId,
       habitName,
       cueName,
@@ -925,7 +1005,7 @@ export async function insertLog(params: {
       movedToLocationName,
       selectedActionTitle
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     `,
     [
       params.habitId,
@@ -937,6 +1017,7 @@ export async function insertLog(params: {
       params.didResist,
       params.notes,
       params.createdAt,
+      encodeLocalDateTime(params.createdAt),
       params.selectedActionId,
       params.habitName,
       params.cueName,
@@ -984,6 +1065,7 @@ export async function updateLogInDb(params: {
       didResist = ?,
       notes = ?,
       createdAt = ?,
+      localCreatedAt = ?,
       selectedActionId = ?,
       habitName = ?,
       cueName = ?,
@@ -1004,6 +1086,7 @@ export async function updateLogInDb(params: {
       params.didResist,
       params.notes,
       params.createdAt,
+      encodeLocalDateTime(params.createdAt),
       params.selectedActionId,
       params.habitName,
       params.cueName,

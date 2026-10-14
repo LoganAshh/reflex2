@@ -120,6 +120,77 @@ export function calculateLevel(
   return (quantity / observedDays) * daysInPeriod(period);
 }
 
+/**
+ * Gives the live dashboard a provisional recent level without making users
+ * finish a review first. Elapsed days count as known zero-activity days unless
+ * the user explicitly marked them as unknown. Formal baseline and cycle math
+ * continues to use confirmed days through the functions below.
+ */
+export function getProvisionalRecentLevel(
+  habit: Habit,
+  allLogs: LogEntry[],
+  now = Date.now(),
+  confirmations: TrackingConfirmation[] = [],
+  windowDays = 14,
+) {
+  const today = startOfLocalDay(now);
+  const windowStart = addLocalDays(today, -windowDays);
+  const habitLogs = allLogs.filter((log) => log.habitId === habit.id);
+  const firstLogAt = habitLogs.reduce<number | null>(
+    (first, log) =>
+      first == null ? log.createdAt : Math.min(first, log.createdAt),
+    null,
+  );
+  const trackingStartedAt =
+    habit.rebaselineStartedAt ?? habit.calibrationStartedAt ?? firstLogAt;
+  if (trackingStartedAt == null) return null;
+
+  const rangeStart = Math.max(windowStart, startOfLocalDay(trackingStartedAt));
+  if (rangeStart >= today) return null;
+
+  const recentLogs = habitLogs.filter(
+    (log) => log.createdAt >= rangeStart && log.createdAt < today,
+  );
+  const daysWithLogs = new Set(
+    recentLogs.map((log) => startOfLocalDay(log.createdAt)),
+  );
+  const latestStatusByDay = new Map<number, TrackingConfirmation>();
+
+  for (const confirmation of confirmations) {
+    if (
+      confirmation.habitId !== habit.id ||
+      confirmation.period !== "day" ||
+      confirmation.periodStart < rangeStart ||
+      confirmation.periodStart >= today
+    ) {
+      continue;
+    }
+    const existing = latestStatusByDay.get(confirmation.periodStart);
+    if (!existing || confirmation.updatedAt >= existing.updatedAt) {
+      latestStatusByDay.set(confirmation.periodStart, confirmation);
+    }
+  }
+
+  let observedDays = 0;
+  for (let dayStart = rangeStart; dayStart < today; ) {
+    const explicitlyUnknown =
+      latestStatusByDay.get(dayStart)?.status === "not_yet";
+    if (daysWithLogs.has(dayStart) || !explicitlyUnknown) observedDays += 1;
+    dayStart = addLocalDays(dayStart, 1);
+  }
+
+  const requiredObservedDays =
+    CALIBRATION_RULES[habit.baselinePeriod].recentObservedDays;
+  if (observedDays < requiredObservedDays) return null;
+
+  const quantity = recentLogs.reduce(
+    (total, log) =>
+      total + (log.didResist === 1 ? 0 : Math.max(0, log.count ?? 1)),
+    0,
+  );
+  return (quantity / observedDays) * daysInPeriod(habit.baselinePeriod);
+}
+
 export function getBaselineSummary(
   habit: Habit,
   allLogs: LogEntry[],

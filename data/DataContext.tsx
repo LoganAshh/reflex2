@@ -133,6 +133,7 @@ import {
   normalizeGoalAmount,
 } from "./goals";
 import { getCompletedCycleHistory, getLatestCycleReview } from "./tracking";
+import { encodeLocalDateTime } from "./localTime";
 
 export type {
   Habit,
@@ -205,6 +206,7 @@ type BackupLog = {
   didResist: 0 | 1;
   notes: string | null;
   createdAt: number;
+  localCreatedAt: number | null;
   selectedActionId: number | null;
   habitName: string | null;
   cueName: string | null;
@@ -410,6 +412,9 @@ function sanitizeTrackingConfirmations(
     const id = cleanInt(item.id);
     const habitId = cleanInt(item.habitId);
     const periodStart = cleanInt(item.periodStart);
+    const localPeriodStart =
+      cleanOptionalInt(item.localPeriodStart) ??
+      (periodStart > 0 ? encodeLocalDateTime(periodStart) : null);
     const updatedAt = cleanInt(item.updatedAt, periodStart);
     const period: TrackingPeriod =
       item.period === "week" || item.period === "28_days" ? item.period : "day";
@@ -422,7 +427,17 @@ function sanitizeTrackingConfirmations(
     ) {
       return [];
     }
-    return [{ id, habitId, period, periodStart, status, updatedAt }];
+    return [
+      {
+        id,
+        habitId,
+        period,
+        periodStart,
+        localPeriodStart,
+        status,
+        updatedAt,
+      },
+    ];
   });
 }
 
@@ -472,6 +487,9 @@ function sanitizeLogs(items: unknown[]): BackupLog[] {
     const id = cleanInt(item.id);
     const habitId = cleanInt(item.habitId);
     const createdAt = cleanInt(item.createdAt);
+    const localCreatedAt =
+      cleanOptionalInt(item.localCreatedAt) ??
+      (createdAt > 0 ? encodeLocalDateTime(createdAt) : null);
 
     if (id <= 0 || habitId <= 0 || createdAt <= 0) continue;
 
@@ -504,6 +522,7 @@ function sanitizeLogs(items: unknown[]): BackupLog[] {
       didResist: cleanBoolean(item.didResist) ? 1 : 0,
       notes: cleanNullableString(item.notes),
       createdAt,
+      localCreatedAt,
       selectedActionId: cleanOptionalInt(item.selectedActionId),
       habitName: cleanNullableString(item.habitName),
       cueName: legacyCueName,
@@ -2111,13 +2130,14 @@ export function DataProvider({ children }: DataProviderProps) {
         if (!habitIds.has(confirmation.habitId)) continue;
         await db.runAsync(
           `INSERT OR IGNORE INTO tracking_confirmations
-           (id, habitId, period, periodStart, status, updatedAt)
-           VALUES (?, ?, ?, ?, ?, ?);`,
+           (id, habitId, period, periodStart, localPeriodStart, status, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?);`,
           [
             confirmation.id,
             confirmation.habitId,
             confirmation.period,
             confirmation.periodStart,
+            confirmation.localPeriodStart ?? null,
             confirmation.status,
             confirmation.updatedAt,
           ],
@@ -2194,6 +2214,7 @@ export function DataProvider({ children }: DataProviderProps) {
           didResist,
           notes,
           createdAt,
+          localCreatedAt,
           selectedActionId,
           habitName,
           cueName,
@@ -2203,7 +2224,7 @@ export function DataProvider({ children }: DataProviderProps) {
           movedToLocationName,
           selectedActionTitle
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         `,
           [
             log.id,
@@ -2221,6 +2242,7 @@ export function DataProvider({ children }: DataProviderProps) {
             log.didResist,
             log.notes,
             log.createdAt,
+            log.localCreatedAt,
             selectedActionId,
             log.habitName,
             log.cueName,

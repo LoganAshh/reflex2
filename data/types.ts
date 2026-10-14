@@ -87,6 +87,7 @@ export type TrackingConfirmation = {
   habitId: number;
   period: TrackingPeriod;
   periodStart: number;
+  localPeriodStart?: number | null;
   status: TrackingStatus;
   updatedAt: number;
 };
@@ -146,6 +147,7 @@ export type LogEntry = {
   didResist: 0 | 1;
   notes: string | null;
   createdAt: number;
+  localCreatedAt?: number | null;
   selectedActionId: number | null;
   selectedActionTitle: string | null;
 };

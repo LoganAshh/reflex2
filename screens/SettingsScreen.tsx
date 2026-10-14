@@ -7,6 +7,7 @@ import {
   Switch,
   ActivityIndicator,
   Image,
+  Linking,
   ScrollView,
 } from "react-native";
 import Constants from "expo-constants";
@@ -32,6 +33,8 @@ type SettingsRoute = RouteProp<RootTabParamList, "Settings">;
 // Temporarily hide App Lock in Settings while Face ID issues are investigated.
 // Change this to true to show the existing section again.
 const SHOW_APP_LOCK_SETTINGS = false;
+const PRIVACY_POLICY_URL = "https://loganashh.github.io/reflex2/privacy.html";
+const SUPPORT_EMAIL = "reflexapp.support@gmail.com";
 
 type RowProps = {
   title: string;
@@ -222,6 +225,17 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState<
     null | "export" | "import" | "reset" | "profile" | "lock" | "reminder"
   >(null);
+
+  async function openLink(url: string, fallbackTitle: string) {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(
+        fallbackTitle,
+        "That link could not be opened. Please try again later.",
+      );
+    }
+  }
 
   useEffect(() => {
     const resetToken = route.params?.resetToken;
@@ -775,6 +789,31 @@ export default function SettingsScreen() {
               <Text className="font-black text-red-700">Reset</Text>
             )
           }
+        />
+      </View>
+
+      <SectionTitle title="Help & Legal" icon="help-circle" />
+
+      <View className="gap-2">
+        <Row
+          title="Contact support"
+          subtitle={`Email ${SUPPORT_EMAIL}`}
+          onPress={() =>
+            openLink(
+              `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Reflex Support")}`,
+              "Could not open email",
+            )
+          }
+          icon="mail"
+        />
+
+        <Row
+          title="Privacy policy"
+          subtitle="See how Reflex protects and handles your data."
+          onPress={() =>
+            openLink(PRIVACY_POLICY_URL, "Could not open privacy policy")
+          }
+          icon="document-text"
         />
       </View>
 
