@@ -40,8 +40,8 @@ export default function ProfileSetupScreen({ navigation }: ProfileSetupProps) {
   const isEditing = hasCompletedLocalProfile;
 
   const canSave = useMemo(
-    () => name.trim().length > 0 && !!photoUri && !saving,
-    [name, photoUri, saving],
+    () => name.trim().length > 0 && !saving,
+    [name, saving],
   );
 
   const scrollNameInputIntoView = () => {
@@ -60,47 +60,36 @@ export default function ProfileSetupScreen({ navigation }: ProfileSetupProps) {
   };
 
   async function pickPhoto() {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: false,
+        quality: 0.9,
+      });
 
-    if (!perm.granted) {
-      Alert.alert(
-        "Permission needed",
-        "Photo library permission is required to choose a profile picture.",
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      quality: 0.9,
-      aspect: [1, 1],
-    });
-
-    if (!result.canceled && result.assets[0]?.uri) {
-      try {
+      if (!result.canceled && result.assets[0]?.uri) {
         const persistentUri = await persistPickedProfilePhoto(
           result.assets[0].uri,
         );
         await Haptics.selectionAsync();
         setPhotoUri(persistentUri);
-      } catch {
-        Alert.alert(
-          "Could not use photo",
-          "Please try choosing that photo again.",
-        );
       }
+    } catch {
+      Alert.alert(
+        "Could not use photo",
+        "Please try choosing that photo again.",
+      );
     }
+  }
+
+  async function useDefaultAvatar() {
+    await Haptics.selectionAsync();
+    setPhotoUri(null);
   }
 
   async function onSave() {
     if (!name.trim()) {
       Alert.alert("Missing name", "Please enter a name.");
-      return;
-    }
-
-    if (!photoUri) {
-      Alert.alert("Missing photo", "Please choose a profile picture.");
       return;
     }
 
@@ -165,33 +154,50 @@ export default function ProfileSetupScreen({ navigation }: ProfileSetupProps) {
                 />
               ) : (
                 <View className="h-32 w-32 items-center justify-center rounded-full bg-white">
-                  <Ionicons name="camera" size={42} color="#000000" />
+                  <Ionicons name="person" size={54} color="#000000" />
                 </View>
               )}
             </View>
 
-            <Pressable
-              onPress={pickPhoto}
-              className="mt-5 flex-row items-center rounded-3xl border border-gray-200 bg-white px-5 py-3 shadow-sm"
-              style={({ pressed }) => ({
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: pressed ? 1 : 4 },
-                shadowOpacity: 0.12,
-                shadowRadius: pressed ? 2 : 4,
-                elevation: pressed ? 2 : 5,
-                transform: [{ translateY: pressed ? 1 : 0 }],
-              })}
-            >
-              <Ionicons
-                name={photoUri ? "camera-reverse" : "camera"}
-                size={18}
-                color="#000000"
-              />
+            <Text className="mt-3 text-sm font-bold text-gray-500">
+              Profile photo optional
+            </Text>
 
-              <Text className="ml-2 text-sm font-black text-black">
-                {photoUri ? "Change photo" : "Choose photo"}
-              </Text>
-            </Pressable>
+            <View className="mt-4 flex-row items-center gap-2">
+              <Pressable
+                onPress={pickPhoto}
+                className="flex-row items-center rounded-3xl border border-gray-200 bg-white px-5 py-3 shadow-sm"
+                style={({ pressed }) => ({
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: pressed ? 1 : 4 },
+                  shadowOpacity: 0.12,
+                  shadowRadius: pressed ? 2 : 4,
+                  elevation: pressed ? 2 : 5,
+                  transform: [{ translateY: pressed ? 1 : 0 }],
+                })}
+              >
+                <Ionicons
+                  name={photoUri ? "camera-reverse" : "image"}
+                  size={18}
+                  color="#000000"
+                />
+
+                <Text className="ml-2 text-sm font-black text-black">
+                  {photoUri ? "Change photo" : "Add photo"}
+                </Text>
+              </Pressable>
+
+              {photoUri ? (
+                <Pressable
+                  onPress={useDefaultAvatar}
+                  className="rounded-3xl border border-gray-200 bg-white px-4 py-3"
+                >
+                  <Text className="text-sm font-black text-gray-600">
+                    Use default
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         </View>
 
@@ -242,7 +248,7 @@ export default function ProfileSetupScreen({ navigation }: ProfileSetupProps) {
               </Text>
 
               <Text className="mt-1 text-sm leading-5 text-gray-500">
-                Your name and photo are saved locally on this device.
+                Your name and optional photo are saved locally on this device.
               </Text>
             </View>
           </View>

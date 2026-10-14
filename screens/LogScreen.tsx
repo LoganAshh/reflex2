@@ -283,7 +283,7 @@ function InfoModal({
         onPress={onClose}
       >
         <Pressable
-          className="w-full rounded-[32px] bg-white p-5"
+          className="w-full max-w-[520px] rounded-[32px] bg-white p-5"
           onPress={() => {}}
         >
           <View className="flex-row items-center">
@@ -332,7 +332,7 @@ function ExactDateTimePickerOverlay({
 
   return (
     <Pressable
-      className="w-full rounded-[28px] bg-white p-5 shadow-lg"
+      className="w-full max-w-[560px] self-center rounded-[28px] bg-white p-5 shadow-lg"
       onPress={() => {}}
     >
       <View className="flex-row items-center justify-between">
@@ -505,7 +505,7 @@ function LogDateTimeModal({
             />
           ) : (
             <Pressable
-              className="w-full rounded-[32px] bg-white p-5"
+              className="w-full max-w-[560px] rounded-[32px] bg-white p-5"
               onPress={() => {}}
             >
               <View className="flex-row items-center">
@@ -838,7 +838,7 @@ function IntensityPickerModal({
         onPress={onClose}
       >
         <Pressable
-          className="w-full rounded-[32px] bg-white p-5"
+          className="w-full max-w-[520px] rounded-[32px] bg-white p-5"
           onPress={() => {}}
         >
           <View className="flex-row items-center">
@@ -937,7 +937,7 @@ function QuickAddLogItemModal({
         onPress={onClose}
       >
         <Pressable
-          className="w-full rounded-[32px] bg-white p-5"
+          className="w-full max-w-[520px] self-center rounded-[32px] bg-white p-5"
           onPress={() => {}}
         >
           <View className="flex-row items-center">

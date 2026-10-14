@@ -204,7 +204,7 @@ function HelpTipModal({
       onRequestClose={onClose}
     >
       <View className="flex-1 items-center justify-center bg-black/40 px-5">
-        <View className="w-full rounded-[28px] bg-white p-5">
+        <View className="w-full max-w-[520px] rounded-[28px] bg-white p-5">
           <View className="flex-row items-center justify-between">
             <View className="flex-row flex-1 items-center pr-3">
               <View className="h-11 w-11 items-center justify-center rounded-2xl border border-gray-200 bg-white">

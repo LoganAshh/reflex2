@@ -1165,7 +1165,7 @@ export default function ManageListScreen() {
             enabled={type === "habits"}
             className="flex-1 justify-center bg-black/40 px-6"
           >
-            <View className="max-h-[90%] rounded-[32px] bg-white p-5">
+            <View className="max-h-[90%] w-full max-w-[680px] self-center rounded-[32px] bg-white p-5">
               <ScrollView
                 ref={editModalScrollRef}
                 showsVerticalScrollIndicator={false}

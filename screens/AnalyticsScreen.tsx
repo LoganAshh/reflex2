@@ -1413,7 +1413,7 @@ export default function AnalyticsScreen() {
         onRequestClose={() => setPatternDetailKey(null)}
       >
         <View className="flex-1 justify-center bg-black/40 px-5">
-          <View className="max-h-[75%] rounded-[32px] bg-white p-5 shadow-lg">
+          <View className="max-h-[75%] w-full max-w-[600px] self-center rounded-[32px] bg-white p-5 shadow-lg">
             <View className="flex-row items-center">
               <View
                 className="h-12 w-12 items-center justify-center rounded-2xl border bg-white"
@@ -1508,7 +1508,7 @@ export default function AnalyticsScreen() {
         onRequestClose={() => setActivityDetailKey(null)}
       >
         <View className="flex-1 justify-center bg-black/40 px-5">
-          <View className="rounded-[32px] bg-white p-5 shadow-lg">
+          <View className="w-full max-w-[600px] self-center rounded-[32px] bg-white p-5 shadow-lg">
             <View className="flex-row items-center">
               <View
                 className="h-12 w-12 items-center justify-center rounded-2xl border bg-white"

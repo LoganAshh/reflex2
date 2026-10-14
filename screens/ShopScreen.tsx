@@ -638,7 +638,7 @@ export default function ShopScreen() {
     <Screen>
       <Modal visible={!!editingAction} transparent animationType="fade">
         <View className="flex-1 justify-center bg-black/40 px-6">
-          <View className="rounded-[32px] bg-white p-5">
+          <View className="w-full max-w-[560px] self-center rounded-[32px] bg-white p-5">
             <View className="flex-row items-center">
               <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">
                 <Ionicons name="create" size={24} color="#000000" />

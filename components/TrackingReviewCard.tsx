@@ -696,7 +696,7 @@ function WeeklyReviewDayDetailsOverlay({
       className="absolute inset-0 z-30 items-center justify-center bg-black/40 px-5"
       style={{ elevation: 30 }}
     >
-      <View className="max-h-[82%] w-full rounded-[32px] bg-white p-5">
+      <View className="max-h-[82%] w-full max-w-[600px] self-center rounded-[32px] bg-white p-5">
         <View className="flex-row items-center justify-between">
           <View className="flex-1 flex-row items-center pr-3">
             <View className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white">

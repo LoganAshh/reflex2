@@ -438,7 +438,7 @@ function ChipList<T extends { id: number; name: string; isCustom: 0 | 1 }>({
             onRequestClose={() => setHabitPicker(null)}
           >
             <View className="flex-1 justify-center bg-black/50 px-6">
-              <View className="rounded-[30px] bg-white p-5 shadow-lg">
+              <View className="w-full max-w-[600px] self-center rounded-[30px] bg-white p-5 shadow-lg">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1 pr-4">
                     <Text className="text-xl font-black text-black">

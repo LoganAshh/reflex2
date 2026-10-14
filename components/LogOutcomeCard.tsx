@@ -279,7 +279,7 @@ export function LogOutcomeCard({
           }}
         >
           <Pressable
-            className="w-full rounded-[32px] bg-white p-5"
+            className="w-full max-w-[520px] rounded-[32px] bg-white p-5"
             onPress={() => {}}
           >
             <View className="flex-row items-center">
@@ -410,7 +410,7 @@ export function LogOutcomeCard({
           onPress={() => setInfoOpen(false)}
         >
           <Pressable
-            className="w-full rounded-[32px] bg-white p-5"
+            className="w-full max-w-[520px] rounded-[32px] bg-white p-5"
             onPress={() => {}}
           >
             <View className="flex-row items-center">

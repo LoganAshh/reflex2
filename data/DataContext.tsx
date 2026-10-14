@@ -993,8 +993,7 @@ export function DataProvider({ children }: DataProviderProps) {
 
         const cleanName = savedProfileName.trim();
         const cleanPhoto = savedProfilePhoto.trim();
-        const normalizedProfileDone =
-          profileDone && cleanName.length > 0 && cleanPhoto.length > 0;
+        const normalizedProfileDone = profileDone && cleanName.length > 0;
 
         if (mounted) {
           setHasOnboarded(onboarded);
@@ -1069,8 +1068,8 @@ export function DataProvider({ children }: DataProviderProps) {
     );
     const cleanPhoto = normalizedPhoto.trim();
 
-    if (!cleanName || !cleanPhoto) {
-      throw new Error("Name and profile photo are required.");
+    if (!cleanName) {
+      throw new Error("A name is required.");
     }
 
     const previousPhoto = (profilePhotoUri ?? "").trim();
@@ -2050,8 +2049,8 @@ export function DataProvider({ children }: DataProviderProps) {
     const settings = isRecord(parsed.settings) ? parsed.settings : {};
     const restoredProfileName = cleanString(profile.name);
     // Backup files contain only the old device's photo URI, not the photo itself.
-    // Keep the restored name, but require the user to choose a new local photo.
-    const restoredProfileDone = false;
+    // Photos are optional, so a restored name can use the default avatar.
+    const restoredProfileDone = restoredProfileName.length > 0;
     const restoredAppLockEnabled = cleanBoolean(settings.appLockEnabled);
     const restoredDailyReminder = isRecord(settings.dailyReminder)
       ? {

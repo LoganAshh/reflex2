@@ -488,7 +488,13 @@ export async function seedDefaultHabitsIfEmpty() {
     INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Porn', 0, '#BE123C', 'eye-off');
     INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Weed', 0, '#16A34A', 'leaf');
     INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Gambling', 0, '#EAB308', 'dice');
-    INSERT OR IGNORE INTO habits (name, isCustom, color, icon) VALUES ('Prescriptions', 0, '#0EA5E9', 'medical');
+
+    -- Keep existing users' prescription tracking and history, but treat it as
+    -- a custom habit now that it is no longer offered as a preset.
+    UPDATE habits
+    SET isCustom = 1
+    WHERE isCustom = 0
+      AND name = 'Prescriptions';
 
     UPDATE habits
     SET measurementType = 'minutes', unit = 'minutes'

@@ -493,7 +493,7 @@ export default function SettingsScreen() {
   function onClearProfile() {
     Alert.alert(
       "Clear local profile?",
-      "This will remove your saved username and profile photo on this device. You will be asked to set them again.",
+      "This will remove your saved username and optional profile photo on this device. You will be asked to set them again.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -715,7 +715,7 @@ export default function SettingsScreen() {
       <View className="gap-2">
         <Row
           title="Edit profile"
-          subtitle="Change your local username and profile picture."
+          subtitle="Change your local username or optional profile photo."
           onPress={busy ? undefined : () => navigation.navigate("ProfileSetup")}
           disabled={!!busy}
           icon="create"
@@ -723,7 +723,7 @@ export default function SettingsScreen() {
 
         <Row
           title="Clear local profile"
-          subtitle="Remove your saved username and photo from this device."
+          subtitle="Remove your saved username and optional photo from this device."
           tone="danger"
           onPress={busy ? undefined : onClearProfile}
           disabled={!!busy}
@@ -815,6 +815,26 @@ export default function SettingsScreen() {
           }
           icon="document-text"
         />
+
+        <View className="rounded-[28px] border border-gray-200 bg-white p-4 shadow-sm">
+          <View className="flex-row items-start">
+            <View className="h-11 w-11 items-center justify-center rounded-2xl bg-gray-100">
+              <Ionicons name="medical" size={23} color="#4B5563" />
+            </View>
+
+            <View className="ml-3 flex-1">
+              <Text className="text-base font-black text-black">
+                Health note
+              </Text>
+
+              <Text className="mt-1 text-sm leading-5 text-gray-600">
+                Reflex is a self-tracking tool, not medical advice. Talk to a
+                healthcare professional before managing a habit that may involve
+                withdrawal.
+              </Text>
+            </View>
+          </View>
+        </View>
       </View>
 
       <SectionTitle title="About" icon="information-circle" />

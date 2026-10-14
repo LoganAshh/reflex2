@@ -3,6 +3,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  View,
   type ScrollViewProps,
 } from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
@@ -19,6 +20,7 @@ type ScreenProps = {
 };
 
 const DEFAULT_EDGES: Edge[] = ["left", "right"];
+const TABLET_CONTENT_MAX_WIDTH = 760;
 
 function joinClassNames(...values: Array<string | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -47,12 +49,19 @@ export function Screen({
   );
 
   const screen = (
-    <SafeAreaView
-      edges={edges}
-      className={joinClassNames("flex-1 bg-white", className)}
-    >
-      {content}
-    </SafeAreaView>
+    <View className="flex-1 bg-white">
+      <SafeAreaView
+        edges={edges}
+        className={joinClassNames("flex-1 bg-white", className)}
+        style={{
+          width: "100%",
+          maxWidth: TABLET_CONTENT_MAX_WIDTH,
+          alignSelf: "center",
+        }}
+      >
+        {content}
+      </SafeAreaView>
+    </View>
   );
 
   if (!keyboardAvoiding) return screen;

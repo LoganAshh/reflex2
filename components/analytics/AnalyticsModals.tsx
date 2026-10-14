@@ -689,7 +689,7 @@ export function EditLogModal({
         className="flex-1 bg-white"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View className="flex-1 bg-white">
+        <View className="w-full max-w-[760px] flex-1 self-center bg-white">
           <View className="border-b border-gray-200 bg-white px-5 pb-4 pt-14">
             <View className="flex-row items-center justify-between">
               <View className="flex-1 flex-row items-center pr-4">
